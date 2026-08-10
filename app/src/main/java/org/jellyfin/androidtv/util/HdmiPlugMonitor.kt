@@ -52,12 +52,15 @@ class HdmiPlugMonitor(
 
 		this.receiver = receiver
 
-		// Registered as not exported: protected system broadcasts are delivered regardless.
+		// Must be registered as exported. The broadcast comes from the system rather than from
+		// this application, and registering as not exported attaches a permission requirement the
+		// system does not hold, which silently filters out every delivery. The action is a
+		// protected broadcast, so no other application can send it.
 		ContextCompat.registerReceiver(
 			context,
 			receiver,
 			IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG),
-			ContextCompat.RECEIVER_NOT_EXPORTED,
+			ContextCompat.RECEIVER_EXPORTED,
 		)
 	}
 
