@@ -67,7 +67,7 @@ import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter;
 import org.jellyfin.androidtv.util.CoroutineUtils;
 import org.jellyfin.androidtv.util.DateTimeExtensionsKt;
-import org.jellyfin.androidtv.util.HdcpMonitor;
+import org.jellyfin.androidtv.util.DisplayLinkMonitor;
 import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.InfoLayoutHelper;
 import org.jellyfin.androidtv.util.TextUtilsKt;
@@ -140,7 +140,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
     private final PlaybackOverlayFragmentHelper helper = new PlaybackOverlayFragmentHelper(this);
 
-    private HdcpMonitor hdcpMonitor;
+    private DisplayLinkMonitor displayLinkMonitor;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -228,16 +228,16 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             playbackController.init(new VideoManager(requireActivity(), view, helper), this);
         }
 
-        hdcpMonitor = CustomPlaybackOverlayFragmentHelperKt.startHdcpMonitor(this);
+        displayLinkMonitor = CustomPlaybackOverlayFragmentHelperKt.startDisplayLinkMonitor(this);
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
 
-        if (hdcpMonitor != null) {
-            hdcpMonitor.stop();
-            hdcpMonitor = null;
+        if (displayLinkMonitor != null) {
+            displayLinkMonitor.stop();
+            displayLinkMonitor = null;
         }
 
         binding = null;
