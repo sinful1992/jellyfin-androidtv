@@ -13,7 +13,7 @@ import org.jellyfin.androidtv.data.repository.ItemMutationRepository
 import org.jellyfin.androidtv.ui.GuideChannelHeader
 import org.jellyfin.androidtv.ui.asTimerInfoDto
 import org.jellyfin.androidtv.ui.livetv.TvManager
-import org.jellyfin.androidtv.util.HdcpMonitor
+import org.jellyfin.androidtv.util.DisplayLinkMonitor
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
@@ -198,12 +198,12 @@ fun CustomPlaybackOverlayFragment.askToSkip(position: Duration) {
  *
  * Televisions that keep hotplug detect asserted while powered off produce no display state change,
  * no hotplug event and no CEC standby message, so playback otherwise continues indefinitely into a
- * dark room. The HDCP link does drop, so watch that instead.
+ * dark room. See [DisplayLinkMonitor] for how that is detected.
  */
-fun CustomPlaybackOverlayFragment.startHdcpMonitor(): HdcpMonitor {
+fun CustomPlaybackOverlayFragment.startDisplayLinkMonitor(): DisplayLinkMonitor {
 	val playbackControllerContainer by inject<PlaybackControllerContainer>()
 
-	val monitor = HdcpMonitor {
+	val monitor = DisplayLinkMonitor(requireContext()) {
 		Timber.i("Display link lost, ending playback")
 		playbackControllerContainer.playbackController?.endPlayback(true)
 	}
