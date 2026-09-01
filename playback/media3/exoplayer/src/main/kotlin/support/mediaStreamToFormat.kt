@@ -7,6 +7,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import org.jellyfin.playback.core.mediastream.MediaStream
 import org.jellyfin.playback.core.mediastream.MediaStreamAudioTrack
+import org.jellyfin.playback.core.mediastream.MediaStreamSubtitleTrack
 import org.jellyfin.playback.core.mediastream.MediaStreamVideoTrack
 import org.jellyfin.playback.media3.exoplayer.mapping.getFfmpegAudioMimeType
 import org.jellyfin.playback.media3.exoplayer.mapping.getFfmpegContainerMimeType
@@ -52,9 +53,12 @@ fun toFormat(stream: MediaStream, track: MediaStreamVideoTrack) = Format.Builder
 	f.setSampleMimeType(getFfmpegVideoMimeType(track.codec))
 }.build()
 
-fun MediaStream.toFormats() = tracks.map { track ->
+// Subtitle tracks are deliberately left out: this drives the "can the device play this stream"
+// check, and an unsupported subtitle codec must not make an otherwise playable stream fail it.
+fun MediaStream.toFormats() = tracks.mapNotNull { track ->
 	when (track) {
 		is MediaStreamAudioTrack -> toFormat(stream = this, track)
 		is MediaStreamVideoTrack -> toFormat(stream = this, track)
+		is MediaStreamSubtitleTrack -> null
 	}
 }
