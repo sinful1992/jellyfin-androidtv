@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
+import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.plugin.PlayerService
 import org.jellyfin.playback.core.queue.QueueEntry
 import org.jellyfin.playback.core.queue.queue
@@ -15,7 +16,7 @@ import org.jellyfin.playback.core.timedevent.timedEvents
 import timber.log.Timber
 import kotlin.time.Duration
 
-internal class MediaStreamService(
+class MediaStreamService internal constructor(
 	private val mediaStreamResolvers: Collection<MediaStreamResolver>,
 	private val preloadDuration: Duration,
 ) : PlayerService() {
@@ -35,6 +36,35 @@ internal class MediaStreamService(
 				entry.ensurePreloadTimedEvent()
 			}
 		}.launchIn(coroutineScope + Dispatchers.Main)
+	}
+
+	/**
+	 * Resolve the stream for the current entry again and resume where playback was, keeping the
+	 * play state it had. Call this after changing something the resolvers read from the entry,
+	 * such as the selected audio or subtitle track.
+	 *
+	 * Does nothing when there is no current entry. When the new stream cannot be resolved the
+	 * entry is left without one rather than falling back to the previous stream, because the
+	 * previous stream no longer matches what was asked for.
+	 */
+	suspend fun reloadCurrentStream(keepPosition: Boolean = true) = withContext(Dispatchers.Main) {
+		val entry = manager.queue.entry.value ?: return@withContext
+		val backend = requireNotNull(manager.backend)
+
+		val position = if (keepPosition) state.positionInfo.active else Duration.ZERO
+		val wasPaused = state.playState.value == PlayState.PAUSED
+
+		// Drop the resolved stream so the resolvers run again against the current selection.
+		entry.mediaStream = null
+
+		if (!entry.ensureMediaStream()) {
+			Timber.e("Unable to re-resolve stream for entry $entry")
+			return@withContext
+		}
+
+		backend.playItem(entry)
+		if (position > Duration.ZERO) backend.seekTo(position)
+		if (wasPaused) backend.pause()
 	}
 
 	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
