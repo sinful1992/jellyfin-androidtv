@@ -35,6 +35,8 @@ class VideoPlayerFragment : Fragment() {
 	private val api by inject<ApiClient>()
 
 	private var displayLinkMonitor: DisplayLinkMonitor? = null
+	private var playbackStarted = false
+	private var unpauseOnResume = true
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -47,27 +49,33 @@ class VideoPlayerFragment : Fragment() {
 
 		// Set position
 		val startPosition = arguments?.getInt(EXTRA_POSITION)?.milliseconds ?: Duration.ZERO
-		if (startPosition > Duration.ZERO) applyStartPosition(startPosition)
+		awaitPlaybackStart(startPosition)
 
 		// Pause player until the initial resume
 		playbackManager.state.pause()
 	}
 
 	/**
-	 * Seek to the requested start position once the backend is able to accept it.
+	 * Wait for playback to start, then seek to the requested start position.
 	 *
 	 * Seeks are forwarded straight to the backend, which discards them while the media item is not
 	 * prepared and seekable, and nothing queues commands issued before that point. The media stream
 	 * is resolved asynchronously after the queue is populated, so a seek issued during [onCreate] is
 	 * always dropped. Waiting for the first PLAYING state guarantees a prepared, seekable timeline,
 	 * at the cost of briefly showing the start of the item before the seek lands.
+	 *
+	 * That first PLAYING state is also what tells [onPause] whether a paused player was paused by
+	 * the user or has simply not started yet, so it is awaited even with no position to apply.
 	 */
-	private fun applyStartPosition(position: Duration) {
+	private fun awaitPlaybackStart(position: Duration) {
 		lifecycleScope.launch {
 			playbackManager.state.playState.first { it == PlayState.PLAYING }
+			playbackStarted = true
 
-			Timber.i("Applying start position of $position")
-			playbackManager.state.seek(position)
+			if (position > Duration.ZERO) {
+				Timber.i("Applying start position of $position")
+				playbackManager.state.seek(position)
+			}
 		}
 	}
 
@@ -113,13 +121,19 @@ class VideoPlayerFragment : Fragment() {
 	override fun onPause() {
 		super.onPause()
 
+		// Only resume playback later when it wasn't already paused by the user. Buffering reports as
+		// PAUSED too, so being backgrounded mid-rebuffer leaves playback paused until the user
+		// presses play again. Playback is also paused by [onCreate] until the initial resume, so the
+		// guard only applies once playback has actually started.
+		unpauseOnResume = !playbackStarted || playbackManager.state.playState.value == PlayState.PLAYING
+
 		playbackManager.state.pause()
 	}
 
 	override fun onResume() {
 		super.onResume()
 
-		playbackManager.state.unpause()
+		if (unpauseOnResume) playbackManager.state.unpause()
 	}
 
 	override fun onStop() {
