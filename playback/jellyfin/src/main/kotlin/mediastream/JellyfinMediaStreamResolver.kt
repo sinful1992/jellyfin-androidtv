@@ -3,6 +3,8 @@ package org.jellyfin.playback.jellyfin.mediastream
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStreamResolver
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
+import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
+import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
 import org.jellyfin.playback.core.queue.QueueEntry
 import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.playback.jellyfin.queue.mediaSourceId
@@ -28,7 +30,12 @@ class JellyfinMediaStreamResolver(
 		val baseItem = queueEntry.baseItem
 		if (baseItem == null || !supportedMediaTypes.contains(baseItem.mediaType)) return null
 
-		val mediaInfo = getPlaybackInfo(baseItem, queueEntry.mediaSourceId)
+		val mediaInfo = getPlaybackInfo(
+			item = baseItem,
+			mediaSourceId = queueEntry.mediaSourceId,
+			audioStreamIndex = queueEntry.selectedAudioStreamIndex,
+			subtitleStreamIndex = queueEntry.selectedSubtitleStreamIndex,
+		)
 
 		return when {
 			// Direct play video
@@ -81,6 +88,8 @@ class JellyfinMediaStreamResolver(
 	private suspend fun getPlaybackInfo(
 		item: BaseItemDto,
 		mediaSourceId: String? = null,
+		audioStreamIndex: Int? = null,
+		subtitleStreamIndex: Int? = null,
 	): MediaInfo {
 		val profile = deviceProfileBuilder()
 		val response by api.mediaInfoApi.getPostedPlaybackInfo(
@@ -88,6 +97,9 @@ class JellyfinMediaStreamResolver(
 			data = PlaybackInfoDto(
 				mediaSourceId = mediaSourceId,
 				deviceProfile = profile,
+				// Null means no explicit choice was made, letting the server pick its default.
+				audioStreamIndex = audioStreamIndex,
+				subtitleStreamIndex = subtitleStreamIndex,
 				enableDirectPlay = true,
 				enableDirectStream = true,
 				enableTranscoding = true,
