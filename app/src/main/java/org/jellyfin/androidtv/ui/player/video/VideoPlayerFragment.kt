@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.base.BaseScreen
 import org.jellyfin.androidtv.ui.navigation.Destinations
@@ -15,10 +16,12 @@ import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.DisplayLinkMonitor
 import org.jellyfin.playback.core.PlaybackManager
+import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.sdk.api.client.ApiClient
 import org.koin.android.ext.android.inject
 import timber.log.Timber
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 class VideoPlayerFragment : Fragment() {
@@ -43,14 +46,29 @@ class VideoPlayerFragment : Fragment() {
 		playbackManager.queue.addSupplier(queueSupplier)
 
 		// Set position
-		arguments?.getInt(EXTRA_POSITION)?.milliseconds?.let {
-			lifecycleScope.launch {
-				playbackManager.state.seek(it)
-			}
-		}
+		val startPosition = arguments?.getInt(EXTRA_POSITION)?.milliseconds ?: Duration.ZERO
+		if (startPosition > Duration.ZERO) applyStartPosition(startPosition)
 
 		// Pause player until the initial resume
 		playbackManager.state.pause()
+	}
+
+	/**
+	 * Seek to the requested start position once the backend is able to accept it.
+	 *
+	 * Seeks are forwarded straight to the backend, which discards them while the media item is not
+	 * prepared and seekable, and nothing queues commands issued before that point. The media stream
+	 * is resolved asynchronously after the queue is populated, so a seek issued during [onCreate] is
+	 * always dropped. Waiting for the first PLAYING state guarantees a prepared, seekable timeline,
+	 * at the cost of briefly showing the start of the item before the seek lands.
+	 */
+	private fun applyStartPosition(position: Duration) {
+		lifecycleScope.launch {
+			playbackManager.state.playState.first { it == PlayState.PLAYING }
+
+			Timber.i("Applying start position of $position")
+			playbackManager.state.seek(position)
+		}
 	}
 
 	override fun onCreateView(
