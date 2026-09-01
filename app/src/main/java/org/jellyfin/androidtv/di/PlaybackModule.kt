@@ -17,6 +17,8 @@ import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.playback.PlaybackLauncher
 import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
+import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentAction
+import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepository
 import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.profile.createDeviceProfile
 import org.jellyfin.playback.core.playbackManager
@@ -27,7 +29,6 @@ import org.jellyfin.playback.media3.session.MediaSessionOptions
 import org.jellyfin.playback.media3.session.media3SessionPlugin
 import org.jellyfin.sdk.api.client.HttpClientOptions
 import org.jellyfin.sdk.api.okhttp.OkHttpFactory
-import org.jellyfin.sdk.model.api.MediaSegmentType
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
@@ -93,7 +94,15 @@ fun Scope.createPlaybackManager() = playbackManager(androidContext()) {
 	install(media3SessionPlugin(get(), mediaSessionOptions))
 
 	val deviceProfileBuilder = { createDeviceProfile(androidContext(), userPreferences, get()) }
-	install(jellyfinPlugin(get(), deviceProfileBuilder, setOf(MediaSegmentType.INTRO), ProcessLifecycleOwner.get().lifecycle))
+
+	// Only auto skip the segment types the user configured to skip. ASK_TO_SKIP cannot be expressed
+	// here because the plugin has no prompt, so those types are left alone rather than force skipped.
+	val mediaSegmentRepository = get<MediaSegmentRepository>()
+	val mediaSegmentSkipTypes = MediaSegmentRepository.SupportedTypes
+		.filter { mediaSegmentRepository.getDefaultSegmentTypeAction(it) == MediaSegmentAction.SKIP }
+		.toSet()
+
+	install(jellyfinPlugin(get(), deviceProfileBuilder, mediaSegmentSkipTypes, ProcessLifecycleOwner.get().lifecycle))
 
 	// Options
 	val userSettingPreferences = get<UserSettingPreferences>()
