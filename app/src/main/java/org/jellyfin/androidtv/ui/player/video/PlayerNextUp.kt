@@ -91,7 +91,8 @@ fun rememberPlayerNextUpState(
 	var dismissedIndex by remember { mutableStateOf<Int?>(null) }
 
 	LaunchedEffect(entryIndex) {
-		nextItem = playbackManager.queue.peekNext()?.baseItem
+		// Same flags the queue uses when an entry ends, so this names the entry that will play.
+		nextItem = playbackManager.queue.peekNext(usePlaybackOrder = true, useRepeatMode = true)?.baseItem
 	}
 
 	if (behavior == NextUpBehavior.DISABLED) return PlayerNextUpState()

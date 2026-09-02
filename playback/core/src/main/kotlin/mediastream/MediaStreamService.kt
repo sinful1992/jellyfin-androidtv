@@ -26,7 +26,8 @@ class MediaStreamService internal constructor(
 
 	/**
 	 * The audio language the user last picked, applied to every entry resolved after it. Null until
-	 * a choice is made, leaving the server default in place.
+	 * a choice is made, leaving the server default in place, and reset when the queue ends so a
+	 * choice cannot carry into unrelated playback.
 	 */
 	var preferredAudioLanguage: String? = null
 
@@ -35,6 +36,9 @@ class MediaStreamService internal constructor(
 			Timber.d("Queue entry changed to $entry")
 
 			if (entry == null) {
+				// The queue ended or was cleared, so the choices made within it no longer apply.
+				preferredAudioLanguage = null
+
 				val backend = requireNotNull(manager.backend)
 				backend.stop()
 			} else {
