@@ -45,8 +45,8 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * The height the controls occupy above the overscan inset.
  *
- * Fixed rather than measured so anything drawn over the video can be parked clear of the controls
- * without waiting for them to be laid out once.
+ * A floor the controls keep to rather than a measurement of them, so anything drawn over the video
+ * can be parked clear of the controls without waiting for them to be laid out once.
  */
 val PlayerControlsHeight = 100.dp
 
