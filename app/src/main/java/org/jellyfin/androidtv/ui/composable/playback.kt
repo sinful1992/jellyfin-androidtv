@@ -72,10 +72,18 @@ fun rememberPlayerProgress(
 	playing: Boolean,
 	active: Duration,
 	duration: Duration,
+	/**
+	 * Changing this resyncs the animation to [active].
+	 *
+	 * Progress is animated locally rather than polled, so a jump the animation does not know about
+	 * - a seek - keeps running from the old position until something else happens to restart it.
+	 * Callers that cause such a jump pass a value that changes with it.
+	 */
+	resyncKey: Any? = null,
 ): State<Float> {
 	val animatable = remember { Animatable(0f, 0f) }
 
-	LaunchedEffect(playing, duration) {
+	LaunchedEffect(playing, duration, resyncKey) {
 		val activeMs = active.inWholeMilliseconds.toFloat()
 		val durationMs = duration.inWholeMilliseconds.toFloat()
 
