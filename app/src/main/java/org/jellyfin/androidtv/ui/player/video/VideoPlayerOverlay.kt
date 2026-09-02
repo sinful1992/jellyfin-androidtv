@@ -28,7 +28,19 @@ fun VideoPlayerOverlay(
 	playbackManager: PlaybackManager = koinInject(),
 	mediaToastRegistry: MediaToastRegistry,
 ) {
-	val visibilityState = rememberPlayerOverlayVisibility()
+	val baseVisibilityState = rememberPlayerOverlayVisibility()
+	val nextUp = rememberPlayerNextUpState(playbackManager)
+
+	// Hold the controls open while the next up card is showing, so it can be seen and acted on
+	// without pressing a key first. Back then dismisses the card along with the controls.
+	val visibilityState = baseVisibilityState.copy(
+		visible = baseVisibilityState.visible || nextUp.item != null,
+		hide = {
+			nextUp.dismiss()
+			baseVisibilityState.hide()
+		},
+	)
+
 	var showPlaybackInfo by remember { mutableStateOf(false) }
 
 	val entry by rememberQueueEntry(playbackManager)
@@ -47,6 +59,7 @@ fun VideoPlayerOverlay(
 			controls = {
 				VideoPlayerControls(
 					playbackManager = playbackManager,
+					nextUp = nextUp,
 					onPlaybackInfoClick = { showPlaybackInfo = !showPlaybackInfo },
 				)
 			},
