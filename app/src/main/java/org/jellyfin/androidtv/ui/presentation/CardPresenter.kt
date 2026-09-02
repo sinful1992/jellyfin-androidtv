@@ -373,6 +373,7 @@ private fun CardViewHolderContent(
 					)
 				}
 			},
+			focused = focused,
 			modifier = Modifier
 				.size(size)
 		)
@@ -408,6 +409,7 @@ private fun CardViewHolderContent(
 					)
 				}
 			},
+			focused = focused,
 		)
 	} else {
 		card()
