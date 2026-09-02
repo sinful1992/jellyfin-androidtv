@@ -51,11 +51,9 @@ import kotlin.time.DurationUnit
 @Composable
 fun VideoPlayerControls(
 	playbackManager: PlaybackManager = koinInject(),
-	nextUp: PlayerNextUpState = PlayerNextUpState(),
 	onPlaybackInfoClick: () -> Unit = {},
 ) {
 	val playState by playbackManager.state.playState.collectAsState()
-	val coroutineScope = rememberCoroutineScope()
 
 	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
 
@@ -63,18 +61,6 @@ fun VideoPlayerControls(
 		Column(
 			verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
 		) {
-			nextUp.item?.let { item ->
-				PlayerNextUpCard(
-					item = item,
-					showThumbnail = nextUp.showThumbnail,
-					onPlay = {
-						nextUp.dismiss()
-						coroutineScope.launch { playbackManager.queue.next() }
-					},
-					modifier = Modifier.fillMaxWidth(),
-				)
-			}
-
 			Row(
 				horizontalArrangement = Arrangement.spacedBy(12.dp),
 				modifier = Modifier
