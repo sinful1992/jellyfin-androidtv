@@ -44,7 +44,7 @@ fun AudioTrackButton(
 
 	PlayerOptionPicker(
 		icon = R.drawable.ic_select_audio,
-		contentDescription = stringResource(R.string.lbl_audio_track),
+		label = stringResource(R.string.lbl_audio),
 		options = tracks.map { it.index to it.label("Audio") },
 		activeOption = activeIndex,
 		onSelect = { playbackManager.selectAudioStream(it) },
@@ -74,7 +74,7 @@ fun SubtitleTrackButton(
 
 	PlayerOptionPicker(
 		icon = R.drawable.ic_select_subtitle,
-		contentDescription = stringResource(R.string.lbl_subtitle_track),
+		label = stringResource(R.string.lbl_subtitles),
 		options = options,
 		activeOption = activeIndex,
 		onSelect = { playbackManager.selectSubtitleStream(it) },

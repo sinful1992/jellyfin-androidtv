@@ -275,14 +275,11 @@ private fun MoreOptionsButton(
 	content: @Composable () -> Unit,
 ) = Box {
 	var expanded by remember { mutableStateOf(false) }
-	IconButton(
+	PlayerControlButton(
+		icon = ImageVector.vectorResource(R.drawable.ic_more),
+		label = stringResource(R.string.lbl_more),
 		onClick = { expanded = true },
-	) {
-		Icon(
-			imageVector = ImageVector.vectorResource(R.drawable.ic_more),
-			contentDescription = stringResource(R.string.lbl_other_options),
-		)
-	}
+	)
 
 	Popover(
 		expanded = expanded,
@@ -303,11 +300,8 @@ private fun MoreOptionsButton(
 @Composable
 fun PlaybackInfoButton(
 	onClick: () -> Unit,
-) = IconButton(
+) = PlayerControlButton(
+	icon = ImageVector.vectorResource(R.drawable.ic_info),
+	label = stringResource(R.string.playback_info),
 	onClick = onClick,
-) {
-	Icon(
-		imageVector = ImageVector.vectorResource(R.drawable.ic_info),
-		contentDescription = stringResource(R.string.playback_info),
-	)
-}
+)

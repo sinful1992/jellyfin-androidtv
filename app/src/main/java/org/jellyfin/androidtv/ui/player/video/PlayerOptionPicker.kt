@@ -20,33 +20,31 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
-import org.jellyfin.androidtv.ui.base.button.IconButton
 import org.jellyfin.androidtv.ui.base.form.RadioButton
 import org.jellyfin.androidtv.ui.base.list.ListButton
 import org.jellyfin.androidtv.ui.base.popover.Popover
 
 /**
- * A control row button opening a single-choice list of [options], each a value paired with the
- * label to show for it. The option equal to [activeOption] is marked as selected.
+ * A control row button, named [label] while focused, opening a single-choice list of [options],
+ * each a value paired with the label to show for it. The option equal to [activeOption] is marked
+ * as selected.
  */
 @Composable
 fun <T> PlayerOptionPicker(
 	icon: Int,
-	contentDescription: String,
+	label: String,
 	options: List<Pair<T, String>>,
 	activeOption: T?,
 	onSelect: (option: T) -> Unit,
 ) = Box {
 	var expanded by remember { mutableStateOf(false) }
 
-	IconButton(onClick = { expanded = true }) {
-		Icon(
-			imageVector = ImageVector.vectorResource(icon),
-			contentDescription = contentDescription,
-		)
-	}
+	PlayerControlButton(
+		icon = ImageVector.vectorResource(icon),
+		label = label,
+		onClick = { expanded = true },
+	)
 
 	// Long option lists scroll, but only inside a popover that still fits the screen: one grown
 	// to the full window height has nowhere left to be positioned.
