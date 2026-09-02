@@ -62,6 +62,16 @@ class MediaStreamService internal constructor(
 	}
 
 	/**
+	 * Resolve the current stream again after something the resolvers read from outside the queue
+	 * entry changed, such as the device profile the server is asked to match.
+	 *
+	 * @see applyAudioTrackSelection
+	 */
+	fun applyStreamOptionsChange() = coroutineScope.launch(Dispatchers.Main) {
+		reloadCurrentStream()
+	}
+
+	/**
 	 * Resolve the stream for the current entry again and resume where playback was, keeping the
 	 * play state it had. Call this after changing something the resolvers read from the entry,
 	 * such as the selected audio or subtitle track.
