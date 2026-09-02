@@ -71,6 +71,7 @@ fun VideoPlayerControls(
 
 			AudioTrackButton(playbackManager)
 			SubtitleTrackButton(playbackManager)
+			QualityButton(playbackManager)
 
 			PlaybackInfoButton(onClick = onPlaybackInfoClick)
 
