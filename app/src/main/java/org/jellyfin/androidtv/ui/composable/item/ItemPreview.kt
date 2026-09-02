@@ -21,6 +21,7 @@ fun ItemPreview(
 	title: (@Composable () -> Unit)? = null,
 	subtitle: (@Composable () -> Unit)? = null,
 	spacing: Dp = Tokens.Space.spaceXs,
+	focused: Boolean = false,
 ) {
 	ItemPreviewLayout(
 		card = card,
@@ -29,6 +30,7 @@ fun ItemPreview(
 				title = title,
 				subtitle = subtitle,
 				spacing = spacing,
+				focused = focused,
 			)
 		},
 		spacing = spacing,
@@ -42,6 +44,7 @@ private fun ItemPreviewMetadata(
 	title: (@Composable () -> Unit)?,
 	subtitle: (@Composable () -> Unit)?,
 	spacing: Dp,
+	focused: Boolean,
 ) {
 	Column(
 		modifier = Modifier.padding(spacing),
@@ -50,7 +53,9 @@ private fun ItemPreviewMetadata(
 		title?.let { content ->
 			ProvideTextStyle(
 				value = JellyfinTheme.typography.default.copy(
-					color = Tokens.Color.colorGrey100,
+					// A row of titles set at one weight is a paragraph to read through. Lifting
+					// the one under focus makes it the name of what is being looked at.
+					color = if (focused) Tokens.Color.colorWhite else Tokens.Color.colorGrey100,
 					fontSize = 12.sp,
 				),
 				content = content,
