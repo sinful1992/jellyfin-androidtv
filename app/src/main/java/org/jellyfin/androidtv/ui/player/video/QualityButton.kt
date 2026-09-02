@@ -30,7 +30,7 @@ fun QualityButton(
 
 	PlayerOptionPicker(
 		icon = R.drawable.ic_select_quality,
-		contentDescription = stringResource(R.string.lbl_quality_profile),
+		label = stringResource(R.string.lbl_quality),
 		options = options,
 		activeOption = quality,
 		onSelect = { value ->
