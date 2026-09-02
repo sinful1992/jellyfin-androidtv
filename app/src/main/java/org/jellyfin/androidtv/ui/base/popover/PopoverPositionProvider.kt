@@ -49,10 +49,21 @@ class PopoverPositionProvider(
 
 		// Return position clamped to fit in window with overscan
 		return IntOffset(
-			x = x.coerceIn(OVERSCAN_X, windowSize.width - popupContentSize.width - OVERSCAN_X),
-			y = y.coerceIn(OVERSCAN_Y, windowSize.height - popupContentSize.height - OVERSCAN_Y),
+			x = x.clampToWindow(OVERSCAN_X, windowSize.width - popupContentSize.width),
+			y = y.clampToWindow(OVERSCAN_Y, windowSize.height - popupContentSize.height),
 		)
 	}
+
+	/**
+	 * Clamp to the space between the overscan margins, where [limit] is the largest position that
+	 * still leaves the popup fully inside the window.
+	 *
+	 * A popup taller or wider than the window leaves no valid position, which would make the range
+	 * empty and throw. Pin it to the leading margin instead, so a list too long for the screen
+	 * starts at the top rather than being pushed off it.
+	 */
+	private fun Int.clampToWindow(overscan: Int, limit: Int) =
+		coerceIn(overscan, (limit - overscan).coerceAtLeast(overscan))
 
 	private val Float.dir
 		get() = when {
