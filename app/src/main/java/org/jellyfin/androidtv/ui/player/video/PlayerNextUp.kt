@@ -1,11 +1,13 @@
 package org.jellyfin.androidtv.ui.player.video
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,12 +22,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
-import org.jellyfin.androidtv.preference.constant.NEXTUP_TIMER_DISABLED
 import org.jellyfin.androidtv.preference.constant.NextUpBehavior
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.LocalTextStyle
@@ -45,15 +47,16 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.ImageType
 import org.koin.compose.koinInject
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * How long before the end of an entry the card is shown when the user turned the legacy Next Up
- * timer off. The rewrite player advances on its own, so there is no countdown to disable - the
- * preference only decides how much warning there is.
+ * How long before the end of an entry the card is shown.
+ *
+ * This is deliberately not [UserPreferences.nextUpTimeout]: that is how long the legacy player
+ * holds a stopped countdown for, while this is how much warning to give during playback that
+ * continues either way. Seven seconds of a countdown is patient; seven seconds of a notice is not.
  */
-private val DefaultLeadTime = 10.seconds
+private val LeadTime = 30.seconds
 
 @Immutable
 data class PlayerNextUpState(
@@ -77,12 +80,6 @@ fun rememberPlayerNextUpState(
 	userPreferences: UserPreferences = koinInject(),
 ): PlayerNextUpState {
 	val behavior = remember(userPreferences) { userPreferences[UserPreferences.nextUpBehavior] }
-	val leadTime = remember(userPreferences) {
-		userPreferences[UserPreferences.nextUpTimeout]
-			.takeIf { it != NEXTUP_TIMER_DISABLED }
-			?.milliseconds
-			?: DefaultLeadTime
-	}
 
 	val entryIndex by playbackManager.queue.entryIndex.collectAsState()
 	val positionInfo by rememberPlayerPositionInfo(playbackManager)
@@ -101,7 +98,7 @@ fun rememberPlayerNextUpState(
 	val visible = dismissedIndex != entryIndex &&
 		positionInfo.duration > Duration.ZERO &&
 		remaining > Duration.ZERO &&
-		remaining <= leadTime
+		remaining <= LeadTime
 
 	return PlayerNextUpState(
 		item = nextItem.takeIf { visible },
@@ -126,9 +123,14 @@ fun PlayerNextUpCard(
 	val thumbnail = item.itemImages[ImageType.PRIMARY].takeIf { showThumbnail }
 
 	Row(
-		horizontalArrangement = Arrangement.spacedBy(12.dp),
+		horizontalArrangement = Arrangement.spacedBy(16.dp),
 		verticalAlignment = Alignment.CenterVertically,
-		modifier = modifier.focusGroup()
+		// The card sits over moving video, so it needs its own ground to be readable at a glance
+		// rather than relying on whatever frame happens to be behind it.
+		modifier = modifier
+			.focusGroup()
+			.background(JellyfinTheme.colorScheme.surface, JellyfinTheme.shapes.medium)
+			.padding(horizontal = 20.dp, vertical = 16.dp)
 	) {
 		if (thumbnail != null) {
 			AsyncImage(
@@ -136,20 +138,31 @@ fun PlayerNextUpCard(
 				blurHash = thumbnail.blurHash,
 				aspectRatio = thumbnail.aspectRatio ?: 1f,
 				modifier = Modifier
-					.height(72.dp)
+					.height(96.dp)
 					.aspectRatio(thumbnail.aspectRatio ?: 1f)
 					.clip(JellyfinTheme.shapes.extraSmall)
 			)
 		}
 
-		Column {
+		Column(
+			verticalArrangement = Arrangement.spacedBy(4.dp),
+			modifier = Modifier.weight(1f),
+		) {
 			Text(
-				text = stringResource(R.string.lbl_next_up),
-				style = LocalTextStyle.current.copy(color = Color.White, fontSize = 14.sp),
+				text = stringResource(R.string.lbl_next_up).uppercase(),
+				style = LocalTextStyle.current.copy(
+					color = Color.White.copy(alpha = 0.7f),
+					fontSize = 13.sp,
+					letterSpacing = 1.sp,
+				),
 			)
 			Text(
 				text = item.getDisplayName(context),
-				style = LocalTextStyle.current.copy(color = Color.White, fontSize = 18.sp),
+				style = LocalTextStyle.current.copy(
+					color = Color.White,
+					fontSize = 22.sp,
+					fontWeight = FontWeight.Bold,
+				),
 				overflow = TextOverflow.Ellipsis,
 				maxLines = 1,
 			)
