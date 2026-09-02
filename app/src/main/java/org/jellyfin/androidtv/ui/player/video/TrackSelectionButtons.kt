@@ -1,31 +1,10 @@
 package org.jellyfin.androidtv.ui.player.video
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.ui.base.Icon
-import org.jellyfin.androidtv.ui.base.Text
-import org.jellyfin.androidtv.ui.base.button.IconButton
-import org.jellyfin.androidtv.ui.base.form.RadioButton
-import org.jellyfin.androidtv.ui.base.list.ListButton
-import org.jellyfin.androidtv.ui.base.popover.Popover
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.mediastream.MediaStreamAudioTrack
@@ -40,7 +19,7 @@ import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndexFlow
 /**
  * Spike-grade track pickers for the rewrite player. These exist to drive the stream re-resolve by
  * hand while the mechanism underneath is being proven, and are deliberately plain: no grouping by
- * language, no external subtitle handling, no remembering a choice across entries.
+ * language and no external subtitle handling.
  */
 
 private fun MediaStreamTrack.label(fallback: String) =
@@ -63,11 +42,11 @@ fun AudioTrackButton(
 	// the server marked default.
 	val activeIndex = selectedIndex ?: tracks.firstOrNull { it.isDefault }?.index
 
-	TrackPicker(
+	PlayerOptionPicker(
 		icon = R.drawable.ic_select_audio,
 		contentDescription = stringResource(R.string.lbl_audio_track),
-		tracks = tracks.map { it.index to it.label("Audio") },
-		activeIndex = activeIndex,
+		options = tracks.map { it.index to it.label("Audio") },
+		activeOption = activeIndex,
 		onSelect = { playbackManager.selectAudioStream(it) },
 	)
 }
@@ -93,54 +72,11 @@ fun SubtitleTrackButton(
 		addAll(tracks.map { it.index to it.label("Subtitle") })
 	}
 
-	TrackPicker(
+	PlayerOptionPicker(
 		icon = R.drawable.ic_select_subtitle,
 		contentDescription = stringResource(R.string.lbl_subtitle_track),
-		tracks = options,
-		activeIndex = activeIndex,
+		options = options,
+		activeOption = activeIndex,
 		onSelect = { playbackManager.selectSubtitleStream(it) },
 	)
-}
-
-@Composable
-private fun TrackPicker(
-	icon: Int,
-	contentDescription: String,
-	tracks: List<Pair<Int, String>>,
-	activeIndex: Int?,
-	onSelect: (index: Int) -> Unit,
-) = Box {
-	var expanded by remember { mutableStateOf(false) }
-
-	IconButton(onClick = { expanded = true }) {
-		Icon(
-			imageVector = ImageVector.vectorResource(icon),
-			contentDescription = contentDescription,
-		)
-	}
-
-	Popover(
-		expanded = expanded,
-		onDismissRequest = { expanded = false },
-		alignment = Alignment.TopCenter,
-		offset = DpOffset(0.dp, (-5).dp),
-	) {
-		Column(
-			modifier = Modifier
-				.padding(4.dp)
-				.widthIn(min = 220.dp, max = 400.dp)
-				.verticalScroll(rememberScrollState())
-		) {
-			for ((index, label) in tracks) {
-				ListButton(
-					onClick = {
-						expanded = false
-						onSelect(index)
-					},
-					headingContent = { Text(label) },
-					trailingContent = { RadioButton(checked = index == activeIndex) },
-				)
-			}
-		}
-	}
 }
