@@ -37,6 +37,7 @@ class VideoPlayerFragment : Fragment() {
 	private var displayLinkMonitor: DisplayLinkMonitor? = null
 	private var playbackStarted = false
 	private var unpauseOnResume = true
+	private var leaving = false
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -66,6 +67,9 @@ class VideoPlayerFragment : Fragment() {
 	 *
 	 * That first PLAYING state is also what tells [onPause] whether a paused player was paused by
 	 * the user or has simply not started yet, so it is awaited even with no position to apply.
+	 *
+	 * Once playback has started this also waits for the queue to run out, because nothing else
+	 * leaves the player when it does and it would otherwise sit on a black screen.
 	 */
 	private fun awaitPlaybackStart(position: Duration) {
 		lifecycleScope.launch {
@@ -76,7 +80,29 @@ class VideoPlayerFragment : Fragment() {
 				Timber.i("Applying start position of $position")
 				playbackManager.state.seek(position)
 			}
+
+			// The queue clears its entry when the last one finishes. Stopping the player clears it
+			// too, so only act while the player is still the screen being shown.
+			playbackManager.queue.entry.first { it == null }
+			if (!isResumed) return@launch
+
+			Timber.i("Queue ended, leaving the player")
+			leavePlayer()
 		}
+	}
+
+	/**
+	 * Stop playback and return to whatever opened the player. Stopping clears the queue, which is
+	 * itself a reason to leave, so this only ever runs once.
+	 */
+	private fun leavePlayer() {
+		if (leaving) return
+		leaving = true
+
+		playbackManager.state.stop()
+
+		if (navigationRepository.canGoBack) navigationRepository.goBack()
+		else navigationRepository.reset(Destinations.home)
 	}
 
 	override fun onCreateView(
@@ -112,10 +138,7 @@ class VideoPlayerFragment : Fragment() {
 	private fun startDisplayLinkMonitor() = DisplayLinkMonitor(requireContext()) {
 		Timber.i("Display link lost, ending playback")
 
-		playbackManager.state.stop()
-
-		if (navigationRepository.canGoBack) navigationRepository.goBack()
-		else navigationRepository.reset(Destinations.home)
+		leavePlayer()
 	}.also { it.start(lifecycleScope) }
 
 	override fun onPause() {
