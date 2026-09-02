@@ -42,6 +42,33 @@ import timber.log.Timber
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * The height the controls occupy above the overscan inset.
+ *
+ * Fixed rather than measured so anything drawn over the video can be parked clear of the controls
+ * without waiting for them to be laid out once.
+ */
+val PlayerControlsHeight = 100.dp
+
+/**
+ * How much of the screen each scrim covers. Both run well past the content they carry: a ramp that
+ * ends where the text starts reads as a band laid over the picture rather than as shading.
+ */
+private const val HeaderScrimFraction = 1f / 3
+private const val ControlsScrimFraction = 0.45f
+
+private val HeaderScrim = arrayOf(
+	0f to Color.Black.copy(alpha = 0.75f),
+	0.45f to Color.Black.copy(alpha = 0.25f),
+	1f to Color.Transparent,
+)
+
+private val ControlsScrim = arrayOf(
+	0f to Color.Transparent,
+	0.55f to Color.Black.copy(alpha = 0.5f),
+	1f to Color.Black.copy(alpha = 0.92f),
+)
+
 @Composable
 fun PlayerOverlayLayout(
 	modifier: Modifier = Modifier,
@@ -81,15 +108,8 @@ fun PlayerOverlayLayout(
 			Box(
 				modifier = Modifier
 					.fillMaxWidth()
-					.fillMaxHeight(1f / 3)
-					.background(
-						brush = Brush.verticalGradient(
-							colors = listOf(
-								Color.Black.copy(alpha = 0.8f),
-								Color.Transparent,
-							)
-						)
-					)
+					.fillMaxHeight(HeaderScrimFraction)
+					.background(brush = Brush.verticalGradient(*HeaderScrim))
 					.overscan()
 			) {
 				header()
@@ -102,8 +122,10 @@ fun PlayerOverlayLayout(
 			visible = visibilityState.visible,
 			modifier = Modifier
 				.align(Alignment.BottomCenter),
-			enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-			exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+			// The scrim is taller than the controls it carries, so sliding by the whole of it
+			// would throw them up the screen. A short rise under the fade is enough.
+			enter = slideInVertically(initialOffsetY = { it / 4 }) + fadeIn(),
+			exit = slideOutVertically(targetOffsetY = { it / 4 }) + fadeOut(),
 		) {
 			// Focus trap to detect when controls need to be closed by moving the focus up
 			Box(
@@ -117,15 +139,8 @@ fun PlayerOverlayLayout(
 				contentAlignment = Alignment.BottomCenter,
 				modifier = Modifier
 					.fillMaxWidth()
-					.fillMaxHeight(1f / 3)
-					.background(
-						brush = Brush.verticalGradient(
-							colors = listOf(
-								Color.Transparent,
-								Color.Black.copy(alpha = 0.8f),
-							)
-						)
-					)
+					.fillMaxHeight(ControlsScrimFraction)
+					.background(brush = Brush.verticalGradient(*ControlsScrim))
 					.overscan()
 					.focusProperties {
 						// Hide overlay when focus is moved out by going up
