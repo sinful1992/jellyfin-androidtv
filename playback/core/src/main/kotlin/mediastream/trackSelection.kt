@@ -18,7 +18,8 @@ val PlaybackManager.currentTracks: Collection<MediaStreamTrack>
 
 /**
  * Play the current entry with a different audio track, keeping the position and play state.
- * Does nothing when that track is already selected.
+ * Does nothing when that track is already selected. The track's language is remembered for the
+ * entries that follow, so a choice made on one episode carries to the next.
  *
  * The change is applied in the background: on a stream that already carries every track it takes
  * effect without interrupting playback, and otherwise the stream is resolved again, which on a
@@ -29,6 +30,14 @@ fun PlaybackManager.selectAudioStream(index: Int) {
 	if (entry.selectedAudioStreamIndex == index) return
 
 	entry.selectedAudioStreamIndex = index
+	// Carry the language, not the index, to the entries that follow: indices differ between files
+	// while languages do not. A track without a language clears the carry-over rather than leaving
+	// a stale one behind.
+	mediaStreamService.preferredAudioLanguage = entry.mediaStream?.tracks
+		.orEmpty()
+		.filterIsInstance<MediaStreamAudioTrack>()
+		.firstOrNull { it.index == index }
+		?.language
 	mediaStreamService.applyAudioTrackSelection(index)
 }
 
