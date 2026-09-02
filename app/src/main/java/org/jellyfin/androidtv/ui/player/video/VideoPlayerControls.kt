@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -76,7 +77,10 @@ fun VideoPlayerControls(
 		Column(
 			verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.Bottom),
 			modifier = Modifier
-				.height(PlayerControlsHeight)
+				// A floor rather than a fixed height: at the largest display size the text grows
+				// and the row has to grow with it, and a card overlapping the position by a few
+				// points is a better failure than controls with their bottom cut off.
+				.heightIn(min = PlayerControlsHeight)
 				.onVisibilityChanged { visible ->
 					if (!visible) return@onVisibilityChanged
 
