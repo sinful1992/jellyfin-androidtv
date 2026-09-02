@@ -4,12 +4,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,7 +37,6 @@ import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.button.IconButton
 import org.jellyfin.androidtv.ui.base.popover.Popover
 import org.jellyfin.androidtv.ui.composable.rememberPlayerPositionInfo
-import org.jellyfin.androidtv.ui.player.base.PlayerSeekbar
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.queue.queue
@@ -107,45 +104,6 @@ fun VideoPlayerControls(
 			Spacer(Modifier.weight(1f))
 			PositionText(playbackManager)
 		}
-	}
-}
-
-/**
- * The seek bar, with the trickplay thumbnail for the position being scrubbed to floating above it.
- *
- * The preview overflows the bar's own bounds rather than taking space of its own, so showing and
- * hiding it does not move the controls around it.
- */
-@Composable
-private fun SeekbarWithPreview(
-	playbackManager: PlaybackManager,
-) {
-	val scrubbing by playbackManager.state.scrubbing.collectAsState()
-	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
-
-	BoxWithConstraints(
-		modifier = Modifier.fillMaxWidth()
-	) {
-		if (scrubbing) {
-			val duration = playbackManager.state.positionInfo.duration
-			PlayerTrickplayPreview(
-				position = seekPosition,
-				positionFraction = when {
-					duration > Duration.ZERO -> (seekPosition / duration).toFloat().coerceIn(0f, 1f)
-					else -> 0f
-				},
-				railWidth = maxWidth,
-				playbackManager = playbackManager,
-			)
-		}
-
-		PlayerSeekbar(
-			playbackManager = playbackManager,
-			onSeek = { position -> seekPosition = position },
-			modifier = Modifier
-				.fillMaxWidth()
-				.height(4.dp)
-		)
 	}
 }
 

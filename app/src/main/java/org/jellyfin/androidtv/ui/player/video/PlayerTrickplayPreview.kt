@@ -3,13 +3,17 @@ package org.jellyfin.androidtv.ui.player.video
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -30,6 +34,7 @@ import coil3.size.Dimension
 import coil3.size.Size
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
+import org.jellyfin.androidtv.ui.player.base.PlayerSeekbar
 import org.jellyfin.androidtv.util.coil.SubsetTransformation
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.jellyfin.queue.baseItem
@@ -38,12 +43,13 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.trickplayApi
 import org.jellyfin.sdk.api.client.util.AuthorizationHeaderBuilder
 import org.jellyfin.sdk.model.api.BaseItemDto
-import org.jellyfin.sdk.model.api.TrickplayInfo
+import org.jellyfin.sdk.model.api.TrickplayInfoDto
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import org.koin.compose.koinInject
 import java.util.UUID
 import kotlin.time.Duration
 
+private val SeekbarHeight = 4.dp
 private val PreviewHeight = 100.dp
 private val PreviewOffset = 16.dp
 
@@ -52,7 +58,7 @@ private val PreviewOffset = 16.dp
  */
 private data class TrickplaySheets(
 	val mediaSourceId: UUID,
-	val info: TrickplayInfo,
+	val info: TrickplayInfoDto,
 )
 
 /**
@@ -79,9 +85,10 @@ fun PlayerTrickplayPreview(
 	railWidth: Dp,
 	modifier: Modifier = Modifier,
 	playbackManager: PlaybackManager = koinInject(),
-	api: ApiClient = koinInject(),
-	imageLoader: ImageLoader = koinInject(),
 ) {
+	val api = koinInject<ApiClient>()
+	val imageLoader = koinInject<ImageLoader>()
+
 	val entry by rememberQueueEntry(playbackManager)
 	val item = entry?.baseItem ?: return
 	val mediaSourceId = entry?.mediaSourceId
@@ -134,6 +141,46 @@ fun PlayerTrickplayPreview(
 }
 
 /**
+ * The seek bar, with the trickplay thumbnail for the position being scrubbed to floating above it.
+ *
+ * The preview overflows the bar's own bounds rather than taking space of its own, so showing and
+ * hiding it does not move the controls around it.
+ */
+@Composable
+fun SeekbarWithPreview(
+	playbackManager: PlaybackManager,
+	modifier: Modifier = Modifier,
+) {
+	val scrubbing by playbackManager.state.scrubbing.collectAsState()
+	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
+
+	BoxWithConstraints(
+		modifier = modifier.fillMaxWidth()
+	) {
+		if (scrubbing) {
+			val duration = playbackManager.state.positionInfo.duration
+			PlayerTrickplayPreview(
+				position = seekPosition,
+				positionFraction = when {
+					duration > Duration.ZERO -> (seekPosition / duration).toFloat().coerceIn(0f, 1f)
+					else -> 0f
+				},
+				railWidth = maxWidth,
+				playbackManager = playbackManager,
+			)
+		}
+
+		PlayerSeekbar(
+			playbackManager = playbackManager,
+			onSeek = { position -> seekPosition = position },
+			modifier = Modifier
+				.fillMaxWidth()
+				.height(SeekbarHeight)
+		)
+	}
+}
+
+/**
  * Lay this content out without it counting towards the size of its parent, so it can overflow into
  * the video above the seek bar without making the bar's row any taller.
  */
@@ -160,7 +207,7 @@ private fun BaseItemDto.getTrickplaySheets(mediaSourceId: String?): TrickplayShe
 
 /**
  * The thumbnail covering [position]. Thumbnails are packed into sheets of
- * [TrickplayInfo.tileWidth] by [TrickplayInfo.tileHeight] images, so the position first picks a
+ * [TrickplayInfoDto.tileWidth] by [TrickplayInfoDto.tileHeight] images, so the position first picks a
  * thumbnail and that then picks the sheet and the region within it.
  */
 private fun TrickplaySheets.getTile(api: ApiClient, itemId: UUID, position: Duration): TrickplayTile? {
