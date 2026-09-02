@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,16 +28,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.LocalTextStyle
+import org.jellyfin.androidtv.ui.base.SeekbarDefaults
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.button.IconButton
 import org.jellyfin.androidtv.ui.base.popover.Popover
 import org.jellyfin.androidtv.ui.composable.rememberPlayerPositionInfo
+import org.jellyfin.androidtv.ui.player.base.PlayerControlsHeight
 import org.jellyfin.androidtv.ui.player.base.PlayerSeekbar
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
@@ -58,12 +61,35 @@ fun VideoPlayerControls(
 	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
 
 	BoxWithConstraints {
+		// The seek bar leads: it is what the controls are opened for, and the rest is arranged
+		// around it. The height is fixed so anything else drawn over the video knows where the
+		// controls end without having to wait for them to be measured.
 		Column(
-			verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
+			verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.Bottom),
+			modifier = Modifier.height(PlayerControlsHeight),
 		) {
+			PositionText(playbackManager)
+
+			PlayerSeekbar(
+				playbackManager = playbackManager,
+				onSeek = { position -> seekPosition = position },
+				// The shared colours are made for a solid background. Over a picture that can be
+				// any colour at all the rail has to carry its own contrast.
+				colors = SeekbarDefaults.colors(
+					backgroundColor = Color.White.copy(alpha = 0.22f),
+					bufferColor = Color.White.copy(alpha = 0.45f),
+					knobColor = Color.White,
+				),
+				modifier = Modifier
+					.fillMaxWidth()
+					.height(6.dp)
+			)
+
 			Row(
 				horizontalArrangement = Arrangement.spacedBy(12.dp),
+				verticalAlignment = Alignment.CenterVertically,
 				modifier = Modifier
+					.fillMaxWidth()
 					.focusRestorer()
 					.focusGroup()
 			) {
@@ -83,24 +109,6 @@ fun VideoPlayerControls(
 					PreviousEntryButton(playbackManager)
 					NextEntryButton(playbackManager)
 				}
-			}
-
-			PlayerSeekbar(
-				playbackManager = playbackManager,
-				onSeek = { position -> seekPosition = position },
-				modifier = Modifier
-					.fillMaxWidth()
-					.height(4.dp)
-			)
-
-			Row(
-				horizontalArrangement = Arrangement.spacedBy(12.dp),
-				modifier = Modifier
-					.focusRestorer()
-					.focusGroup()
-			) {
-				Spacer(Modifier.weight(1f))
-				PositionText(playbackManager)
 			}
 		}
 
@@ -226,7 +234,7 @@ private fun Duration.formatted(includeHours: Boolean): String {
 	val minutes = (totalSeconds % 3600) / 60
 	val seconds = totalSeconds % 60
 
-	return if (includeHours) "%02d:%02d:%02d".format(hours, minutes, seconds)
+	return if (includeHours) "%d:%02d:%02d".format(hours, minutes, seconds)
 	else "%02d:%02d".format(minutes, seconds)
 }
 
@@ -237,20 +245,29 @@ private fun PositionText(
 	val positionInfo by rememberPlayerPositionInfo(playbackManager, precision = 1.seconds)
 	if (positionInfo.duration == Duration.ZERO) return
 
-	val text by remember {
-		derivedStateOf {
-			val includeHours = positionInfo.duration.inWholeMinutes >= 60
-			val activeFormatted = positionInfo.active.formatted(includeHours)
-			val durationFormatted = positionInfo.duration.formatted(includeHours)
-
-			"$activeFormatted / $durationFormatted"
-		}
-	}
-
-	Text(
-		text = text,
-		style = LocalTextStyle.current.copy(color = Color.White)
+	val includeHours = positionInfo.duration.inWholeMinutes >= 60
+	val style = LocalTextStyle.current.copy(
+		fontSize = 15.sp,
+		fontWeight = FontWeight.W500,
+		letterSpacing = 0.4.sp,
+		// The seconds turn over once a second, and proportional digits shuffle the whole line
+		// every time they do.
+		fontFeatureSettings = "tnum",
 	)
+
+	Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+		Text(
+			text = positionInfo.active.formatted(includeHours),
+			style = style.copy(color = Color.White),
+		)
+
+		// The runtime is context for the position rather than something to read off it, so it is
+		// present without competing.
+		Text(
+			text = "/ ${positionInfo.duration.formatted(includeHours)}",
+			style = style.copy(color = Color.White.copy(alpha = 0.6f)),
+		)
+	}
 }
 
 @Composable
