@@ -5,8 +5,21 @@
         <item name="android:datePickerMode">spinner</item>
     </style>
 
+    <!-- Leanback's default is sans-serif-condensed at a regular weight, which is neither the face
+         the rest of the app is set in nor a weight that reads as a heading. Set through a text
+         appearance rather than as attributes on the widget style, so it replaces the one being
+         inherited instead of competing with it. The size is Leanback's own, so rows keep their
+         spacing. -->
+    <style name="TextAppearance.Jellyfin.Row.Header" parent="TextAppearance.Leanback.Header">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
+
     <style name="Widget.Jellyfin.Row.Header" parent="Widget.Leanback.Row.Header">
         <item name="android:textColor">?attr/headerTextColor</item>
+        <item name="android:textAppearance">@style/TextAppearance.Jellyfin.Row.Header</item>
     </style>
 
     <style name="player_progress" parent="android:Widget.ProgressBar.Horizontal">
