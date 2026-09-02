@@ -11,7 +11,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +19,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
@@ -110,10 +108,9 @@ private fun TrackPicker(
 	contentDescription: String,
 	tracks: List<Pair<Int, String>>,
 	activeIndex: Int?,
-	onSelect: suspend (index: Int) -> Unit,
+	onSelect: (index: Int) -> Unit,
 ) = Box {
 	var expanded by remember { mutableStateOf(false) }
-	val coroutineScope = rememberCoroutineScope()
 
 	IconButton(onClick = { expanded = true }) {
 		Icon(
@@ -138,7 +135,7 @@ private fun TrackPicker(
 				ListButton(
 					onClick = {
 						expanded = false
-						coroutineScope.launch { onSelect(index) }
+						onSelect(index)
 					},
 					headingContent = { Text(label) },
 					trailingContent = { RadioButton(checked = index == activeIndex) },

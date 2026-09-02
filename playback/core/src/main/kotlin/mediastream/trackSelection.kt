@@ -20,14 +20,16 @@ val PlaybackManager.currentTracks: Collection<MediaStreamTrack>
  * Play the current entry with a different audio track, keeping the position and play state.
  * Does nothing when that track is already selected.
  *
- * The stream is resolved again, so on a transcoded stream this restarts the transcode server side.
+ * The change is applied in the background: on a stream that already carries every track it takes
+ * effect without interrupting playback, and otherwise the stream is resolved again, which on a
+ * transcode restarts it server side.
  */
-suspend fun PlaybackManager.selectAudioStream(index: Int) {
+fun PlaybackManager.selectAudioStream(index: Int) {
 	val entry = queue.entry.value ?: return
 	if (entry.selectedAudioStreamIndex == index) return
 
 	entry.selectedAudioStreamIndex = index
-	mediaStreamService.reloadCurrentStream()
+	mediaStreamService.applyAudioTrackSelection(index)
 }
 
 /**
@@ -35,12 +37,12 @@ suspend fun PlaybackManager.selectAudioStream(index: Int) {
  * Pass [MediaStreamSubtitleTrack.INDEX_NONE] to turn subtitles off. Does nothing when that track
  * is already selected.
  *
- * The stream is resolved again, so on a transcoded stream this restarts the transcode server side.
+ * @see selectAudioStream
  */
-suspend fun PlaybackManager.selectSubtitleStream(index: Int) {
+fun PlaybackManager.selectSubtitleStream(index: Int) {
 	val entry = queue.entry.value ?: return
 	if (entry.selectedSubtitleStreamIndex == index) return
 
 	entry.selectedSubtitleStreamIndex = index
-	mediaStreamService.reloadCurrentStream()
+	mediaStreamService.applySubtitleTrackSelection(index)
 }

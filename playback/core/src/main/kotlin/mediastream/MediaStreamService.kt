@@ -39,6 +39,29 @@ class MediaStreamService internal constructor(
 	}
 
 	/**
+	 * Apply the audio track the current entry has selected. The backend gets first refusal, because
+	 * it can switch between the tracks of a stream it is already playing without interrupting it.
+	 * Only when it cannot is the stream resolved again, which is what a transcode needs since the
+	 * server bakes the chosen track into it.
+	 *
+	 * Runs on this service's scope rather than the caller's, so a caller that goes away while the
+	 * change is in flight cannot cancel it.
+	 */
+	fun applyAudioTrackSelection(index: Int) = coroutineScope.launch(Dispatchers.Main) {
+		if (manager.backend.selectAudioTrack(index)) return@launch
+		reloadCurrentStream()
+	}
+
+	/**
+	 * Apply the subtitle track the current entry has selected.
+	 * @see applyAudioTrackSelection
+	 */
+	fun applySubtitleTrackSelection(index: Int) = coroutineScope.launch(Dispatchers.Main) {
+		if (manager.backend.selectSubtitleTrack(index)) return@launch
+		reloadCurrentStream()
+	}
+
+	/**
 	 * Resolve the stream for the current entry again and resume where playback was, keeping the
 	 * play state it had. Call this after changing something the resolvers read from the entry,
 	 * such as the selected audio or subtitle track.
