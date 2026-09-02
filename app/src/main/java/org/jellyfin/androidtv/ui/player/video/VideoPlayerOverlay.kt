@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
+import org.jellyfin.androidtv.ui.player.base.PlayerControlsHeight
 import org.jellyfin.androidtv.ui.player.base.PlayerOverlayLayout
 import org.jellyfin.androidtv.ui.player.base.rememberPlayerOverlayVisibility
 import org.jellyfin.androidtv.ui.player.base.toast.MediaToastRegistry
@@ -65,8 +66,9 @@ fun VideoPlayerOverlay(
 			},
 		)
 
-		// Kept out of the controls so it can be shown on its own, and in the top corner so it
-		// never lands on them when they are open.
+		// Kept out of the controls so it can be shown on its own, and parked just above where
+		// they end rather than aligned to the screen, so it clears them when they are open and
+		// does not move when they come and go.
 		nextUp.item?.let { nextItem ->
 			PlayerNextUpCard(
 				item = nextItem,
@@ -76,8 +78,9 @@ fun VideoPlayerOverlay(
 					coroutineScope.launch { playbackManager.queue.next() }
 				},
 				modifier = Modifier
-					.align(Alignment.TopEnd)
+					.align(Alignment.BottomEnd)
 					.overscan()
+					.padding(bottom = PlayerControlsHeight + 16.dp)
 					.widthIn(max = 460.dp),
 			)
 		}
