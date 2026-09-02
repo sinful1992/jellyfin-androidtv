@@ -20,6 +20,7 @@ fun PlayerSeekbar(
 	modifier: Modifier = Modifier,
 	colors: SeekbarColors = SeekbarDefaults.colors(),
 	playbackManager: PlaybackManager = koinInject<PlaybackManager>(),
+	onSeek: ((position: Duration) -> Unit)? = null,
 ) {
 	val playState by playbackManager.state.playState.collectAsState()
 	val positionInfo = playbackManager.state.positionInfo
@@ -38,7 +39,10 @@ fun PlayerSeekbar(
 		seekForwardAmount = seekForwardAmount,
 		seekRewindAmount = seekRewindAmount,
 		onScrubbing = { scrubbing -> playbackManager.state.setScrubbing(scrubbing) },
-		onSeek = { progress -> playbackManager.state.seek(progress) },
+		onSeek = { position ->
+			onSeek?.invoke(position)
+			playbackManager.state.seek(position)
+		},
 		modifier = modifier,
 		colors = colors,
 		enabled = positionInfo.duration > Duration.ZERO,

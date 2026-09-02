@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -81,12 +82,7 @@ fun VideoPlayerControls(
 			}
 		}
 
-		PlayerSeekbar(
-			playbackManager = playbackManager,
-			modifier = Modifier
-				.fillMaxWidth()
-				.height(4.dp)
-		)
+		SeekbarWithPreview(playbackManager)
 
 		Row(
 			horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -97,6 +93,45 @@ fun VideoPlayerControls(
 			Spacer(Modifier.weight(1f))
 			PositionText(playbackManager)
 		}
+	}
+}
+
+/**
+ * The seek bar, with the trickplay thumbnail for the position being scrubbed to floating above it.
+ *
+ * The preview overflows the bar's own bounds rather than taking space of its own, so showing and
+ * hiding it does not move the controls around it.
+ */
+@Composable
+private fun SeekbarWithPreview(
+	playbackManager: PlaybackManager,
+) {
+	val scrubbing by playbackManager.state.scrubbing.collectAsState()
+	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
+
+	BoxWithConstraints(
+		modifier = Modifier.fillMaxWidth()
+	) {
+		if (scrubbing) {
+			val duration = playbackManager.state.positionInfo.duration
+			PlayerTrickplayPreview(
+				position = seekPosition,
+				positionFraction = when {
+					duration > Duration.ZERO -> (seekPosition / duration).toFloat().coerceIn(0f, 1f)
+					else -> 0f
+				},
+				railWidth = maxWidth,
+				playbackManager = playbackManager,
+			)
+		}
+
+		PlayerSeekbar(
+			playbackManager = playbackManager,
+			onSeek = { position -> seekPosition = position },
+			modifier = Modifier
+				.fillMaxWidth()
+				.height(4.dp)
+		)
 	}
 }
 
