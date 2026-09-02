@@ -24,6 +24,12 @@ class MediaStreamService internal constructor(
 		private const val TIMED_EVENT_PRELOAD = "MediaStreamServicePreloadNext"
 	}
 
+	/**
+	 * The audio language the user last picked, applied to every entry resolved after it. Null until
+	 * a choice is made, leaving the server default in place.
+	 */
+	var preferredAudioLanguage: String? = null
+
 	override suspend fun onInitialize() {
 		manager.queue.entry.onEach { entry ->
 			Timber.d("Queue entry changed to $entry")
@@ -112,7 +118,10 @@ class MediaStreamService internal constructor(
 		}
 
 	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
-		if (mediaStream == null) mediaStream = resolveMediaStream(this)
+		if (mediaStream == null) {
+			this.preferredAudioLanguage = this@MediaStreamService.preferredAudioLanguage
+			mediaStream = resolveMediaStream(this)
+		}
 
 		return mediaStream != null
 	}

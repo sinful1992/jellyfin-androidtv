@@ -6,6 +6,7 @@ import org.jellyfin.playback.core.element.elementFlow
 import org.jellyfin.playback.core.queue.QueueEntry
 
 private val selectedAudioStreamIndexKey = ElementKey<Int>("SelectedAudioStreamIndex")
+private val preferredAudioLanguageKey = ElementKey<String>("PreferredAudioLanguage")
 private val selectedSubtitleStreamIndexKey = ElementKey<Int>("SelectedSubtitleStreamIndex")
 
 /**
@@ -38,3 +39,11 @@ var QueueEntry.selectedSubtitleStreamIndex by element(selectedSubtitleStreamInde
  * @see selectedSubtitleStreamIndex
  */
 val QueueEntry.selectedSubtitleStreamIndexFlow by elementFlow(selectedSubtitleStreamIndexKey)
+
+/**
+ * The language the audio track should be in for this [QueueEntry], as the ISO code the server uses.
+ * Set from the choice the user made on an earlier entry, because track indices differ between files
+ * while languages do not. Only consulted when [selectedAudioStreamIndex] is null, so an explicit
+ * choice for this entry always wins.
+ */
+var QueueEntry.preferredAudioLanguage by element(preferredAudioLanguageKey)

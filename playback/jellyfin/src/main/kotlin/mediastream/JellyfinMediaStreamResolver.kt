@@ -3,6 +3,7 @@ package org.jellyfin.playback.jellyfin.mediastream
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStreamResolver
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
+import org.jellyfin.playback.core.mediastream.preferredAudioLanguage
 import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
 import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
 import org.jellyfin.playback.core.queue.QueueEntry
@@ -15,6 +16,7 @@ import org.jellyfin.sdk.api.client.extensions.videosApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.DeviceProfile
 import org.jellyfin.sdk.model.api.MediaProtocol
+import org.jellyfin.sdk.model.api.MediaStreamType
 import org.jellyfin.sdk.model.api.MediaType
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 
@@ -30,10 +32,17 @@ class JellyfinMediaStreamResolver(
 		val baseItem = queueEntry.baseItem
 		if (baseItem == null || !supportedMediaTypes.contains(baseItem.mediaType)) return null
 
+		// An explicit choice for this entry wins; otherwise fall back to the language the user
+		// picked on an earlier entry, which has to be resolved to an index for this item.
+		val audioStreamIndex = queueEntry.selectedAudioStreamIndex
+			?: queueEntry.preferredAudioLanguage?.let { language ->
+				baseItem.getAudioStreamIndex(queueEntry.mediaSourceId, language)
+			}
+
 		val mediaInfo = getPlaybackInfo(
 			item = baseItem,
 			mediaSourceId = queueEntry.mediaSourceId,
-			audioStreamIndex = queueEntry.selectedAudioStreamIndex,
+			audioStreamIndex = audioStreamIndex,
 			subtitleStreamIndex = queueEntry.selectedSubtitleStreamIndex,
 		)
 
@@ -84,6 +93,21 @@ class JellyfinMediaStreamResolver(
 			else -> null
 		}
 	}
+
+	/**
+	 * The index of the first audio stream in [language], within the media source that will be
+	 * played. Null when the item has no such stream, which leaves the server default in place.
+	 *
+	 * The item has to have been fetched with the media source and media stream fields for this to
+	 * find anything; the source is picked the same way [getPlaybackInfo] picks it.
+	 */
+	private fun BaseItemDto.getAudioStreamIndex(mediaSourceId: String?, language: String) = mediaSources
+		.orEmpty()
+		.filter { it.protocol == MediaProtocol.FILE && !it.isRemote }
+		.firstOrNull { mediaSourceId == null || it.id == mediaSourceId }
+		?.mediaStreams
+		?.firstOrNull { it.type == MediaStreamType.AUDIO && it.language == language }
+		?.index
 
 	private suspend fun getPlaybackInfo(
 		item: BaseItemDto,
