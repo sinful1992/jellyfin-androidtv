@@ -43,9 +43,9 @@ class MediaStreamService internal constructor(
 	 * play state it had. Call this after changing something the resolvers read from the entry,
 	 * such as the selected audio or subtitle track.
 	 *
-	 * Does nothing when there is no current entry. When the new stream cannot be resolved the
-	 * entry is left without one rather than falling back to the previous stream, because the
-	 * previous stream no longer matches what was asked for.
+	 * Does nothing when there is no current entry. The current stream is only replaced once the
+	 * new one resolves, so a failure leaves playback alone instead of stranding the entry without
+	 * a stream.
 	 */
 	suspend fun reloadCurrentStream(keepPosition: Boolean = true) = withContext(Dispatchers.Main) {
 		val entry = manager.queue.entry.value ?: return@withContext
@@ -54,29 +54,32 @@ class MediaStreamService internal constructor(
 		val position = if (keepPosition) state.positionInfo.active else Duration.ZERO
 		val wasPaused = state.playState.value == PlayState.PAUSED
 
-		// Drop the resolved stream so the resolvers run again against the current selection.
-		entry.mediaStream = null
-
-		if (!entry.ensureMediaStream()) {
-			Timber.e("Unable to re-resolve stream for entry $entry")
+		val stream = resolveMediaStream(entry)
+		if (stream == null) {
+			Timber.e("Unable to re-resolve stream for entry $entry, keeping the current one")
 			return@withContext
 		}
+
+		entry.mediaStream = stream
 
 		backend.playItem(entry)
 		if (position > Duration.ZERO) backend.seekTo(position)
 		if (wasPaused) backend.pause()
 	}
 
-	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
-		mediaStream = mediaStream ?: mediaStreamResolvers.firstNotNullOfOrNull { resolver ->
+	private suspend fun resolveMediaStream(entry: QueueEntry): PlayableMediaStream? =
+		mediaStreamResolvers.firstNotNullOfOrNull { resolver ->
 			runCatching {
 				withContext(Dispatchers.IO) {
-					resolver.getStream(this@ensureMediaStream)
+					resolver.getStream(entry)
 				}
 			}.onFailure {
-				Timber.e(it, "Media stream resolver failed for $this")
+				Timber.e(it, "Media stream resolver failed for $entry")
 			}.getOrNull()
 		}
+
+	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
+		if (mediaStream == null) mediaStream = resolveMediaStream(this)
 
 		return mediaStream != null
 	}
