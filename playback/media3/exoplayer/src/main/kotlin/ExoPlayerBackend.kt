@@ -10,6 +10,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
@@ -32,6 +34,9 @@ import io.github.peerless2012.ass.media.type.AssRenderType
 import io.github.peerless2012.ass.media.widget.AssSubtitleView
 import org.jellyfin.playback.core.backend.BasePlayerBackend
 import org.jellyfin.playback.core.mediastream.MediaStream
+import org.jellyfin.playback.core.mediastream.MediaStreamAudioTrack
+import org.jellyfin.playback.core.mediastream.MediaStreamSubtitleTrack
+import org.jellyfin.playback.core.mediastream.MediaStreamTrack
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
 import org.jellyfin.playback.core.mediastream.mediaStream
 import org.jellyfin.playback.core.mediastream.mediatype.MediaType
@@ -252,6 +257,14 @@ class ExoPlayerBackend(
 
 		currentStream = stream
 
+		// Track overrides belong to the stream they were chosen for, and the player keeps them
+		// across items, so drop them before playing a different one.
+		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+			.clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+			.clearOverridesOfType(C.TRACK_TYPE_TEXT)
+			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+			.build()
+
 		var preparedItemIndex = (0 until exoPlayer.mediaItemCount).firstOrNull { index ->
 			exoPlayer.getMediaItemAt(index).mediaId == stream.hashCode().toString()
 		}
@@ -290,6 +303,92 @@ class ExoPlayerBackend(
 		// Enjoy!
 		Timber.i("Playing ${item.mediaStream?.url}")
 		exoPlayer.play()
+	}
+
+	override fun selectAudioTrack(index: Int): Boolean {
+		val group = findTrackGroup<MediaStreamAudioTrack>(C.TRACK_TYPE_AUDIO, index) ?: return false
+
+		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+			.setOverrideForType(TrackSelectionOverride(group, 0))
+			.build()
+
+		Timber.i("Selected audio track $index client side (${group.getFormat(0).language})")
+		return true
+	}
+
+	override fun selectSubtitleTrack(index: Int): Boolean {
+		if (index == MediaStreamSubtitleTrack.INDEX_NONE) {
+			// Subtitles burned into a transcode cannot be turned off by selecting tracks, and that
+			// shows up the same way any other rewritten stream does.
+			if (!containerMatchesMediaSource<MediaStreamSubtitleTrack>(C.TRACK_TYPE_TEXT)) return false
+
+			exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+				.clearOverridesOfType(C.TRACK_TYPE_TEXT)
+				.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+				.build()
+
+			Timber.i("Disabled subtitles client side")
+			return true
+		}
+
+		val group = findTrackGroup<MediaStreamSubtitleTrack>(C.TRACK_TYPE_TEXT, index) ?: return false
+
+		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+			.setOverrideForType(TrackSelectionOverride(group, 0))
+			.build()
+
+		Timber.i("Selected subtitle track $index client side (${group.getFormat(0).language})")
+		return true
+	}
+
+	/**
+	 * Whether the tracks of [trackType] in the stream being played line up with the ones the media
+	 * source describes, meaning a track can be picked without resolving the stream again.
+	 *
+	 * They line up while both sides describe the same tracks: a transcode collapses them to one,
+	 * and an external subtitle exists in the media source but not in the container. Both show up as
+	 * a differing count, which is the signal to leave the change to the caller instead of guessing.
+	 */
+	private inline fun <reified T : MediaStreamTrack> containerMatchesMediaSource(trackType: Int): Boolean {
+		val tracks = currentStream?.tracks.orEmpty().filterIsInstance<T>().size
+		val groups = exoPlayer.currentTracks.groups.count { it.type == trackType }
+
+		if (groups != tracks) {
+			Timber.d("Cannot select tracks of type $trackType client side: $tracks in the media source but $groups in the container")
+			return false
+		}
+
+		return true
+	}
+
+	/**
+	 * Find the track group holding the track the media source lists at [index]. The container
+	 * exposes its tracks of a given type in the same order the media source lists them, so the
+	 * position within that type is enough to match the two up.
+	 */
+	private inline fun <reified T : MediaStreamTrack> findTrackGroup(
+		trackType: Int,
+		index: Int,
+	): TrackGroup? {
+		if (!containerMatchesMediaSource<T>(trackType)) return null
+
+		val tracks = currentStream?.tracks.orEmpty().filterIsInstance<T>()
+		val groups = exoPlayer.currentTracks.groups.filter { it.type == trackType }
+
+		val position = tracks.indexOfFirst { it.index == index }
+		if (position == -1) {
+			Timber.d("Cannot select track $index client side: the media source does not list it")
+			return null
+		}
+
+		val group = groups[position]
+		if (!group.isSupported) {
+			Timber.d("Cannot select track $index client side: the player cannot decode ${group.getTrackFormat(0).sampleMimeType}")
+			return null
+		}
+
+		return group.mediaTrackGroup
 	}
 
 	override fun play() {
