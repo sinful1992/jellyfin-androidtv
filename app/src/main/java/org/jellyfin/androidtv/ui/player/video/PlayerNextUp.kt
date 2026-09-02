@@ -19,6 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -117,6 +119,7 @@ fun PlayerNextUpCard(
 	showThumbnail: Boolean,
 	onPlay: () -> Unit,
 	modifier: Modifier = Modifier,
+	focusRequester: FocusRequester = remember { FocusRequester() },
 	api: ApiClient = koinInject(),
 ) {
 	val context = LocalContext.current
@@ -173,6 +176,7 @@ fun PlayerNextUpCard(
 			// The player theme makes buttons transparent so the icon row disappears into the video;
 			// this one has to read as an actionable button on its own.
 			colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.2f)),
+			modifier = Modifier.focusRequester(focusRequester),
 		) {
 			Text(stringResource(R.string.watch_now))
 		}

@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Color
@@ -55,6 +56,11 @@ import kotlin.time.DurationUnit
 fun VideoPlayerControls(
 	playbackManager: PlaybackManager = koinInject(),
 	onPlaybackInfoClick: () -> Unit = {},
+	/**
+	 * What moving up off the seek bar reaches, when there is something above the controls to
+	 * reach. Null closes the controls instead, which is what going up out of them normally does.
+	 */
+	nextUpFocusRequester: FocusRequester? = null,
 ) {
 	val playState by playbackManager.state.playState.collectAsState()
 
@@ -99,6 +105,9 @@ fun VideoPlayerControls(
 					.fillMaxWidth()
 					.height(6.dp)
 					.focusRequester(seekbarFocusRequester)
+					.focusProperties {
+						if (nextUpFocusRequester != null) up = nextUpFocusRequester
+					}
 			)
 
 			Row(

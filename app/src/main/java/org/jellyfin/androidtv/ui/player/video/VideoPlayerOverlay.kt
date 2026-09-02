@@ -6,14 +6,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
@@ -29,6 +38,14 @@ import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.playback.jellyfin.queue.baseItemFlow
 import org.koin.compose.koinInject
 
+/** Keys that mean "go somewhere else", as opposed to acting on what is in front of you. */
+private val NavigationKeys = setOf(
+	Key.DirectionUp,
+	Key.DirectionDown,
+	Key.DirectionLeft,
+	Key.DirectionRight,
+)
+
 @Composable
 fun VideoPlayerOverlay(
 	modifier: Modifier = Modifier,
@@ -38,10 +55,34 @@ fun VideoPlayerOverlay(
 	val visibilityState = rememberPlayerOverlayVisibility()
 	val nextUp = rememberPlayerNextUpState(playbackManager)
 	val coroutineScope = rememberCoroutineScope()
+	val nextUpFocusRequester = remember { FocusRequester() }
 
 	// The card announces itself without dragging the controls along, so the picture stays clear.
 	// While it is up Back dismisses it rather than leaving playback.
 	BackHandler(enabled = nextUp.item != null, onBack = nextUp.dismiss)
+
+	// Offering to skip ahead is worth nothing if the offer cannot be taken. With the controls
+	// down there is nothing else asking for the focus, so the card holds it; when they open they
+	// take it back, and moving up from the seek bar returns it.
+	LaunchedEffect(nextUp.item, visibilityState.visible) {
+		if (nextUp.item == null || visibilityState.visible) return@LaunchedEffect
+
+		// This runs as soon as the composition is applied, which can be before the card it names
+		// has been laid out and can take anything. Waiting a frame is enough for it to exist.
+		withFrameNanos { }
+		nextUpFocusRequester.requestFocus()
+	}
+
+	// The overlay's own key handling is a sibling of the card rather than a parent of it, so
+	// while the card holds the focus nothing else can bring the controls up. Trying to navigate
+	// away from the card is the request to do so.
+	fun showControlsOnNavigation(event: KeyEvent): Boolean {
+		if (event.type != KeyEventType.KeyDown) return false
+		if (visibilityState.visible || event.key !in NavigationKeys) return false
+
+		visibilityState.show()
+		return true
+	}
 
 	var showPlaybackInfo by remember { mutableStateOf(false) }
 
@@ -51,6 +92,9 @@ fun VideoPlayerOverlay(
 	Box(modifier = modifier) {
 		PlayerOverlayLayout(
 			visibilityState = visibilityState,
+			// While the card is up, moving off the top of the controls reaches it instead of
+			// closing them.
+			hideOnFocusExitUp = nextUp.item == null,
 			header = {
 				Column {
 					VideoPlayerHeader(
@@ -62,6 +106,7 @@ fun VideoPlayerOverlay(
 				VideoPlayerControls(
 					playbackManager = playbackManager,
 					onPlaybackInfoClick = { showPlaybackInfo = !showPlaybackInfo },
+					nextUpFocusRequester = nextUpFocusRequester.takeIf { nextUp.item != null },
 				)
 			},
 		)
@@ -73,6 +118,7 @@ fun VideoPlayerOverlay(
 			PlayerNextUpCard(
 				item = nextItem,
 				showThumbnail = nextUp.showThumbnail,
+				focusRequester = nextUpFocusRequester,
 				onPlay = {
 					nextUp.dismiss()
 					coroutineScope.launch { playbackManager.queue.next() }
@@ -81,7 +127,8 @@ fun VideoPlayerOverlay(
 					.align(Alignment.BottomEnd)
 					.overscan()
 					.padding(bottom = PlayerControlsHeight + 16.dp)
-					.widthIn(max = 460.dp),
+					.widthIn(max = 460.dp)
+					.onPreviewKeyEvent { showControlsOnNavigation(it) },
 			)
 		}
 
