@@ -75,6 +75,12 @@ fun PlayerOverlayLayout(
 	visibilityState: PlayerOverlayVisibilityState = rememberPlayerOverlayVisibility(),
 	header: (@Composable () -> Unit)? = null,
 	controls: (@Composable () -> Unit)? = null,
+	/**
+	 * Whether moving the focus off the top of the controls closes them. Callers that put
+	 * something focusable above the controls turn this off while it is there, so the focus can
+	 * reach it instead.
+	 */
+	hideOnFocusExitUp: Boolean = true,
 ) = Box(
 	modifier = modifier
 		.fillMaxSize()
@@ -145,7 +151,7 @@ fun PlayerOverlayLayout(
 					.focusProperties {
 						// Hide overlay when focus is moved out by going up
 						onExit = {
-							if (requestedFocusDirection == FocusDirection.Up) {
+							if (hideOnFocusExitUp && requestedFocusDirection == FocusDirection.Up) {
 								Timber.i("Hide reason: focus moved up")
 								visibilityState.hide()
 								cancelFocusChange()
