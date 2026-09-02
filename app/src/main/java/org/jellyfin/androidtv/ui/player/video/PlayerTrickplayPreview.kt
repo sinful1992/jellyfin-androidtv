@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -114,6 +115,7 @@ fun PlayerTrickplayPreview(
 
 	Box(
 		modifier = modifier
+			.withoutSize()
 			.offset(x = offsetX, y = -(PreviewHeight + PreviewOffset))
 			.height(PreviewHeight)
 			.aspectRatio(aspectRatio)
@@ -129,6 +131,15 @@ fun PlayerTrickplayPreview(
 			)
 		}
 	}
+}
+
+/**
+ * Lay this content out without it counting towards the size of its parent, so it can overflow into
+ * the video above the seek bar without making the bar's row any taller.
+ */
+private fun Modifier.withoutSize() = layout { measurable, constraints ->
+	val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+	layout(0, 0) { placeable.place(0, 0) }
 }
 
 /**
