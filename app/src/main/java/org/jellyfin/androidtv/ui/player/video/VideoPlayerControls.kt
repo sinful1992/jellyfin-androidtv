@@ -4,10 +4,12 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -37,6 +39,7 @@ import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.button.IconButton
 import org.jellyfin.androidtv.ui.base.popover.Popover
 import org.jellyfin.androidtv.ui.composable.rememberPlayerPositionInfo
+import org.jellyfin.androidtv.ui.player.base.PlayerSeekbar
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.queue.queue
@@ -54,56 +57,68 @@ fun VideoPlayerControls(
 	val playState by playbackManager.state.playState.collectAsState()
 	val coroutineScope = rememberCoroutineScope()
 
-	Column(
-		verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
-	) {
-		nextUp.item?.let { item ->
-			PlayerNextUpCard(
-				item = item,
-				showThumbnail = nextUp.showThumbnail,
-				onPlay = {
-					nextUp.dismiss()
-					coroutineScope.launch { playbackManager.queue.next() }
-				},
-				modifier = Modifier.fillMaxWidth(),
-			)
-		}
+	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
 
-		Row(
-			horizontalArrangement = Arrangement.spacedBy(12.dp),
-			modifier = Modifier
-				.focusRestorer()
-				.focusGroup()
+	BoxWithConstraints {
+		Column(
+			verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
 		) {
-			PlayPauseButton(playbackManager, playState)
-			RewindButton(playbackManager)
-			FastForwardButton(playbackManager)
+			nextUp.item?.let { item ->
+				PlayerNextUpCard(
+					item = item,
+					showThumbnail = nextUp.showThumbnail,
+					onPlay = {
+						nextUp.dismiss()
+						coroutineScope.launch { playbackManager.queue.next() }
+					},
+					modifier = Modifier.fillMaxWidth(),
+				)
+			}
 
-			Spacer(Modifier.weight(1f))
+			Row(
+				horizontalArrangement = Arrangement.spacedBy(12.dp),
+				modifier = Modifier
+					.focusRestorer()
+					.focusGroup()
+			) {
+				PlayPauseButton(playbackManager, playState)
+				RewindButton(playbackManager)
+				FastForwardButton(playbackManager)
 
-			AudioTrackButton(playbackManager)
-			SubtitleTrackButton(playbackManager)
-			QualityButton(playbackManager)
+				Spacer(Modifier.weight(1f))
 
-			PlaybackInfoButton(onClick = onPlaybackInfoClick)
+				AudioTrackButton(playbackManager)
+				SubtitleTrackButton(playbackManager)
+				QualityButton(playbackManager)
 
-			MoreOptionsButton {
-				PreviousEntryButton(playbackManager)
-				NextEntryButton(playbackManager)
+				PlaybackInfoButton(onClick = onPlaybackInfoClick)
+
+				MoreOptionsButton {
+					PreviousEntryButton(playbackManager)
+					NextEntryButton(playbackManager)
+				}
+			}
+
+			PlayerSeekbar(
+				playbackManager = playbackManager,
+				onSeek = { position -> seekPosition = position },
+				modifier = Modifier
+					.fillMaxWidth()
+					.height(4.dp)
+			)
+
+			Row(
+				horizontalArrangement = Arrangement.spacedBy(12.dp),
+				modifier = Modifier
+					.focusRestorer()
+					.focusGroup()
+			) {
+				Spacer(Modifier.weight(1f))
+				PositionText(playbackManager)
 			}
 		}
 
-		SeekbarWithPreview(playbackManager)
-
-		Row(
-			horizontalArrangement = Arrangement.spacedBy(12.dp),
-			modifier = Modifier
-				.focusRestorer()
-				.focusGroup()
-		) {
-			Spacer(Modifier.weight(1f))
-			PositionText(playbackManager)
-		}
+		PlayerTrickplayPreviewOverlay(playbackManager, seekPosition)
 	}
 }
 
