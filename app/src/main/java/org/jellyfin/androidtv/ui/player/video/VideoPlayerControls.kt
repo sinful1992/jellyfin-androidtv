@@ -60,13 +60,28 @@ fun VideoPlayerControls(
 
 	var seekPosition by remember { mutableStateOf(Duration.ZERO) }
 
+	val seekbarFocusRequester = remember { FocusRequester() }
+	val playPauseFocusRequester = remember { FocusRequester() }
+
 	BoxWithConstraints {
 		// The seek bar leads: it is what the controls are opened for, and the rest is arranged
 		// around it. The height is fixed so anything else drawn over the video knows where the
 		// controls end without having to wait for them to be measured.
 		Column(
 			verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.Bottom),
-			modifier = Modifier.height(PlayerControlsHeight),
+			modifier = Modifier
+				.height(PlayerControlsHeight)
+				.onVisibilityChanged { visible ->
+					if (!visible) return@onVisibilityChanged
+
+					// The controls are opened to move through the entry far more often than to
+					// change anything about it, so the bar is what they open on. The position is
+					// read rather than observed: all this needs is whether the bar can take the
+					// focus right now. Live television has no duration, which leaves the bar
+					// disabled and nothing to hand the focus to but the buttons.
+					if (playbackManager.state.positionInfo.duration > Duration.ZERO) seekbarFocusRequester.requestFocus()
+					else playPauseFocusRequester.requestFocus()
+				},
 		) {
 			PositionText(playbackManager)
 
@@ -83,6 +98,7 @@ fun VideoPlayerControls(
 				modifier = Modifier
 					.fillMaxWidth()
 					.height(6.dp)
+					.focusRequester(seekbarFocusRequester)
 			)
 
 			Row(
@@ -93,7 +109,11 @@ fun VideoPlayerControls(
 					.focusRestorer()
 					.focusGroup()
 			) {
-				PlayPauseButton(playbackManager, playState)
+				PlayPauseButton(
+					playbackManager = playbackManager,
+					playState = playState,
+					modifier = Modifier.focusRequester(playPauseFocusRequester),
+				)
 				RewindButton(playbackManager)
 				FastForwardButton(playbackManager)
 
@@ -120,8 +140,8 @@ fun VideoPlayerControls(
 private fun PlayPauseButton(
 	playbackManager: PlaybackManager,
 	playState: PlayState,
+	modifier: Modifier = Modifier,
 ) {
-	val focusRequester = remember { FocusRequester() }
 	IconButton(
 		onClick = {
 			when (playState) {
@@ -132,11 +152,7 @@ private fun PlayPauseButton(
 				PlayState.PAUSED -> playbackManager.state.unpause()
 			}
 		},
-		modifier = Modifier
-			.focusRequester(focusRequester)
-			.onVisibilityChanged {
-				focusRequester.requestFocus()
-			}
+		modifier = modifier,
 	) {
 		AnimatedContent(playState) { playState ->
 			when (playState) {
