@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import androidx.leanback.app.RowsSupportFragment
+import androidx.leanback.widget.ClassPresenterSelector
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.OnItemViewClickedListener
 import androidx.leanback.widget.OnItemViewSelectedListener
@@ -52,6 +53,7 @@ import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
 import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.KeyProcessor
+import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.sockets.subscribe
@@ -81,6 +83,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	private val navigationRepository by inject<NavigationRepository>()
 	private val itemLauncher by inject<ItemLauncher>()
 	private val keyProcessor by inject<KeyProcessor>()
+	private val playbackHelper by inject<PlaybackHelper>()
 
 	private val helper by lazy { HomeFragmentHelper(requireContext(), userRepository) }
 
@@ -92,11 +95,18 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	// Special rows
 	private val notificationsRow by lazy { NotificationsHomeFragmentRow(lifecycleScope, notificationsRepository) }
 	private val nowPlaying by lazy { HomeFragmentNowPlayingRow(lifecycleScope, playbackManager, mediaManager) }
+	private val hero by lazy { HomeFragmentHeroRow(lifecycleScope, api, navigationRepository, playbackHelper) }
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
-		adapter = MutableObjectAdapter<Row>(PositionableListRowPresenter())
+		// The hero is a row like any other as far as leanback is concerned, so that it scrolls away
+		// under the cards rather than sitting over them, but it is not a row of cards and is not
+		// presented like one.
+		adapter = MutableObjectAdapter<Row>(ClassPresenterSelector().apply {
+			addClassPresenter(HomeHeroRow::class.java, HomeHeroRowPresenter(hero::onAction))
+			addClassPresenter(Row::class.java, PositionableListRowPresenter())
+		})
 
 		lifecycleScope.launch(Dispatchers.IO) {
 			val currentUser = withTimeout(30.seconds) {
@@ -146,6 +156,9 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				)
 
 				// Add rows in order
+				// The hero loads its own title and inserts itself at the top once it has one, so a
+				// library with nothing new in it gets the rows on their own rather than a gap.
+				hero.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				nowPlaying.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				for (row in rows) row.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
@@ -289,7 +302,14 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			rowViewHolder: RowPresenter.ViewHolder?,
 			row: Row?,
 		) {
-			if (item !is BaseRowItem) {
+			// The hero has no items in the leanback sense, so nothing is passed here when it is
+			// selected. Its artwork is the screen behind it, which is this background, so it has
+			// to be named explicitly or moving up onto the hero would clear the picture it is
+			// drawn over.
+			if (row is HomeHeroRow) {
+				currentItem = null
+				backgroundService.setBackground(row.item)
+			} else if (item !is BaseRowItem) {
 				currentItem = null
 				//fill in default background
 				backgroundService.clearBackgrounds()

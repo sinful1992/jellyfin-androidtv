@@ -17,6 +17,8 @@
     <string name="lbl_continue_watching">Continue watching</string>
     <string name="continue_listening">Continue listening</string>
     <string name="lbl_next_up">Next up</string>
+    <string name="home_hero_label">Recently added</string>
+    <string name="home_hero_details">More info</string>
     <string name="lbl_on_now">On now</string>
     <string name="lbl_views">Views</string>
     <string name="lbl_by_letter">By letter</string>
