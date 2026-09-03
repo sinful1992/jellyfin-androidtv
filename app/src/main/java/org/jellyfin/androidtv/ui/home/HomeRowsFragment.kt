@@ -27,6 +27,7 @@ import kotlinx.coroutines.withTimeout
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.constant.CustomMessage
 import org.jellyfin.androidtv.constant.HomeSectionType
+import org.jellyfin.androidtv.constant.ImageType
 import org.jellyfin.androidtv.constant.LiveTvOption
 import org.jellyfin.androidtv.constant.QueryType
 import org.jellyfin.androidtv.data.model.DataRefreshService
@@ -49,6 +50,7 @@ import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
+import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.KeyProcessor
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.sdk.api.client.ApiClient
@@ -58,6 +60,12 @@ import org.jellyfin.sdk.model.api.UserDataChangedMessage
 import org.koin.android.ext.android.inject
 import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
+
+/**
+ * The height of a home screen card. With a 16:9 box that puts four and a half of them across the
+ * usable width of a 960dp screen, leaving the last one cut by the edge to say the row goes on.
+ */
+private const val HOME_CARD_HEIGHT = 104
 
 class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyListener {
 	private val api by inject<ApiClient>()
@@ -124,7 +132,18 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 
 			// Add sections to layout
 			withContext(Dispatchers.Main) {
-				val cardPresenter = CardPresenter()
+				// The home screen is a stack of mixed rows: Continue watching holds episodes next
+				// to films, Next up holds series artwork next to episode stills. Sizing each card
+				// from its own artwork gives those rows a ragged top and bottom edge and lets the
+				// focused card grow over its neighbour. One wide box for all of them instead, at a
+				// height that fits four and a half across so the row reads as continuing offscreen.
+				val cardPresenter = CardPresenter(
+					showInfo = true,
+					imageType = ImageType.THUMB,
+					staticHeight = HOME_CARD_HEIGHT,
+					uniformAspect = false,
+					fixedAspectRatio = ImageHelper.ASPECT_RATIO_16_9.toFloat(),
+				)
 
 				// Add rows in order
 				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
