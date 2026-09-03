@@ -3,7 +3,15 @@
     <dimen name="overscan_vertical">48dp</dimen>
 
     <fraction name="card_scale_default">100%</fraction>
-    <fraction name="card_scale_focus">115%</fraction>
+    <!-- The focused card grows by half of this past its own edge on each side, over whatever is
+         next to it. At 115% a 185dp card reached 14dp into its neighbour, which is wider than the
+         gap between them. Small enough now to stay inside the gutter, and the ring around the
+         focused card carries the rest of the message. -->
+    <fraction name="card_scale_focus">106%</fraction>
+
+    <!-- Leanback leaves 8dp between cards, which was room for nothing. Wide enough now to read as
+         a gutter, and to hold the focused card's growth. -->
+    <dimen name="lb_browse_item_horizontal_spacing">12dp</dimen>
 
     <!-- Set leanback card scale values -->
     <fraction name="lb_focus_zoom_factor_small">@fraction/card_scale_focus</fraction>
