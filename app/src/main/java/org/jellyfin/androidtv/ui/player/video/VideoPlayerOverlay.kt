@@ -105,8 +105,10 @@ fun VideoPlayerOverlay(
 			// button two more presses away.
 			onSelect = { playbackManager.togglePlayPause() },
 			// While the card is up, moving off the top of the controls reaches it instead of
-			// closing them.
+			// closing them, and closing them hands the focus to the card rather than back to the
+			// overlay, so the offer stays one press away.
 			hideOnFocusExitUp = nextUp.item == null,
+			reclaimFocusOnHide = nextUp.item == null,
 			header = {
 				Column {
 					VideoPlayerHeader(

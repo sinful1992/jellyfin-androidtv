@@ -96,6 +96,11 @@ fun PlayerOverlayLayout(
 	 * it back.
 	 */
 	focusRequester: FocusRequester = remember { FocusRequester() },
+	/**
+	 * Whether closing the controls hands the focus back to this layout. Callers that put something
+	 * focusable over the video turn this off while it is there, so it can hold the focus instead.
+	 */
+	reclaimFocusOnHide: Boolean = true,
 ) = Box(
 	modifier = modifier
 		.fillMaxSize()
@@ -142,6 +147,16 @@ fun PlayerOverlayLayout(
 			true
 		}
 ) {
+	// Closing the controls takes them out of the composition, and whatever inside them held the
+	// focus goes with them. Over a bare picture nothing else is asking for it, so it is left
+	// nowhere at all and the next press reaches no handler — not even the one that brings the
+	// controls back, which is the state the player gets stuck in after using them once.
+	LaunchedEffect(visibilityState.visible, reclaimFocusOnHide) {
+		if (visibilityState.visible || !reclaimFocusOnHide) return@LaunchedEffect
+
+		focusRequester.requestFocus()
+	}
+
 	if (header != null) {
 		AnimatedVisibility(
 			visible = visibilityState.visible,
