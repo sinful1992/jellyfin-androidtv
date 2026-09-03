@@ -48,17 +48,34 @@ import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.apiclient.JellyfinImage
 import org.jellyfin.androidtv.util.apiclient.getUrl
+import org.jellyfin.androidtv.util.apiclient.itemBackdropImages
+import org.jellyfin.androidtv.util.apiclient.itemImages
+import org.jellyfin.androidtv.util.apiclient.parentBackdropImages
+import org.jellyfin.androidtv.util.apiclient.parentImages
+import org.jellyfin.androidtv.util.apiclient.seriesThumbImage
 import org.jellyfin.androidtv.util.getActivity
 import org.jellyfin.design.Tokens
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ImageType as SdkImageType
 import org.koin.compose.koinInject
 
-class CardPresenter(
+// JvmOverloads keeps the four-argument form the Java callers construct this with, now that there is
+// a fifth parameter with a default behind it.
+class CardPresenter @JvmOverloads constructor(
 	val showInfo: Boolean,
 	val imageType: ImageType,
 	val staticHeight: Int,
 	val uniformAspect: Boolean,
+	/**
+	 * One box for every card in the row, whatever artwork the items carry.
+	 *
+	 * A row that leaves this null sizes each card from its own artwork, so a series poster and an
+	 * episode still end up different widths and different heights standing next to each other, and
+	 * the focused one grows over whatever is beside it. Setting a shape here gives the row a single
+	 * silhouette to read along, at the cost of cropping artwork that is not that shape.
+	 */
+	val fixedAspectRatio: Float? = null,
 ) : Presenter() {
 	constructor(showInfo: Boolean, imageType: ImageType, staticHeight: Int) : this(showInfo, imageType, staticHeight, false)
 	constructor(showInfo: Boolean, staticHeight: Int) : this(showInfo, ImageType.POSTER, staticHeight)
@@ -110,6 +127,7 @@ class CardPresenter(
 					imageType = imageType,
 					staticHeight = staticHeight,
 					uniformAspect = uniformAspect,
+					fixedAspectRatio = fixedAspectRatio,
 				)
 			}
 
@@ -137,7 +155,68 @@ private data class BaseRowItemDisplayConfig(
 	val scaleType: ImageView.ScaleType? = null,
 )
 
-private fun BaseRowItem.getDisplayConfig(imageType: ImageType, uniformAspect: Boolean): BaseRowItemDisplayConfig = when (baseRowType) {
+/** How long a focused title holds still before it starts scrolling. */
+private const val TitleMarqueeDelayMillis = 1200
+
+/**
+ * Scroll the title of the focused card, once there has been a chance to read the start of it.
+ *
+ * [basicMarquee] only moves text that overflows, so this does nothing to the titles that fit. The
+ * delay is the difference between a row that scrolls at you the instant focus lands on it and one
+ * that shows you the beginning of the name first.
+ */
+private fun Modifier.titleMarquee() = basicMarquee(
+	iterations = Int.MAX_VALUE,
+	initialDelayMillis = TitleMarqueeDelayMillis,
+)
+
+/**
+ * The best wide image for this item, for rows that draw every card in the same landscape box.
+ *
+ * Episodes lead with their own primary image: it is a still from that episode and already wide, and
+ * it says more than the series artwork every other episode in the row would also be showing. Unless
+ * the user has asked for series thumbnails, which is a preference about exactly this and wins.
+ * Everything else works down from a dedicated thumbnail through the backdrops. Falling off the end
+ * of the chain leaves the poster, which is the point at which the box has to crop.
+ */
+private fun BaseRowItem.getLandscapeImage(): JellyfinImage? {
+	val item = baseItem ?: return null
+
+	return when (item.type) {
+		BaseItemKind.EPISODE -> (if (preferParentThumb) item.parentImages[SdkImageType.THUMB] ?: item.seriesThumbImage else null)
+			?: item.itemImages[SdkImageType.PRIMARY]
+			?: item.parentImages[SdkImageType.THUMB]
+			?: item.seriesThumbImage
+			?: item.parentBackdropImages.firstOrNull()
+
+		else -> item.itemImages[SdkImageType.THUMB]
+			?: item.itemBackdropImages.firstOrNull()
+			?: item.parentImages[SdkImageType.THUMB]
+			?: item.parentBackdropImages.firstOrNull()
+	}
+}
+
+private fun BaseRowItem.getDisplayConfig(
+	imageType: ImageType,
+	uniformAspect: Boolean,
+	fixedAspectRatio: Float?,
+): BaseRowItemDisplayConfig {
+	val config = getArtworkDisplayConfig(imageType, uniformAspect)
+	if (fixedAspectRatio == null) return config
+
+	// The row has already decided what shape its cards are, so neither the artwork's own ratio nor
+	// the uniformAspect rule that squares off music and people gets a say. Only the picture changes
+	// with it: a wide box asks for wide artwork, and settling for the poster is the last resort.
+	return config.copy(
+		aspectRatio = fixedAspectRatio,
+		image = when {
+			fixedAspectRatio > 1f -> getLandscapeImage() ?: config.image
+			else -> config.image
+		},
+	)
+}
+
+private fun BaseRowItem.getArtworkDisplayConfig(imageType: ImageType, uniformAspect: Boolean): BaseRowItemDisplayConfig = when (baseRowType) {
 	BaseRowType.BaseItem -> {
 		val preferSeriesPoster = this is BaseItemDtoBaseRowItem && preferSeriesPoster
 		val primaryAspectRatio = baseItem?.primaryImageAspectRatio?.toFloat()
@@ -285,22 +364,27 @@ private fun CardViewHolderContent(
 	imageType: ImageType,
 	staticHeight: Int,
 	uniformAspect: Boolean,
+	fixedAspectRatio: Float?,
 ) {
 	val context = LocalContext.current
 	val localDensity = LocalDensity.current
 
 	val title = remember(item, context) { item?.getCardName(context) }
 	val subtitle = remember(item, context) { item?.getSubText(context) }
-	val displayConfig = remember(item, imageType, uniformAspect) { item?.getDisplayConfig(imageType, uniformAspect) }
+	val displayConfig = remember(item, imageType, uniformAspect, fixedAspectRatio) {
+		item?.getDisplayConfig(imageType, uniformAspect, fixedAspectRatio)
+	}
 	if (item == null || displayConfig == null) return
 
 	val image = displayConfig.image
 	val aspectRatio = displayConfig.aspectRatio.takeIf { it >= 0.1f }
 		?: image?.aspectRatio?.takeIf { it >= 0.1f } ?: 1f
 
-	val size = when (item.staticHeight) {
-		true -> DpSize(staticHeight.dp * aspectRatio, staticHeight.dp)
-		false if (aspectRatio > 1f) -> DpSize(130.dp * aspectRatio, 130.dp)
+	val size = when {
+		// A fixed shape is the row's decision and outranks the item's: the two default heights
+		// below are what makes a landscape card shorter than the portrait one beside it.
+		fixedAspectRatio != null || item.staticHeight -> DpSize(staticHeight.dp * aspectRatio, staticHeight.dp)
+		aspectRatio > 1f -> DpSize(130.dp * aspectRatio, 130.dp)
 		else -> DpSize(150.dp * aspectRatio, 150.dp)
 	}
 
@@ -347,10 +431,7 @@ private fun CardViewHolderContent(
 						item = baseItem,
 						footer = {
 							if (showInfo && title != null) {
-								val focusModifier = if (focused) Modifier.basicMarquee(
-									iterations = Int.MAX_VALUE,
-									initialDelayMillis = 0,
-								) else Modifier
+								val focusModifier = if (focused) Modifier.titleMarquee() else Modifier
 
 								Box(
 									modifier = Modifier
@@ -380,10 +461,7 @@ private fun CardViewHolderContent(
 	}
 
 	if (usePreview) {
-		val focusModifier = if (focused) Modifier.basicMarquee(
-			iterations = Int.MAX_VALUE,
-			initialDelayMillis = 0,
-		) else Modifier
+		val focusModifier = if (focused) Modifier.titleMarquee() else Modifier
 
 		ItemPreview(
 			card = { card() },
