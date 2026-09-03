@@ -15,14 +15,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusTarget
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -33,9 +35,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
 import timber.log.Timber
@@ -81,9 +81,24 @@ fun PlayerOverlayLayout(
 	 * reach it instead.
 	 */
 	hideOnFocusExitUp: Boolean = true,
+	/**
+	 * What the select key does while the controls are down, if anything.
+	 *
+	 * Note that this only ever fires while this layout holds the focus. Anything a caller draws
+	 * over the video as a sibling of this layout — the next up card, say — takes the focus off it
+	 * and owns the select key for as long as it is there, which is what keeps one press from
+	 * being answered twice.
+	 */
+	onSelect: (() -> Unit)? = null,
+	/**
+	 * The layout's own focus target, for callers that take the focus away from it and need to give
+	 * it back.
+	 */
+	focusRequester: FocusRequester = remember { FocusRequester() },
 ) = Box(
 	modifier = modifier
 		.fillMaxSize()
+		.focusRequester(focusRequester)
 		.focusable()
 		.onPreviewKeyEvent {
 			// Reset hide timer on key presses
@@ -92,8 +107,18 @@ fun PlayerOverlayLayout(
 			// Otherwise, only act on key down
 			if (it.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
+			val isSelect = it.key == Key.DirectionCenter || it.key == Key.Enter
+
 			if (it.key == Key.Back && visibilityState.visible) {
 				visibilityState.hide()
+				true
+			} else if (isSelect && onSelect != null && !visibilityState.visible) {
+				// Select acts on what is playing rather than opening the controls so the same
+				// action can be gone and found in them. This has to be tested before the catch-all
+				// below, which counts select among the keys that only open the controls and would
+				// otherwise swallow it — leaving no press that pauses at all.
+				onSelect()
+				visibilityState.show()
 				true
 			} else if (!it.nativeKeyEvent.isSystem && !visibilityState.visible) {
 				visibilityState.show()
@@ -182,23 +207,34 @@ data class PlayerOverlayVisibilityState(
 @Composable
 fun rememberPlayerOverlayVisibility(
 	timeout: Duration = 5.seconds,
+	/**
+	 * Whether the controls, once up, should stay up.
+	 *
+	 * The timeout exists because the controls sit over a moving picture. Over a stopped one there
+	 * is nothing to be in the way of, and letting them time out leaves a still frame with no sign
+	 * of why it is still.
+	 */
+	hold: Boolean = false,
 ): PlayerOverlayVisibilityState {
-	val scope = rememberCoroutineScope()
 	var timerVisible by remember { mutableStateOf(false) }
-	var timerJob by remember { mutableStateOf<Job?>(null) }
+
+	// Bumped rather than read, so that asking for the controls while they are already up restarts
+	// the countdown instead of leaving the original one to run out under the request.
+	var showCount by remember { mutableIntStateOf(0) }
+
+	LaunchedEffect(showCount, timerVisible, hold) {
+		if (!timerVisible || hold) return@LaunchedEffect
+
+		delay(timeout)
+		timerVisible = false
+	}
 
 	fun show() {
-		timerJob?.cancel()
 		timerVisible = true
-		timerJob = scope.launch {
-			delay(timeout)
-			timerVisible = false
-		}
+		showCount++
 	}
 
 	fun hide() {
-		timerJob?.cancel()
-		timerJob = null
 		timerVisible = false
 	}
 

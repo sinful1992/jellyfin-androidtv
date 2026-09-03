@@ -33,6 +33,7 @@ import org.jellyfin.androidtv.ui.player.base.rememberPlayerOverlayVisibility
 import org.jellyfin.androidtv.ui.player.base.toast.MediaToastRegistry
 import org.jellyfin.androidtv.ui.player.base.toast.MediaToasts
 import org.jellyfin.playback.core.PlaybackManager
+import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.playback.jellyfin.queue.baseItemFlow
@@ -52,10 +53,16 @@ fun VideoPlayerOverlay(
 	playbackManager: PlaybackManager = koinInject(),
 	mediaToastRegistry: MediaToastRegistry,
 ) {
-	val visibilityState = rememberPlayerOverlayVisibility()
+	val playState by playbackManager.state.playState.collectAsState()
+
+	// A paused player is not going anywhere, so the controls have nothing to be in the way of and
+	// stay up until playback resumes. Without this, pausing with the select key would be followed
+	// five seconds later by the controls sliding away off a frozen picture.
+	val visibilityState = rememberPlayerOverlayVisibility(hold = playState == PlayState.PAUSED)
 	val nextUp = rememberPlayerNextUpState(playbackManager)
 	val coroutineScope = rememberCoroutineScope()
 	val nextUpFocusRequester = remember { FocusRequester() }
+	val overlayFocusRequester = remember { FocusRequester() }
 
 	// The card announces itself without dragging the controls along, so the picture stays clear.
 	// While it is up Back dismisses it rather than leaving playback.
@@ -92,6 +99,11 @@ fun VideoPlayerOverlay(
 	Box(modifier = modifier) {
 		PlayerOverlayLayout(
 			visibilityState = visibilityState,
+			focusRequester = overlayFocusRequester,
+			// Pausing is what the select key is reached for during playback, and it was the one
+			// thing it could not do: every press went on opening the controls, leaving the pause
+			// button two more presses away.
+			onSelect = { playbackManager.togglePlayPause() },
 			// While the card is up, moving off the top of the controls reaches it instead of
 			// closing them.
 			hideOnFocusExitUp = nextUp.item == null,
@@ -122,6 +134,12 @@ fun VideoPlayerOverlay(
 				onPlay = {
 					nextUp.dismiss()
 					coroutineScope.launch { playbackManager.queue.next() }
+
+					// The card is about to leave the composition, taking the focused button with
+					// it. Nothing else is asking for the focus while the controls are down, so it
+					// is handed back rather than left nowhere, which would leave the next press
+					// with nothing to answer it.
+					overlayFocusRequester.requestFocus()
 				},
 				modifier = Modifier
 					.align(Alignment.BottomEnd)
