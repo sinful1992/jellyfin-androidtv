@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -126,6 +127,19 @@ fun PlayerOverlayLayout(
 			} else {
 				false
 			}
+		}
+		.onKeyEvent {
+			// With the controls up the select key belongs to whatever holds the focus, so this runs
+			// on the way back out instead: after the focused control has had its turn and passed.
+			// The buttons take their own presses and never reach here, while the seek bar ignores
+			// everything but left and right and falls through — which is where the focus lands when
+			// the controls open, and so where pausing has to work from to be reversible.
+			if (it.type != KeyEventType.KeyDown) return@onKeyEvent false
+			if (onSelect == null || !visibilityState.visible) return@onKeyEvent false
+			if (it.key != Key.DirectionCenter && it.key != Key.Enter) return@onKeyEvent false
+
+			onSelect()
+			true
 		}
 ) {
 	if (header != null) {
