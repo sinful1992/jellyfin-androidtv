@@ -149,6 +149,20 @@ fun VideoPlayerControls(
 	}
 }
 
+/**
+ * Stop or start playback, whichever the current state calls for.
+ *
+ * Shared with the select key so that pressing the button and pressing OK over the picture are the
+ * same action rather than two implementations of it.
+ */
+fun PlaybackManager.togglePlayPause() = when (state.playState.value) {
+	PlayState.STOPPED,
+	PlayState.ERROR -> state.play()
+
+	PlayState.PLAYING -> state.pause()
+	PlayState.PAUSED -> state.unpause()
+}
+
 @Composable
 private fun PlayPauseButton(
 	playbackManager: PlaybackManager,
@@ -156,15 +170,7 @@ private fun PlayPauseButton(
 	modifier: Modifier = Modifier,
 ) {
 	IconButton(
-		onClick = {
-			when (playState) {
-				PlayState.STOPPED,
-				PlayState.ERROR -> playbackManager.state.play()
-
-				PlayState.PLAYING -> playbackManager.state.pause()
-				PlayState.PAUSED -> playbackManager.state.unpause()
-			}
-		},
+		onClick = { playbackManager.togglePlayPause() },
 		modifier = modifier,
 	) {
 		AnimatedContent(playState) { playState ->
