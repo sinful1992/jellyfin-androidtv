@@ -3,6 +3,7 @@ package org.jellyfin.androidtv.ui.home
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewTreeObserver
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.widget.ClassPresenterSelector
 import androidx.leanback.widget.ListRow
@@ -16,6 +17,7 @@ import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -92,6 +94,15 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	private var currentRow: ListRow? = null
 	private var justLoaded = true
 
+	/**
+	 * Follows the hero's own choice of title while the hero is the row being looked at.
+	 *
+	 * The rows below announce a change by moving the selection, which is what puts their artwork on
+	 * the screen. The hero changes which title it is showing without the selection going anywhere,
+	 * so the background has to be watched rather than read once on arrival.
+	 */
+	private var heroBackgroundJob: Job? = null
+
 	// Special rows
 	private val notificationsRow by lazy { NotificationsHomeFragmentRow(lifecycleScope, notificationsRepository) }
 	private val nowPlaying by lazy { HomeFragmentNowPlayingRow(lifecycleScope, playbackManager, mediaManager) }
@@ -158,7 +169,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				// Add rows in order
 				// The hero loads its own title and inserts itself at the top once it has one, so a
 				// library with nothing new in it gets the rows on their own rather than a gap.
-				hero.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
+				hero.refresh(adapter as MutableObjectAdapter<Row>, onAdded = ::onHeroAdded)
 				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				nowPlaying.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				for (row in rows) row.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
@@ -202,7 +213,11 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 					.launchIn(this)
 
 				api.webSocket.subscribe<LibraryChangedMessage>()
-					.onEach { refreshRows(force = true, delayed = false) }
+					.onEach {
+						refreshRows(force = true, delayed = false)
+						// Something has just been added, which is the one thing the hero is about.
+						refreshHero()
+					}
 					.launchIn(this)
 			}
 		}
@@ -230,6 +245,8 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			//Re-retrieve anything that needs it but delay slightly so we don't take away gui landing
 			refreshCurrentItem()
 			refreshRows()
+			refreshHero()
+			reclaimHeroBackground()
 		} else {
 			justLoaded = false
 		}
@@ -255,6 +272,112 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				if (force) rowAdapter?.Retrieve()
 				else rowAdapter?.ReRetrieveIfNeeded()
 			}
+		}
+	}
+
+	/**
+	 * Draw the hero's shortlist again.
+	 *
+	 * The row refresh above only reaches rows of cards, and the hero is not one, so it is asked
+	 * separately. The title on show and the order of the strip both carry across the new list, so
+	 * coming back from a title lands back on it rather than on whatever the shortlist was dealt
+	 * next.
+	 *
+	 * The insert is worth watching for here as well as on the first draw. A library with nothing
+	 * unplayed in it opens without a hero at all, and the refresh that follows the first thing
+	 * being added is the one that puts it on the screen — an insert like any other, and it needs
+	 * the focus and the backdrop moving onto it just the same.
+	 */
+	private fun refreshHero() {
+		@Suppress("UNCHECKED_CAST")
+		hero.refresh(adapter as MutableObjectAdapter<Row>, onAdded = ::onHeroAdded)
+	}
+
+	/**
+	 * Put the viewer on the hero the moment it arrives.
+	 *
+	 * The hero fetches its shortlist over the network and only inserts itself at the top once it
+	 * has one, by which time leanback has handed the focus to whatever row happened to be first —
+	 * Continue watching, usually — and the insert simply pushes that row down a place with the
+	 * focus still on it. So the app opened on a card in the second row down, which is not what the
+	 * top of the screen is for.
+	 *
+	 * Only while the viewer is still at the top of the screen. Further down than that and they went
+	 * there deliberately, so they are left where they are. The row the insert displaced counts as
+	 * the top, which does mean a single press landing inside the load window is overridden — that
+	 * window is a fraction of a second, and the alternative is opening on a card every time.
+	 */
+	private fun onHeroAdded(row: HomeHeroRow) {
+		if (selectedPosition > 1) return
+
+		// Leanback holds the selection as a number, and the number did not change: it was already 0
+		// and the rows simply moved down underneath it. So it believes the top row is selected
+		// already, asking it to select position 0 does nothing at all, and the focus stays on the
+		// card it was sitting on — which is now a row further down. It has to be taken by hand.
+		//
+		// Not here, though. The insert has only just reached the adapter and the row has no view
+		// yet, so this waits for the frame the row is first laid out in and takes the focus then.
+		val grid = verticalGridView ?: return
+		grid.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+			override fun onPreDraw(): Boolean {
+				// Nothing to hand it to yet — wait for the next frame rather than give up, because
+				// the row is laid out a frame or two after the insert reaches the adapter.
+				val hero = getRowViewHolder(0)?.view
+				if (hero == null && grid.isAttachedToWindow) return true
+
+				grid.viewTreeObserver.removeOnPreDrawListener(this)
+				hero?.requestFocus()
+
+				// Claimed after the focus, and by hand. After, because the rows below are still
+				// filling in and every card that announces itself on the way clears the picture —
+				// taking the focus is what stops them. By hand, because leanback dispatches nothing
+				// when the focus lands here: as far as it is concerned row zero was selected all
+				// along, so the selection listener never hears about it.
+				followHeroBackground(row)
+				return true
+			}
+		})
+	}
+
+	/**
+	 * Put the hero's own picture back on the screen after somewhere else has had it.
+	 *
+	 * A detail page or a player takes the background for the time it is up, and leaves it blurred
+	 * and taken down the way a screenful of text needs it. Coming back here moves no selection —
+	 * the hero is the row it always was, showing the title it always showed — so nothing else would
+	 * ever say otherwise, and the hero would sit over the last screen's idea of its own artwork.
+	 *
+	 * Only where the hero had the picture when the screen was left. That it still holds the job is
+	 * what says so: it is dropped the moment anything else is selected, and the rows below leave
+	 * the screen flat rather than putting anything of their own on it.
+	 */
+	private fun reclaimHeroBackground() {
+		val row = hero.row ?: return
+		if (heroBackgroundJob == null) return
+
+		followHeroBackground(row)
+	}
+
+	/** Whether [row] is the one the viewer is on, rather than one still filling itself in below. */
+	private fun isSelectedRow(row: Row?): Boolean {
+		val position = selectedPosition
+		if (position < 0 || position >= adapter.size()) return false
+		return adapter.get(position) === row
+	}
+
+	/**
+	 * Let the hero's own choice of title drive the picture behind it, for as long as it is the row
+	 * being looked at.
+	 *
+	 * Followed rather than read once, because stepping along the strip changes the title without
+	 * the selection moving off the row. Asked for plain, because the hero puts nothing between the
+	 * viewer and the artwork: it is the picture of the title being offered, not scenery behind a
+	 * screenful of text, and it carries its own wash for the lettering.
+	 */
+	private fun followHeroBackground(row: HomeHeroRow) {
+		heroBackgroundJob?.cancel()
+		heroBackgroundJob = lifecycleScope.launch {
+			row.selection.collect { backgroundService.setBackground(it.item, plain = true) }
 		}
 	}
 
@@ -302,16 +425,26 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			rowViewHolder: RowPresenter.ViewHolder?,
 			row: Row?,
 		) {
+			// A row announces its first item as it finishes loading, whether or not it is the row
+			// being looked at, so a home screen still filling in fires a burst of these from rows
+			// nobody is on. Acting on them cancelled the hero's artwork while it was still loading
+			// and left the screen black at launch, about one time in four. Only the row actually
+			// selected has any business saying what is drawn behind it.
+			if (!isSelectedRow(row)) return
+
+			// Selecting anything else is leaving the hero, and the picture stops being its to set.
+			heroBackgroundJob?.cancel()
+			heroBackgroundJob = null
+
 			// The hero has no items in the leanback sense, so nothing is passed here when it is
 			// selected. Its artwork is the screen behind it, which is this background, so it has
 			// to be named explicitly or moving up onto the hero would clear the picture it is
 			// drawn over.
 			if (row is HomeHeroRow) {
 				currentItem = null
-				backgroundService.setBackground(row.item)
+				followHeroBackground(row)
 			} else if (item !is BaseRowItem) {
 				currentItem = null
-				//fill in default background
 				backgroundService.clearBackgrounds()
 			} else {
 				currentItem = item
@@ -320,7 +453,14 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				val itemRowAdapter = row.adapter as? ItemRowAdapter
 				itemRowAdapter?.loadMoreItemsIfNeeded(itemRowAdapter.indexOf(item))
 
-				backgroundService.setBackground(item.baseItem)
+				// Nothing but the hero puts a picture on the screen. A backdrop following the
+				// card under the pointer turned a walk along a row into a slideshow: every step
+				// redrew the whole screen behind a strip of cards that is the only thing being
+				// read, and the artwork was too briefly up to be looked at anyway. The rows are
+				// left on the flat theme colour and say what they hold with their own cards. The
+				// hero, which exists to show one title off, is the one place the screen belongs
+				// to what is selected.
+				backgroundService.clearBackgrounds()
 			}
 		}
 	}
