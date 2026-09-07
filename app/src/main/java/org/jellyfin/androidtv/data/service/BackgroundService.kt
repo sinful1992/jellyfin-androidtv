@@ -38,6 +38,10 @@ class BackgroundService(
 	companion object {
 		val SLIDESHOW_DURATION = 30.seconds
 		val TRANSITION_DURATION = 800.milliseconds
+
+		/** The size backdrops are decoded at. The screen they are drawn on, not the source file. */
+		private const val BACKDROP_WIDTH = 1920
+		private const val BACKDROP_HEIGHT = 1080
 	}
 
 	// Async
@@ -128,6 +132,22 @@ class BackgroundService(
 		loadBackgrounds(setOf(splashscreenUrl))
 	}
 
+	/**
+	 * Decode one backdrop, at screen size rather than at whatever the server happens to return.
+	 *
+	 * Without a bound the request decodes at the source resolution, which for a backdrop is
+	 * routinely larger than the screen it is about to be drawn on — every pixel of the difference
+	 * paid for in decode time and in heap.
+	 */
+	private suspend fun loadBackground(url: String) = imageLoader
+		.execute(
+			request = ImageRequest.Builder(context)
+				.data(url)
+				.size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
+				.build()
+		)
+		.image?.toBitmap()?.asImageBitmap()
+
 	private fun loadBackgrounds(backdropUrls: Set<String>) {
 		if (backdropUrls.isEmpty()) return clearBackgrounds()
 
@@ -137,15 +157,32 @@ class BackgroundService(
 		// Cancel current loading job
 		loadBackgroundsJob?.cancel()
 		loadBackgroundsJob = scope.launch(Dispatchers.IO) {
-			_backgrounds = backdropUrls.mapNotNull { url ->
-				imageLoader.execute(
-					request = ImageRequest.Builder(context).data(url).build()
-				).image?.toBitmap()?.asImageBitmap()
-			}
+			// The first one on its own, and on the screen before the rest are even asked for.
+			//
+			// This used to fetch and decode every backdrop the item had before publishing any of
+			// them, and setBackground fires on every focus step in every grid, folder, search
+			// result and detail screen in the app. So holding a direction key down across a row
+			// started N decodes per cell and cancelled them mid-flight on the next one, and
+			// nothing appeared until the last image of the set resolved.
+			//
+			// Only index 0 is ever shown to begin with. The rest exist for a 30 second slideshow
+			// that a focus step cancels long before it fires, so they are worth loading only once
+			// the viewer has stopped moving — which is exactly what deferring them to after the
+			// first has been published achieves, since the job is cancelled outright by the next
+			// selection.
+			val first = loadBackground(backdropUrls.first())
 
-			// Go to first background
+			_backgrounds = listOfNotNull(first)
 			_currentIndex = 0
 			update()
+
+			if (backdropUrls.size > 1) {
+				_backgrounds = _backgrounds + backdropUrls.drop(1).mapNotNull { loadBackground(it) }
+
+				// Only to start the slideshow timer, which update() leaves cancelled while there
+				// is a single background. The picture on screen is index 0 either way.
+				update()
+			}
 		}
 	}
 
