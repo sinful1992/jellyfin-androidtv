@@ -1,6 +1,8 @@
 package org.jellyfin.androidtv.ui.player.video
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -57,6 +60,9 @@ import kotlin.time.Duration.Companion.seconds
  * continues either way. Seven seconds of a countdown is patient; seven seconds of a notice is not.
  */
 private val LeadTime = 30.seconds
+
+/** How heavy the ring around the focused card is. The same weight the home screen cards use. */
+private val FocusRingWidth = 3.dp
 
 @Immutable
 data class PlayerNextUpState(
@@ -123,14 +129,30 @@ fun PlayerNextUpCard(
 	val context = LocalContext.current
 	val thumbnail = item.itemImages[ImageType.PRIMARY].takeIf { showThumbnail }
 
+	// The focus lands on the button inside the card, so the card itself is never the focused node
+	// and has to watch for the focus being somewhere within it instead.
+	var focused by remember { mutableStateOf(false) }
+
+	// A pill changing colour is a small thing to spot from across a room, and the card is what the
+	// remote is actually pointed at: while it holds the focus, up and down are its keys and not the
+	// player's. So the whole card is ringed, in the same colour and weight that marks the focused
+	// card on the home screen.
+	val ringAlpha by animateFloatAsState(if (focused) 1f else 0f, label = "next up focus ring")
+
 	Row(
 		horizontalArrangement = Arrangement.spacedBy(16.dp),
 		verticalAlignment = Alignment.CenterVertically,
 		// The card sits over moving video, so it needs its own ground to be readable at a glance
 		// rather than relying on whatever frame happens to be behind it.
 		modifier = modifier
+			.onFocusChanged { focused = it.hasFocus }
 			.focusGroup()
 			.background(JellyfinTheme.colorScheme.surface, JellyfinTheme.shapes.medium)
+			.border(
+				width = FocusRingWidth,
+				color = JellyfinTheme.colorScheme.buttonFocused.let { it.copy(alpha = it.alpha * ringAlpha) },
+				shape = JellyfinTheme.shapes.medium,
+			)
 			.padding(horizontal = 20.dp, vertical = 16.dp)
 	) {
 		if (thumbnail != null) {
