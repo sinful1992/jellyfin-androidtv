@@ -33,6 +33,14 @@ interface NavigationRepository {
 	fun navigate(destination: Destination, replace: Boolean)
 
 	/**
+	 * The destination on top of the back stack, or null when there is none.
+	 *
+	 * For asking what is currently on screen — whether a player is already open, say — without
+	 * having to hold a reference to whatever is showing it.
+	 */
+	val currentDestination: Destination.Fragment?
+
+	/**
 	 * Whether the [goBack] function will succeed or not.
 	 *
 	 * @see [goBack]
@@ -78,6 +86,8 @@ class NavigationRepositoryImpl(
 		}
 		_currentAction.tryEmit(action)
 	}
+
+	override val currentDestination: Destination.Fragment? get() = fragmentHistory.lastOrNull()
 
 	override val canGoBack: Boolean get() = fragmentHistory.isNotEmpty()
 
