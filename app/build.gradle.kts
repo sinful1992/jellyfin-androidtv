@@ -107,7 +107,16 @@ android {
 			// by side — comes down to guessing which identical tile is which.
 			resValue("string", "app_name", "@string/app_name_minified")
 
-			buildConfigField("boolean", "DEVELOPMENT", "false")
+			// Not false, unlike release, and this is the whole reason the build type can be used
+			// for player work at all. SettingsPlaybackPlayerScreen gates the "New video player"
+			// option on `playbackRewriteVideoEnabled || BuildConfig.DEVELOPMENT`; the preference
+			// defaults to false, and applicationIdSuffix gives this build its own preferences, so
+			// with DEVELOPMENT false the option is never drawn and a fresh install is stranded on
+			// the legacy player with no way through the UI to leave it.
+			//
+			// This is a local diagnostic build that is never distributed, so it can say what the
+			// debug build says about itself without the objection that applies to release.
+			buildConfigField("boolean", "DEVELOPMENT", "true")
 
 			signingConfig = signingConfigs.getByName("debug")
 		}
