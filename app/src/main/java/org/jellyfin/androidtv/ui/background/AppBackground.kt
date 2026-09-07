@@ -66,16 +66,24 @@ private fun AppThemeBackground() {
  *
  * A screen that carries its own lettering keeps it to one side — the hero sets its title, its facts
  * and its buttons down the left and leaves the rest of the width to the picture — so the darkness
- * goes there too and is gone by two thirds across. Together with the filter this comes to roughly
- * two thirds under the words, which is what the flat filter gave everywhere, while the far side is
- * barely touched and the artwork is actually visible in it.
+ * goes there too and thins out towards the far side, where the artwork is actually visible.
  *
  * Sideways rather than downwards because there is no edge to it that way: a band of darkness across
  * the middle of the screen would have to stop somewhere, and wherever it stopped would show.
+ *
+ * Three stops rather than two. A straight line from full to nothing reaches nothing *at* the stop,
+ * so whatever sits near the end of the run gets no cover at all — which is what happened here: the
+ * words ran to 72% of the width and the wash was gone by 65%, leaving the tail of every description
+ * on bare artwork. The middle stop holds a little darkness across the rest of the words and lets it
+ * go only once they have ended, so the ending is out past the text instead of inside it.
+ *
+ * Kept in step with [org.jellyfin.androidtv.ui.home.HomeHeroMeasure], which is what decides how far
+ * the words actually run.
  */
 private val PlainBackgroundScrim = Brush.horizontalGradient(
-	0.00f to Color.Black.copy(alpha = 0.50f),
-	0.65f to Color.Transparent,
+	0.00f to Color.Black.copy(alpha = 0.55f),
+	0.55f to Color.Black.copy(alpha = 0.20f),
+	0.85f to Color.Transparent,
 )
 
 @Composable

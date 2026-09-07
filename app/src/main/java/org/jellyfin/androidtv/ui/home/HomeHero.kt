@@ -28,7 +28,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,7 +41,6 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
@@ -84,15 +85,34 @@ enum class HomeHeroFocus {
  */
 val HomeHeroHeight = 288.dp
 
-/** How far the text is allowed to run. A line set across a whole television is not read, it is scanned. */
-private val HeroMeasure = 640.dp
+/**
+ * How far the text is allowed to run. A line set across a whole television is not read, it is
+ * scanned.
+ *
+ * 576dp rather than the 640dp it began at, for two reasons that happen to want the same number. At
+ * the description's size this is a little under 80 characters, which is where a line stops being
+ * read in one go; and it keeps the words inside the wash that
+ * [org.jellyfin.androidtv.ui.background.AppBackground] lays down for them. At 640 they ran to 72%
+ * of the width while the wash was gone by 65%, so the end of every description sat on bare artwork.
+ * Both were widened to meet: the wash reaches further, and the words stop sooner.
+ */
+val HomeHeroMeasure = 576.dp
 
 private val HeroLogoHeight = 76.dp
 
+/** How much of the description is offered. The rest is what the second button is for. */
+private const val HeroOverviewLines = 2
+
 private val HeroDotSize = 8.dp
+
+/** What the whole strip grows to while it is the stop being used. */
+private val HeroDotActiveSize = 11.dp
 
 /** The one on show is drawn long rather than merely brighter, so its place reads from across a room. */
 private val HeroDotCurrentWidth = 22.dp
+
+/** And longer again while the strip is the thing the keys are talking to. */
+private val HeroDotCurrentActiveWidth = 30.dp
 
 /**
  * How long the words take to change from one title to the next.
@@ -230,15 +250,25 @@ private fun HeroDots(
 		horizontalArrangement = Arrangement.spacedBy(6.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
+		// Whether the strip is the stop being used has to be readable from a sofa, and a change of
+		// alpha on an 8dp dot is not — from three metres 70% white and 100% white are the same
+		// white. So having the focus changes the size of the strip as well as its brightness: the
+		// dots grow, and the one on show grows further. Shape carries across a room where tone does
+		// not, and the two together are hard to miss without either being loud.
+		val height by animateDpAsState(
+			if (active) HeroDotActiveSize else HeroDotSize,
+			label = "home hero dot height",
+		)
+
 		repeat(count) { position ->
 			val current = position == index
 
 			val color by animateColorAsState(
 				when {
 					current && active -> Tokens.Color.colorWhite
-					current -> Tokens.Color.colorWhite.copy(alpha = 0.7f)
-					active -> Tokens.Color.colorWhite.copy(alpha = 0.45f)
-					else -> Tokens.Color.colorWhite.copy(alpha = 0.25f)
+					current -> Tokens.Color.colorWhite.copy(alpha = 0.75f)
+					active -> Tokens.Color.colorWhite.copy(alpha = 0.5f)
+					else -> Tokens.Color.colorWhite.copy(alpha = 0.3f)
 				},
 				label = "home hero dot",
 			)
@@ -246,13 +276,17 @@ private fun HeroDots(
 			// Animated so a step reads as a move along the strip rather than as two separate dots
 			// changing at once, which is what says the press did something.
 			val width by animateDpAsState(
-				if (current) HeroDotCurrentWidth else HeroDotSize,
+				when {
+					current && active -> HeroDotCurrentActiveWidth
+					current -> HeroDotCurrentWidth
+					else -> height
+				},
 				label = "home hero dot width",
 			)
 
 			Box(
 				modifier = Modifier
-					.height(HeroDotSize)
+					.height(height)
 					.width(width)
 					.background(color, CircleShape)
 			)
@@ -275,14 +309,16 @@ private fun HeroDetails(
 	) {
 		// Why this title and not another. Without it the hero is a picture of something arbitrary;
 		// with it, it is an answer to what has arrived lately and not been watched.
+		//
+		// Set as a phrase and not as a label. It was small capitals with the letters driven apart,
+		// which is the house style of no house in particular — and it sat directly above the one
+		// piece of lettering on this screen that belongs to the title rather than to the app. Two
+		// things competing to be the first read. Sentence case, letters left where they fall, and
+		// it goes back to being a quiet line that answers a question.
 		Text(
-			text = stringResource(R.string.home_hero_label).uppercase(),
-			style = JellyfinTheme.typography.default.copy(
-				color = Tokens.Color.colorWhite.copy(alpha = 0.6f),
-				fontSize = 12.sp,
-				fontWeight = FontWeight.W500,
-				letterSpacing = 1.6.sp,
-			),
+			text = stringResource(R.string.home_hero_label),
+			color = Tokens.Color.colorWhite.copy(alpha = 0.75f),
+			style = JellyfinTheme.typography.label,
 		)
 
 		// The title in its own lettering, where the library has it. It is the one piece of type on
@@ -294,7 +330,7 @@ private fun HeroDetails(
 				scaleType = ImageView.ScaleType.FIT_START,
 				modifier = Modifier
 					.height(HeroLogoHeight)
-					.widthIn(max = HeroMeasure)
+					.widthIn(max = HomeHeroMeasure)
 					.fillMaxWidth(),
 			)
 		} else {
@@ -302,12 +338,9 @@ private fun HeroDetails(
 				text = item.name.orEmpty(),
 				maxLines = 2,
 				overflow = TextOverflow.Ellipsis,
-				style = JellyfinTheme.typography.default.copy(
-					color = Tokens.Color.colorWhite,
-					fontSize = 34.sp,
-					fontWeight = FontWeight.Bold,
-				),
-				modifier = Modifier.widthIn(max = HeroMeasure),
+				color = Tokens.Color.colorWhite,
+				style = JellyfinTheme.typography.display,
+				modifier = Modifier.widthIn(max = HomeHeroMeasure),
 			)
 		}
 
@@ -327,19 +360,50 @@ private fun HeroDetails(
 		}
 
 		item.overview?.let { overview ->
-			Text(
-				text = overview,
-				maxLines = 2,
-				overflow = TextOverflow.Ellipsis,
-				style = JellyfinTheme.typography.default.copy(
-					color = Tokens.Color.colorGrey100,
-					fontSize = 15.sp,
-					lineHeight = 21.sp,
-				),
-				modifier = Modifier.widthIn(max = HeroMeasure),
+			HeroOverview(
+				overview = overview,
+				modifier = Modifier.widthIn(max = HomeHeroMeasure),
 			)
 		}
 	}
+}
+
+/**
+ * The opening of the description, cut at a word.
+ *
+ * Two passes. The first sets the whole thing and is told where the last line ran out; the second
+ * draws it again, cut back to the last whole word before that point. Left to itself the ellipsis
+ * lands wherever the character happens to fall, and a word broken in half — "a mysterious assi…" —
+ * reads as something having gone wrong rather than as a sentence carrying on out of sight.
+ *
+ * The guard is an identity check rather than a flag: the trimmed string is a new object, so the
+ * second layout cannot start a third.
+ */
+@Composable
+private fun HeroOverview(
+	overview: String,
+	modifier: Modifier = Modifier,
+) {
+	var shown by remember(overview) { mutableStateOf(overview) }
+
+	Text(
+		text = shown,
+		maxLines = HeroOverviewLines,
+		overflow = TextOverflow.Ellipsis,
+		color = Tokens.Color.colorGrey100,
+		style = JellyfinTheme.typography.body,
+		onTextLayout = { layout ->
+			if (shown === overview && layout.hasVisualOverflow) {
+				val end = layout.getLineEnd(HeroOverviewLines - 1, visibleEnd = true)
+				val lastSpace = overview.lastIndexOf(' ', (end - 1).coerceAtLeast(0))
+
+				if (lastSpace > 0) {
+					shown = overview.substring(0, lastSpace).trimEnd(' ', ',', ';', ':', '-', '—') + "…"
+				}
+			}
+		},
+		modifier = modifier,
+	)
 }
 
 /**
@@ -376,11 +440,8 @@ private fun HeroButton(
 
 		Text(
 			text = label,
-			style = JellyfinTheme.typography.default.copy(
-				color = contentColor,
-				fontSize = 15.sp,
-				fontWeight = FontWeight.W500,
-			),
+			color = contentColor,
+			style = JellyfinTheme.typography.body.copy(fontWeight = FontWeight.W500),
 		)
 	}
 }
