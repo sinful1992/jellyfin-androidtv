@@ -126,9 +126,13 @@ android {
 	// not touch locales — only a filter does — so this is one of the few size findings that R8 was
 	// never going to handle on its own.
 	//
-	// A language filter keeps that language's regional variants, so values-en-rGB rides along with
-	// "en". Add to the list to read the app in another language; values/ itself is the fallback and
-	// is always kept, so nothing can end up with no strings at all.
+	// values/ is the default and is always kept whatever this list says, so the app can never end up
+	// with no strings — the worst case for a dropped locale is falling back to the English in
+	// values/. Add a tag to the list to read the app in another language.
+	//
+	// Whether a language tag also keeps that language's regional folders (values-en-rGB here) is
+	// not something the source says, and it has not been checked against a built APK. If it does
+	// not, the only loss is British spellings falling back to the values/ ones.
 	androidResources {
 		localeFilters += listOf("en")
 	}
