@@ -16,7 +16,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkManager
-import androidx.work.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -147,10 +146,14 @@ class StartupActivity : FragmentActivity() {
 		// Update background worker
 		with(ProcessLifecycleOwner.get().lifecycleScope) {
 			launch {
-				// Cancel all current workers
-				workManager.cancelAllWork().await()
-
-				// Recreate periodic workers
+				// Enqueue periodic workers.
+				//
+				// Not preceded by cancelAllWork() any more. That was a blocking write across
+				// WorkManager's own Room database, awaited on the cold start path, and the only
+				// thing it achieved was letting the enqueue below replace the existing request —
+				// which enqueueUniquePeriodicWork already does for itself, with
+				// ExistingPeriodicWorkPolicy.UPDATE. No other worker in this tree relies on being
+				// cancelled here; it is the only one there is.
 				LeanbackChannelWorker.enqueue(workManager)
 			}
 
