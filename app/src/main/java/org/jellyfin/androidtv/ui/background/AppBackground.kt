@@ -80,6 +80,42 @@ private fun AppThemeBackground() {
  * Kept in step with [org.jellyfin.androidtv.ui.home.HomeHeroMeasure], which is what decides how far
  * the words actually run.
  */
+/**
+ * How dark the backdrop should end up once the filter is over it.
+ *
+ * Everything below exists to land every picture on roughly this, whatever it started at.
+ */
+private const val BackdropTargetLuminance = 0.12f
+
+/**
+ * The filter is never taken off entirely, however dark the picture already is: the screens that
+ * carry a backdrop set their headings straight over the middle of it.
+ */
+private const val BackdropFilterMinAlpha = 0.40f
+
+/** And never taken to the point where there is no artwork left to see. */
+private const val BackdropFilterMaxAlpha = 0.85f
+
+/**
+ * How heavy the filter over a backdrop has to be, given how bright that backdrop is.
+ *
+ * `background_filter` was a flat 58% for every picture, and a flat anything cannot serve both ends
+ * of the range. A dark backdrop was taken most of the way to black, which throws away the artwork
+ * for no gain, and a bright one — a cartoon on a bright teal sky, say — stayed bright enough that
+ * the detail screen's grey lettering sat on it unreadably. The filter was tuned for a mid-brightness
+ * picture and was wrong for everything else.
+ *
+ * The filter blends towards near-black, so what comes out is roughly `luminance * (1 - alpha)`, and
+ * the alpha that lands a given picture on [BackdropTargetLuminance] falls out of that directly. A
+ * picture already at the target is left alone; one twice as bright is taken down by half.
+ *
+ * The old 58% is what this returns for a luminance of 0.29, which is about where a photographic
+ * backdrop sits — so the ordinary case is unchanged and it is the ends of the range that move.
+ */
+private fun backdropFilterAlpha(luminance: Float): Float =
+	(1f - BackdropTargetLuminance / luminance.coerceAtLeast(BackdropTargetLuminance))
+		.coerceIn(BackdropFilterMinAlpha, BackdropFilterMaxAlpha)
+
 private val PlainBackgroundScrim = Brush.horizontalGradient(
 	0.00f to Color.Black.copy(alpha = 0.55f),
 	0.55f to Color.Black.copy(alpha = 0.20f),
@@ -105,21 +141,25 @@ fun AppBackground() {
 				label = "BackgroundTransition",
 			) { background ->
 				if (background != null) {
+					// A lighter filter, at a fixed weight, when the picture is being shown for its
+					// own sake: the hero carries its own scrim under its lettering and the picture
+					// beside it is meant to be seen, so it is not measured or adjusted.
+					//
+					// Everywhere else the backdrop is scenery behind a screenful of text, and the
+					// weight is chosen from how bright this particular picture is.
+					val filter = if (plainBackground) {
+						colorResource(R.color.background_filter_plain)
+					} else {
+						colorResource(R.color.background_filter)
+							.copy(alpha = backdropFilterAlpha(background.luminance))
+					}
+
 					Image(
-						bitmap = background,
+						bitmap = background.image,
 						contentDescription = null,
 						alignment = Alignment.Center,
 						contentScale = ContentScale.Crop,
-						// A lighter filter when the picture is being shown for its own sake. It is
-						// still there, because the rows below the hero have their own headings to
-						// read and they run the full width, but it is light enough to see through.
-						colorFilter = ColorFilter.tint(
-							colorResource(
-								if (plainBackground) R.color.background_filter_plain
-								else R.color.background_filter
-							),
-							BlendMode.SrcAtop,
-						),
+						colorFilter = ColorFilter.tint(filter, BlendMode.SrcAtop),
 						modifier = Modifier
 							.fillMaxSize()
 							.then(if (blurBackground && !plainBackground) Modifier.blur(10.dp) else Modifier)
