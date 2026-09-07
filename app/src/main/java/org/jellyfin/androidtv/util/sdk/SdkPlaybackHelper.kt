@@ -11,7 +11,6 @@ import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ItemRepository
 import org.jellyfin.androidtv.preference.UserPreferences
-import org.jellyfin.androidtv.ui.playback.PlaybackControllerContainer
 import org.jellyfin.androidtv.ui.playback.PlaybackLauncher
 import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.androidtv.util.apiclient.Response
@@ -36,7 +35,6 @@ class SdkPlaybackHelper(
 	private val api: ApiClient,
 	private val userPreferences: UserPreferences,
 	private val playbackLauncher: PlaybackLauncher,
-	private val playbackControllerContainer: PlaybackControllerContainer,
 ) : PlaybackHelper {
 	companion object {
 		const val ITEM_QUERY_LIMIT = 150
@@ -278,7 +276,8 @@ class SdkPlaybackHelper(
 				context,
 				items,
 				pos.inWholeMilliseconds.toInt(),
-				playbackControllerContainer.playbackController?.hasFragment() == true,
+				// PlaybackLauncher decides for itself whether a player is already open.
+				false,
 				0,
 				shuffle,
 			)
@@ -306,7 +305,8 @@ class SdkPlaybackHelper(
 				context,
 				items,
 				pos.inWholeMilliseconds.toInt(),
-				playbackControllerContainer.playbackController?.hasFragment() == true,
+				// PlaybackLauncher decides for itself whether a player is already open.
+				false,
 				index ?: 0,
 				shuffle,
 			)
