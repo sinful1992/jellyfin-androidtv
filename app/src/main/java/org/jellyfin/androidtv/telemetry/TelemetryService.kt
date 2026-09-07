@@ -32,7 +32,10 @@ object TelemetryService {
 	 * Call in the attachBaseContext function of the application.
 	 */
 	fun init(context: Application) {
-		ACRA.DEV_LOGGING = true
+		// ACRA's own verbose internal logging, which ran in every build. This is called from
+		// JellyfinApplication.attachBaseContext — the earliest point in process startup, before
+		// anything else the app does.
+		ACRA.DEV_LOGGING = BuildConfig.DEBUG
 		context.initAcra {
 			buildConfigClass = BuildConfig::class.java
 			sharedPreferencesName = TelemetryPreferences.SHARED_PREFERENCES_NAME

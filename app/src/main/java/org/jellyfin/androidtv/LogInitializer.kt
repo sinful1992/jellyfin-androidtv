@@ -19,9 +19,24 @@ class LogInitializer : Initializer<Unit> {
 			}
 		}
 
-		// Initialize the logging library
-		Timber.plant(Timber.DebugTree())
-		Timber.i("Debug tree planted")
+		// Initialize the logging library.
+		//
+		// Debug builds only. The plant call used to sit outside the guard above, so release builds
+		// carried a DebugTree too, and a planted tree is not something R8 can strip the calls into
+		// — every Timber.i/d/w/e in the app formatted its message and wrote it to logcat on the
+		// television.
+		//
+		// The cost is not only the write. DebugTree derives its tag from the call site, and it does
+		// that by constructing a Throwable and walking its stack trace whenever no explicit tag was
+		// set. There is exactly one Timber.tag call in this tree against 292 call sites, so all but
+		// one of them paid for a stack trace capture per log line.
+		//
+		// ACRA reads logcat rather than Timber for its report's log section, so crash reports are
+		// unaffected by this.
+		if (BuildConfig.DEBUG) {
+			Timber.plant(Timber.DebugTree())
+			Timber.i("Debug tree planted")
+		}
 	}
 
 	override fun dependencies() = emptyList<Class<out Initializer<*>>>()
