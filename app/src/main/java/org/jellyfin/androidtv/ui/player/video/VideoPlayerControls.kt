@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
+import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.LocalTextStyle
 import org.jellyfin.androidtv.ui.base.SeekbarDefaults
 import org.jellyfin.androidtv.ui.base.Text
@@ -281,8 +282,7 @@ private fun PositionText(
 	if (positionInfo.duration == Duration.ZERO) return
 
 	val includeHours = positionInfo.duration.inWholeMinutes >= 60
-	val style = LocalTextStyle.current.copy(
-		fontSize = 15.sp,
+	val style = LocalTextStyle.current.merge(JellyfinTheme.typography.body).copy(
 		fontWeight = FontWeight.W500,
 		letterSpacing = 0.4.sp,
 		// The seconds turn over once a second, and proportional digits shuffle the whole line

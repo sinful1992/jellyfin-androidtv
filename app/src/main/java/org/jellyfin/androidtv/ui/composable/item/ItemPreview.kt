@@ -8,7 +8,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideTextStyle
 import org.jellyfin.design.Tokens
@@ -52,11 +51,10 @@ private fun ItemPreviewMetadata(
 	) {
 		title?.let { content ->
 			ProvideTextStyle(
-				value = JellyfinTheme.typography.default.copy(
+				value = JellyfinTheme.typography.label.copy(
 					// A row of titles set at one weight is a paragraph to read through. Lifting
 					// the one under focus makes it the name of what is being looked at.
 					color = if (focused) Tokens.Color.colorWhite else Tokens.Color.colorGrey100,
-					fontSize = 12.sp,
 				),
 				content = content,
 			)
@@ -64,9 +62,8 @@ private fun ItemPreviewMetadata(
 
 		subtitle?.let { content ->
 			ProvideTextStyle(
-				value = JellyfinTheme.typography.default.copy(
+				value = JellyfinTheme.typography.caption.copy(
 					color = Tokens.Color.colorGrey300,
-					fontSize = 10.sp,
 				),
 				content = content,
 			)

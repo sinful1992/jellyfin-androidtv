@@ -10,10 +10,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
 import org.jellyfin.playback.core.PlaybackManager
@@ -98,9 +97,8 @@ private fun formatBitrate(bitrate: Int): String {
 private fun InfoText(text: String) {
 	Text(
 		text = text,
-		style = TextStyle(
+		style = JellyfinTheme.typography.label.copy(
 			color = Color.White,
-			fontSize = 14.sp,
 		)
 	)
 }

@@ -31,7 +31,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
@@ -81,9 +80,7 @@ fun NowPlayingComposable(
 					.widthIn(100.dp, 250.dp)
 			) {
 				ProvideTextStyle(
-					value = TextStyle.Default.copy(
-						fontSize = 12.sp,
-					)
+					value = JellyfinTheme.typography.label,
 				) {
 					Row(
 						horizontalArrangement = Arrangement.spacedBy(6.dp),

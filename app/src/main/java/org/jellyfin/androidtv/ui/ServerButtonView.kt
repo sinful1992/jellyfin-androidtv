@@ -29,18 +29,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.CircularProgressIndicator
 import org.jellyfin.androidtv.ui.base.Icon
+import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.LocalTextStyle
 import org.jellyfin.androidtv.ui.base.ProvideTextStyle
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.button.ButtonBase
 import org.jellyfin.androidtv.ui.base.button.ButtonDefaults
+import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.MenuBuilder
 import org.jellyfin.androidtv.util.popupMenu
-import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.showIfNotEmpty
 
 @Composable
@@ -75,17 +75,17 @@ fun ServerButton(
 					.fillMaxHeight(),
 				verticalArrangement = Arrangement.SpaceBetween,
 			) {
-				ProvideTextStyle(LocalTextStyle.current.copy(fontSize = 14.sp)) {
+				ProvideTextStyle(LocalTextStyle.current.merge(JellyfinTheme.typography.label)) {
 					name()
 				}
 
-				ProvideTextStyle(LocalTextStyle.current.copy(fontSize = 12.sp)) {
+				ProvideTextStyle(LocalTextStyle.current.merge(JellyfinTheme.typography.caption)) {
 					address()
 				}
 			}
 
 			Box(modifier = Modifier.align(Alignment.Bottom)) {
-				ProvideTextStyle(LocalTextStyle.current.copy(fontSize = 12.sp)) {
+				ProvideTextStyle(LocalTextStyle.current.merge(JellyfinTheme.typography.caption)) {
 					version()
 				}
 			}
