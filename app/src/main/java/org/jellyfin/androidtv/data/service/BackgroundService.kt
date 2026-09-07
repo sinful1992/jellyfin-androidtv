@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import coil3.ImageLoader
 import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import coil3.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -68,6 +69,9 @@ class BackgroundService(
 		private const val GREEN_WEIGHT = 0.7152
 		private const val BLUE_WEIGHT = 0.0722
 		private const val MAX_CHANNEL_VALUE = 255.0
+
+		/** What a picture is assumed to be when it cannot be measured: the old fixed filter's tuning. */
+		private const val DEFAULT_LUMINANCE = 0.29f
 	}
 
 	// Async
@@ -175,22 +179,46 @@ class BackgroundService(
 			)
 			.image?.toBitmap() ?: return null
 
-		return Backdrop(image = bitmap.asImageBitmap(), luminance = bitmap.meanLuminance())
+		return Backdrop(image = bitmap.asImageBitmap(), luminance = measureLuminance(url))
 	}
 
 	/**
-	 * How bright this picture is overall, as a number between 0f and 1f.
+	 * How bright the picture at [url] is overall, between 0f for black and 1f for white.
 	 *
-	 * Rec. 709 weights applied to the sRGB values as they are stored, without converting back to
-	 * linear light first. That makes this a perceptual average rather than a photometric one, which
-	 * is what is wanted: the question being asked is whether lettering will read against it.
+	 * Decoded a second time at thumbnail size rather than measured from the picture that is about to
+	 * be drawn. That one is a hardware bitmap — Coil's default, and the right thing for something the
+	 * GPU redraws every frame — and a hardware bitmap cannot be read back at all: `getPixels` throws
+	 * `IllegalStateException` outright. Getting at one means copying the whole 1920x1080 surface out
+	 * of graphics memory first, which costs far more than decoding 144 pixels out of the cache entry
+	 * the request above has just filled.
+	 *
+	 * Rec. 709 weights on the sRGB values as they are stored, without converting back to linear light
+	 * first. That makes this a perceptual average rather than a photometric one, which is what is
+	 * wanted here: the question being asked is whether lettering will read against it.
+	 *
+	 * Anything unexpected returns [DEFAULT_LUMINANCE], which is the brightness the old fixed filter
+	 * was tuned for — so a picture that cannot be measured is treated exactly as every picture used
+	 * to be, rather than left unreadable or blacked out.
 	 */
-	private fun Bitmap.meanLuminance(): Float {
-		val sample = Bitmap.createScaledBitmap(this, LUMINANCE_SAMPLE_WIDTH, LUMINANCE_SAMPLE_HEIGHT, true)
+	private suspend fun measureLuminance(url: String): Float {
+		val sample = imageLoader
+			.execute(
+				request = ImageRequest.Builder(context)
+					.data(url)
+					.size(LUMINANCE_SAMPLE_WIDTH, LUMINANCE_SAMPLE_HEIGHT)
+					// The whole point of this second decode: a readable bitmap.
+					.allowHardware(false)
+					.build()
+			)
+			.image?.toBitmap() ?: return DEFAULT_LUMINANCE
+
+		// Belt and braces against the request above being honoured differently than expected. This
+		// runs for every backdrop on every screen, and getting it wrong takes the app down.
+		if (sample.config == Bitmap.Config.HARDWARE) return DEFAULT_LUMINANCE
+
 		val pixels = IntArray(sample.width * sample.height)
+		if (pixels.isEmpty()) return DEFAULT_LUMINANCE
 		sample.getPixels(pixels, 0, sample.width, 0, 0, sample.width, sample.height)
-		// createScaledBitmap hands back the original when it is already that size.
-		if (sample !== this) sample.recycle()
 
 		var total = 0.0
 		for (pixel in pixels) {
