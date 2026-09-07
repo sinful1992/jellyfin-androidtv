@@ -85,16 +85,16 @@ private fun AppThemeBackground() {
  *
  * Everything below exists to land every picture on roughly this, whatever it started at.
  */
-private const val BackdropTargetLuminance = 0.12f
+private const val BACKDROP_TARGET_LUMINANCE = 0.12f
 
 /**
  * The filter is never taken off entirely, however dark the picture already is: the screens that
  * carry a backdrop set their headings straight over the middle of it.
  */
-private const val BackdropFilterMinAlpha = 0.40f
+private const val BACKDROP_FILTER_MIN_ALPHA = 0.40f
 
 /** And never taken to the point where there is no artwork left to see. */
-private const val BackdropFilterMaxAlpha = 0.85f
+private const val BACKDROP_FILTER_MAX_ALPHA = 0.85f
 
 /**
  * How heavy the filter over a backdrop has to be, given how bright that backdrop is.
@@ -106,15 +106,15 @@ private const val BackdropFilterMaxAlpha = 0.85f
  * picture and was wrong for everything else.
  *
  * The filter blends towards near-black, so what comes out is roughly `luminance * (1 - alpha)`, and
- * the alpha that lands a given picture on [BackdropTargetLuminance] falls out of that directly. A
+ * the alpha that lands a given picture on [BACKDROP_TARGET_LUMINANCE] falls out of that directly. A
  * picture already at the target is left alone; one twice as bright is taken down by half.
  *
  * The old 58% is what this returns for a luminance of 0.29, which is about where a photographic
  * backdrop sits — so the ordinary case is unchanged and it is the ends of the range that move.
  */
 private fun backdropFilterAlpha(luminance: Float): Float =
-	(1f - BackdropTargetLuminance / luminance.coerceAtLeast(BackdropTargetLuminance))
-		.coerceIn(BackdropFilterMinAlpha, BackdropFilterMaxAlpha)
+	(1f - BACKDROP_TARGET_LUMINANCE / luminance.coerceAtLeast(BACKDROP_TARGET_LUMINANCE))
+		.coerceIn(BACKDROP_FILTER_MIN_ALPHA, BACKDROP_FILTER_MAX_ALPHA)
 
 private val PlainBackgroundScrim = Brush.horizontalGradient(
 	0.00f to Color.Black.copy(alpha = 0.55f),

@@ -70,6 +70,11 @@ class BackgroundService(
 		private const val BLUE_WEIGHT = 0.0722
 		private const val MAX_CHANNEL_VALUE = 255.0
 
+		// Pulling the channels out of a packed ARGB int.
+		private const val RED_SHIFT = 16
+		private const val GREEN_SHIFT = 8
+		private const val CHANNEL_MASK = 0xFF
+
 		/** What a picture is assumed to be when it cannot be measured: the old fixed filter's tuning. */
 		private const val DEFAULT_LUMINANCE = 0.29f
 	}
@@ -222,9 +227,9 @@ class BackgroundService(
 
 		var total = 0.0
 		for (pixel in pixels) {
-			total += RED_WEIGHT * ((pixel shr 16) and 0xFF) +
-				GREEN_WEIGHT * ((pixel shr 8) and 0xFF) +
-				BLUE_WEIGHT * (pixel and 0xFF)
+			total += RED_WEIGHT * ((pixel shr RED_SHIFT) and CHANNEL_MASK) +
+				GREEN_WEIGHT * ((pixel shr GREEN_SHIFT) and CHANNEL_MASK) +
+				BLUE_WEIGHT * (pixel and CHANNEL_MASK)
 		}
 
 		return (total / pixels.size / MAX_CHANNEL_VALUE).toFloat()
