@@ -84,14 +84,18 @@
             app:layout_constraintStart_toStartOf="@id/guide_main_start"
             tools:text="fdGenreRow" />
 
-        <!-- Left -->
+        <!-- Left
+
+             These three read "Directed by", "Runs" and "Ends" — phrases, so they are set as
+             phrases. They were driven into capitals here, which turned three plain words into
+             three labels shouting the names of their own fields, and made the gutter compete with
+             the title it sits beside. The strings themselves have always been sentence case. -->
 
         <TextView
             android:id="@+id/infoTitle1"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textAlignment="viewEnd"
-            android:textAllCaps="true"
             android:textSize="14sp"
             app:layout_constraintEnd_toEndOf="@id/guide_left_end"
             app:layout_constraintStart_toStartOf="parent"
@@ -116,7 +120,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:textAlignment="viewEnd"
-            android:textAllCaps="true"
             android:textSize="14sp"
             app:layout_constraintEnd_toStartOf="@id/guide_left_end"
             app:layout_constraintStart_toStartOf="parent"
@@ -141,7 +144,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:textAlignment="viewEnd"
-            android:textAllCaps="true"
             android:textSize="14sp"
             app:layout_constraintEnd_toStartOf="@id/guide_left_end"
             app:layout_constraintStart_toStartOf="parent"

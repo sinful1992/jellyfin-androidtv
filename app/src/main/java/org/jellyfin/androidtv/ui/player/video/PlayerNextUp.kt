@@ -24,10 +24,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.preference.constant.NextUpBehavior
@@ -152,19 +150,15 @@ fun PlayerNextUpCard(
 			modifier = Modifier.weight(1f),
 		) {
 			Text(
-				text = stringResource(R.string.lbl_next_up).uppercase(),
-				style = LocalTextStyle.current.copy(
-					color = Color.White.copy(alpha = 0.7f),
-					fontSize = 13.sp,
-					letterSpacing = 1.sp,
+				text = stringResource(R.string.lbl_next_up),
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.label).copy(
+					color = Color.White.copy(alpha = 0.75f),
 				),
 			)
 			Text(
 				text = item.getDisplayName(context),
-				style = LocalTextStyle.current.copy(
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.title).copy(
 					color = Color.White,
-					fontSize = 22.sp,
-					fontWeight = FontWeight.Bold,
 				),
 				overflow = TextOverflow.Ellipsis,
 				maxLines = 1,
