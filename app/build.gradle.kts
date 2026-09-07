@@ -84,6 +84,33 @@ android {
 
 			buildConfigField("boolean", "DEVELOPMENT", (defaultConfig.versionCode!! < 100).toString())
 		}
+
+		// A release build you can actually install next to the other two, for answering "is it the
+		// app or is it the debug build" without uninstalling anything.
+		//
+		// Debug builds carry every Compose diagnostic and no R8 pass, which on television hardware
+		// is the difference between a home screen that scrolls and one that does not. This is the
+		// same shrinking and optimisation a release gets, so a comparison against the debug build
+		// is a fair one; it just carries its own application id and is signed with the local debug
+		// key, so the real Jellyfin app it would otherwise collide with stays where it is.
+		create("minified") {
+			initWith(getByName("release"))
+			matchingFallbacks += "release"
+
+			applicationIdSuffix = ".minified"
+
+			resValue("string", "app_id", namespace + applicationIdSuffix)
+			resValue("string", "app_search_suggest_authority", "${namespace + applicationIdSuffix}.content")
+			resValue("string", "app_search_suggest_intent_data", "content://${namespace + applicationIdSuffix}.content/intent")
+
+			// Its own name on the launcher, or the one thing it exists for — opening the two side
+			// by side — comes down to guessing which identical tile is which.
+			resValue("string", "app_name", "@string/app_name_minified")
+
+			buildConfigField("boolean", "DEVELOPMENT", "false")
+
+			signingConfig = signingConfigs.getByName("debug")
+		}
 	}
 
 	lint {
