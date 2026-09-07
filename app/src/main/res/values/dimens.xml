@@ -13,9 +13,16 @@
          a gutter, and to hold the focused card's growth. -->
     <dimen name="lb_browse_item_horizontal_spacing">12dp</dimen>
 
-    <!-- Set leanback card scale values -->
-    <fraction name="lb_focus_zoom_factor_small">@fraction/card_scale_focus</fraction>
-    <fraction name="lb_focus_zoom_factor_xsmall">@fraction/card_scale_focus</fraction>
-    <fraction name="lb_focus_zoom_factor_medium">@fraction/card_scale_focus</fraction>
-    <fraction name="lb_focus_zoom_factor_large">@fraction/card_scale_focus</fraction>
+    <!-- Leanback is told not to scale anything, and the growth in card_scale_focus is applied
+         inside the card instead.
+
+         Leanback scales the whole item view, and on a row that shows its titles underneath the
+         cards that view is the card AND its two lines of text. So the focused card's title grew
+         and slid down with it while its neighbours' titles stayed where they were, and no two
+         titles in a row shared a baseline — the row rippled as you moved along it. Scaling the
+         artwork alone leaves the words where they were put. See ItemCard. -->
+    <fraction name="lb_focus_zoom_factor_small">@fraction/card_scale_default</fraction>
+    <fraction name="lb_focus_zoom_factor_xsmall">@fraction/card_scale_default</fraction>
+    <fraction name="lb_focus_zoom_factor_medium">@fraction/card_scale_default</fraction>
+    <fraction name="lb_focus_zoom_factor_large">@fraction/card_scale_default</fraction>
 </resources>
