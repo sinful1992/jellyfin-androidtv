@@ -157,7 +157,19 @@ class ExoPlayerBackend(
 		override fun onIsPlayingChanged(isPlaying: Boolean) {
 			val state = when {
 				isPlaying -> PlayState.PLAYING
+
 				exoPlayer.playbackState == Player.STATE_IDLE || exoPlayer.playbackState == Player.STATE_ENDED -> PlayState.STOPPED
+
+				// Waiting for data is not the same as being stopped, and the difference shows:
+				// a pause icon is flashed over the picture and the controls come up and stay,
+				// every time playback has to buffer. Loading the next entry buffers, which is
+				// why taking the next up card's offer looked like it paused first.
+				//
+				// The intent to play is what separates the two. Anything that really did stop
+				// playback clears it, so a genuine pause and a loss of audio focus both still
+				// report as paused.
+				exoPlayer.playbackState == Player.STATE_BUFFERING && exoPlayer.playWhenReady -> PlayState.PLAYING
+
 				else -> PlayState.PAUSED
 			}
 			listener?.onPlayStateChange(state)
