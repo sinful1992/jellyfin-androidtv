@@ -6,10 +6,9 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.LocalTextStyle
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.player.base.PlayerHeader
@@ -34,14 +33,11 @@ fun VideoPlayerHeader(
 			).joinToString(" · ")
 
 			if (eyebrow.isNotEmpty()) Text(
-				text = eyebrow.uppercase(),
+				text = eyebrow,
 				overflow = TextOverflow.Ellipsis,
 				maxLines = 1,
-				style = LocalTextStyle.current.copy(
-					color = Color.White.copy(alpha = 0.65f),
-					fontSize = 13.sp,
-					fontWeight = FontWeight.W600,
-					letterSpacing = 1.2.sp,
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.label).copy(
+					color = Color.White.copy(alpha = 0.75f),
 				),
 				modifier = Modifier.padding(bottom = 2.dp),
 			)
@@ -50,10 +46,8 @@ fun VideoPlayerHeader(
 				text = item.name.orEmpty(),
 				overflow = TextOverflow.Ellipsis,
 				maxLines = 1,
-				style = LocalTextStyle.current.copy(
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.headline).copy(
 					color = Color.White,
-					fontSize = 28.sp,
-					fontWeight = FontWeight.W700,
 				)
 			)
 		}
