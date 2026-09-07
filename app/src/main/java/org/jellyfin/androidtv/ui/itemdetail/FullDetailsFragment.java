@@ -437,10 +437,15 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
                         firstRow = new InfoItem(
                                 getString(R.string.lbl_seasons),
                                 String.format("%d", Utils.getSafeValue(item.getChildCount(), 0)));
+                    } else if (director != null) {
+                        firstRow = new InfoItem(getString(R.string.lbl_directed_by), director.getName());
                     } else {
-                        firstRow = new InfoItem(
-                                getString(R.string.lbl_directed_by),
-                                director != null ? director.getName() : getString(R.string.lbl_bracket_unknown));
+                        // No row at all rather than "Directed by — Unknown". A label with nothing
+                        // under it is not an answer, it is the screen admitting it went looking and
+                        // came back with nothing, which is the library's business and not the
+                        // viewer's. An empty InfoItem leaves both TextViews blank and the line
+                        // collapses, the same way the clock row already does when it is turned off.
+                        firstRow = new InfoItem();
                     }
                     mDetailsOverviewRow.setInfoItem1(firstRow);
 
