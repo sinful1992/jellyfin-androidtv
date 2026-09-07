@@ -20,6 +20,11 @@ import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.playback.PlaybackControllerContainer
 import org.jellyfin.androidtv.ui.playback.setSubtitleIndex
+import org.jellyfin.playback.core.PlaybackManager
+import org.jellyfin.playback.core.mediastream.selectAudioStream
+import org.jellyfin.playback.core.mediastream.selectSubtitleStream
+import org.jellyfin.playback.core.model.PlayState
+import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
@@ -38,6 +43,7 @@ import org.jellyfin.sdk.model.api.PlaystateCommand
 import org.jellyfin.sdk.model.api.PlaystateMessage
 import org.jellyfin.sdk.model.extensions.get
 import org.jellyfin.sdk.model.extensions.getValue
+import org.jellyfin.sdk.model.extensions.ticks
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import timber.log.Timber
 import java.time.Instant
@@ -49,12 +55,23 @@ class SocketHandler(
 	private val dataRefreshService: DataRefreshService,
 	private val mediaManager: MediaManager,
 	private val playbackControllerContainer: PlaybackControllerContainer,
+	private val playbackManager: PlaybackManager,
 	private val navigationRepository: NavigationRepository,
 	private val audioManager: AudioManager,
 	private val itemLauncher: ItemLauncher,
 	private val playbackHelper: PlaybackHelper,
 	private val lifecycle: Lifecycle,
 ) {
+	/**
+	 * Whether the rewrite player is the one with something in it.
+	 *
+	 * Asked of the queue rather than of the `playbackRewriteVideoEnabled` preference: the
+	 * preference says which player the *next* item would open in, while the queue says which one
+	 * is playing now. Under the legacy player the queue is empty and every branch below falls
+	 * through to the [PlaybackControllerContainer] path that has always handled it.
+	 */
+	private val rewritePlayerActive get() = playbackManager.queue.entry.value != null
+
 	init {
 		lifecycle.coroutineScope.launch(Dispatchers.IO) {
 			lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -115,7 +132,8 @@ class SocketHandler(
 				val index = message["index"]?.toIntOrNull() ?: return@onEach
 
 				withContext(Dispatchers.Main) {
-					playbackControllerContainer.playbackController?.setSubtitleIndex(index)
+					if (rewritePlayerActive) playbackManager.selectSubtitleStream(index)
+					else playbackControllerContainer.playbackController?.setSubtitleIndex(index)
 				}
 			}
 			.launchIn(coroutineScope)
@@ -125,7 +143,8 @@ class SocketHandler(
 				val index = message["index"]?.toIntOrNull() ?: return@onEach
 
 				withContext(Dispatchers.Main) {
-					playbackControllerContainer.playbackController?.switchAudioStream(index)
+					if (rewritePlayerActive) playbackManager.selectAudioStream(index)
+					else playbackControllerContainer.playbackController?.switchAudioStream(index)
 				}
 			}
 			.launchIn(coroutineScope)
@@ -195,6 +214,34 @@ class SocketHandler(
 				return@withContext
 			}
 
+			// The rewrite player, which has none of the legacy controller's API and was reached
+			// by none of the branches below, so every one of these commands was a silent no-op
+			// while it was the player running.
+			rewritePlayerActive -> {
+				val state = playbackManager.state
+				when (message.data?.command) {
+					PlaystateCommand.STOP -> state.stop()
+					PlaystateCommand.PAUSE -> state.pause()
+					PlaystateCommand.UNPAUSE -> state.unpause()
+					// The rewrite splits what legacy folded into one playPause call, so the toggle
+					// is resolved here from the state rather than inside the player.
+					PlaystateCommand.PLAY_PAUSE -> {
+						if (state.playState.value == PlayState.PLAYING) state.pause() else state.unpause()
+					}
+
+					PlaystateCommand.NEXT_TRACK -> playbackManager.queue.next()
+					PlaystateCommand.PREVIOUS_TRACK -> playbackManager.queue.previous()
+					PlaystateCommand.SEEK -> state.seek(
+						(message.data?.seekPositionTicks ?: 0).ticks
+					)
+
+					PlaystateCommand.REWIND -> state.rewind()
+					PlaystateCommand.FAST_FORWARD -> state.fastForward()
+
+					null -> Unit
+				}
+			}
+
 			// PlaybackController
 			else -> {
 				val playbackController = playbackControllerContainer.playbackController
@@ -217,9 +264,17 @@ class SocketHandler(
 	}
 
 	private suspend fun onDisplayContent(itemId: UUID, itemKind: BaseItemKind) = withContext(Dispatchers.Main) {
-		val playbackController = playbackControllerContainer.playbackController
+		// Same question of whichever player is running. Asked only of the legacy controller before,
+		// so under the rewrite this always read "nothing is playing" and a display command from
+		// another client would navigate away from a film that was mid-playback.
+		val playbackActive = if (rewritePlayerActive) {
+			playbackManager.state.playState.value in setOf(PlayState.PLAYING, PlayState.PAUSED)
+		} else {
+			val playbackController = playbackControllerContainer.playbackController
+			playbackController?.isPlaying == true || playbackController?.isPaused == true
+		}
 
-		if (playbackController?.isPlaying == true || playbackController?.isPaused == true) {
+		if (playbackActive) {
 			Timber.i("Not launching $itemId: playback in progress")
 			return@withContext
 		}
