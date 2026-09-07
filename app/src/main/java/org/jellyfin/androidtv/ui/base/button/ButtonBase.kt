@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideTextStyle
 
@@ -43,7 +42,7 @@ fun ButtonBase(
 		else -> colors.containerColor to colors.contentColor
 	}
 
-	ProvideTextStyle(value = JellyfinTheme.typography.default.copy(fontSize = 14.sp, color = colors.second)) {
+	ProvideTextStyle(value = JellyfinTheme.typography.label.copy(color = colors.second)) {
 		Box(
 			modifier = modifier
 				.combinedClickable(

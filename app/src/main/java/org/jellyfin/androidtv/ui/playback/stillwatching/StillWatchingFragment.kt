@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import kotlinx.coroutines.launch
@@ -166,13 +165,13 @@ fun StillWatchingOverlay(
 		) {
 			Text(
 				text = stringResource(R.string.lbl_next_up),
-				style = LocalTextStyle.current.copy(fontSize = 34.sp),
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.display),
 			)
 			Spacer(Modifier.height(4.dp))
 
 			Text(
 				text = item.title,
-				style = LocalTextStyle.current.copy(fontSize = 16.sp),
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.body),
 				overflow = TextOverflow.Ellipsis,
 				maxLines = 1,
 			)
@@ -204,7 +203,7 @@ fun StillWatchingOverlay(
 		) {
 			Text(
 				text = stringResource(R.string.still_watching_label),
-				style = LocalTextStyle.current.copy(fontSize = 34.sp),
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.display),
 			)
 
 			Spacer(Modifier.height(16.dp))

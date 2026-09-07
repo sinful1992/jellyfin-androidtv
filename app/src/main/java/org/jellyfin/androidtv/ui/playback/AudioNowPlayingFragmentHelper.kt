@@ -22,9 +22,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
+import org.jellyfin.androidtv.ui.base.TypographySizes
 import org.jellyfin.androidtv.ui.composable.AsyncImage
 import org.jellyfin.androidtv.ui.composable.LyricsDtoBox
 import org.jellyfin.androidtv.ui.composable.modifier.fadingEdges
@@ -114,7 +114,7 @@ fun initializePreviewView(
 				currentTimestamp = positionInfo.active,
 				duration = positionInfo.duration,
 				paused = playState != PlayState.PLAYING,
-				fontSize = 12.sp,
+				fontSize = TypographySizes.Label,
 				color = Color.White,
 				modifier = Modifier
 					.fillMaxSize()

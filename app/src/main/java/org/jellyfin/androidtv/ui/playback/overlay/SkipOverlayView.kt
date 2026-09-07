@@ -26,11 +26,11 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
+import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepository
 import kotlin.time.Duration
@@ -62,7 +62,7 @@ fun SkipOverlayComposable(
 				Text(
 					text = stringResource(R.string.segment_action_skip),
 					color = colorResource(R.color.button_default_normal_text),
-					fontSize = 18.sp,
+					style = JellyfinTheme.typography.subtitle,
 				)
 			}
 		}

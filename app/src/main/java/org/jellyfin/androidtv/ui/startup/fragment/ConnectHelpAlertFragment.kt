@@ -28,7 +28,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import org.jellyfin.androidtv.R
@@ -64,12 +63,12 @@ private fun ConnectHelpAlert(
 				) {
 					Text(
 						text = stringResource(R.string.login_help_title),
-						style = LocalTextStyle.current.copy(fontSize = 45.sp),
+						style = LocalTextStyle.current.merge(JellyfinTheme.typography.display),
 					)
 					Text(
 						modifier = Modifier.padding(top = 16.dp),
 						text = stringResource(R.string.login_help_description),
-						style = LocalTextStyle.current.copy(fontSize = 16.sp),
+						style = LocalTextStyle.current.merge(JellyfinTheme.typography.body),
 					)
 					Button(
 						modifier = Modifier
@@ -86,7 +85,7 @@ private fun ConnectHelpAlert(
 						Spacer(Modifier.size(8.dp))
 						Text(
 							text = stringResource(id = R.string.btn_got_it),
-							style = LocalTextStyle.current.copy(fontSize = 16.sp),
+							style = LocalTextStyle.current.merge(JellyfinTheme.typography.body),
 						)
 					}
 				}
