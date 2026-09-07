@@ -11,15 +11,12 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
-import org.jellyfin.androidtv.integration.LeanbackChannelWorker
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
 import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
@@ -39,7 +36,6 @@ class MainActivity : FragmentActivity() {
 	private val sessionRepository by inject<SessionRepository>()
 	private val userRepository by inject<UserRepository>()
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
-	private val workManager by inject<WorkManager>()
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		applyTheme()
@@ -108,8 +104,11 @@ class MainActivity : FragmentActivity() {
 	override fun onStop() {
 		super.onStop()
 
-		workManager.enqueue(OneTimeWorkRequestBuilder<LeanbackChannelWorker>().build())
-
+		// The launcher channel worker is no longer kicked off here. It ran on every onStop — every
+		// time the app is left and every time the player is opened — and each run makes five or
+		// more API calls, deletes every row from the launcher's preview programs and bulk-inserts
+		// replacements. The hourly periodic worker enqueued at startup already keeps those rows
+		// fresh; this was the same work at the most frequent trigger the app has.
 		lifecycleScope.launch(Dispatchers.IO) {
 			Timber.i("MainActivity stopped")
 			sessionRepository.restoreSession(destroyOnly = true)
