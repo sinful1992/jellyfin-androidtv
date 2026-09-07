@@ -1,6 +1,7 @@
 package org.jellyfin.androidtv.data.service
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import coil3.ImageLoader
@@ -28,6 +29,19 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * A backdrop, and how bright it turned out to be.
+ *
+ * The brightness travels with the picture because the filter laid over it has to be chosen from it,
+ * and it is measured once here — where the image is decoded, off the main thread — rather than
+ * being worked out again on every frame that draws it.
+ */
+data class Backdrop(
+	val image: ImageBitmap,
+	/** Mean relative luminance across the whole picture, 0f for black and 1f for white. */
+	val luminance: Float,
+)
+
 class BackgroundService(
 	private val context: Context,
 	private val jellyfin: Jellyfin,
@@ -42,6 +56,18 @@ class BackgroundService(
 		/** The size backdrops are decoded at. The screen they are drawn on, not the source file. */
 		private const val BACKDROP_WIDTH = 1920
 		private const val BACKDROP_HEIGHT = 1080
+
+		// A mean does not need every pixel, and this runs for every backdrop that is decoded. 16x9
+		// keeps the frame's proportions and is small enough that the scale and the sum together are
+		// lost next to the decode that just happened.
+		private const val LUMINANCE_SAMPLE_WIDTH = 16
+		private const val LUMINANCE_SAMPLE_HEIGHT = 9
+
+		// Rec. 709. Green carries most of what the eye reads as brightness, blue almost none.
+		private const val RED_WEIGHT = 0.2126
+		private const val GREEN_WEIGHT = 0.7152
+		private const val BLUE_WEIGHT = 0.0722
+		private const val MAX_CHANNEL_VALUE = 255.0
 	}
 
 	// Async
@@ -51,9 +77,9 @@ class BackgroundService(
 	private var lastBackgroundTimerUpdate = 0L
 
 	// Current background data
-	private var _backgrounds = emptyList<ImageBitmap>()
+	private var _backgrounds = emptyList<Backdrop>()
 	private var _currentIndex = 0
-	private var _currentBackground = MutableStateFlow<ImageBitmap?>(null)
+	private var _currentBackground = MutableStateFlow<Backdrop?>(null)
 	private var _blurBackground = MutableStateFlow(false)
 	private var _plainBackground = MutableStateFlow(false)
 
@@ -139,14 +165,42 @@ class BackgroundService(
 	 * routinely larger than the screen it is about to be drawn on — every pixel of the difference
 	 * paid for in decode time and in heap.
 	 */
-	private suspend fun loadBackground(url: String) = imageLoader
-		.execute(
-			request = ImageRequest.Builder(context)
-				.data(url)
-				.size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
-				.build()
-		)
-		.image?.toBitmap()?.asImageBitmap()
+	private suspend fun loadBackground(url: String): Backdrop? {
+		val bitmap = imageLoader
+			.execute(
+				request = ImageRequest.Builder(context)
+					.data(url)
+					.size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
+					.build()
+			)
+			.image?.toBitmap() ?: return null
+
+		return Backdrop(image = bitmap.asImageBitmap(), luminance = bitmap.meanLuminance())
+	}
+
+	/**
+	 * How bright this picture is overall, as a number between 0f and 1f.
+	 *
+	 * Rec. 709 weights applied to the sRGB values as they are stored, without converting back to
+	 * linear light first. That makes this a perceptual average rather than a photometric one, which
+	 * is what is wanted: the question being asked is whether lettering will read against it.
+	 */
+	private fun Bitmap.meanLuminance(): Float {
+		val sample = Bitmap.createScaledBitmap(this, LUMINANCE_SAMPLE_WIDTH, LUMINANCE_SAMPLE_HEIGHT, true)
+		val pixels = IntArray(sample.width * sample.height)
+		sample.getPixels(pixels, 0, sample.width, 0, 0, sample.width, sample.height)
+		// createScaledBitmap hands back the original when it is already that size.
+		if (sample !== this) sample.recycle()
+
+		var total = 0.0
+		for (pixel in pixels) {
+			total += RED_WEIGHT * ((pixel shr 16) and 0xFF) +
+				GREEN_WEIGHT * ((pixel shr 8) and 0xFF) +
+				BLUE_WEIGHT * (pixel and 0xFF)
+		}
+
+		return (total / pixels.size / MAX_CHANNEL_VALUE).toFloat()
+	}
 
 	private fun loadBackgrounds(backdropUrls: Set<String>) {
 		if (backdropUrls.isEmpty()) return clearBackgrounds()
