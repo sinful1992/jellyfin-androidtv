@@ -20,7 +20,6 @@ import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.composable.getResolutionName
-import org.jellyfin.androidtv.util.TimeUtils
 import org.jellyfin.androidtv.util.sdk.getProgramSubText
 import org.jellyfin.androidtv.util.sdk.getSeasonEpisodeName
 import org.jellyfin.androidtv.util.sdk.isNew
@@ -37,7 +36,11 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
+import kotlin.math.ceil
 import kotlin.time.Duration
+
+/** The channel layout that is assumed, and so is never worth a chip of its own. */
+private const val AudioChannelLayoutStereo = "STEREO"
 
 @Composable
 fun InfoRowDate(
@@ -113,15 +116,32 @@ fun InfoRowSeriesStatus(
 	}
 }
 
+/**
+ * How long the thing lasts.
+ *
+ * Not `TimeUtils.formatMillis`, which is the player's clock format and put a two-hour film on the
+ * screen as "1:55:26" — a length written as though it were a time of day, next to a clock face
+ * saying the same thing again. A length is read in hours and minutes; the seconds are noise, and
+ * nobody starts a film to the second. The strings and the arithmetic are the detail screen's own
+ * (`FullDetailsFragment.getRunTime`), which has always shown it this way — this is the chip row
+ * catching up with the page it sits on, not a new format.
+ */
 @Composable
 fun BaseItemInfoRowRuntime(
 	runTime: Duration,
 ) {
+	val totalMinutes = ceil(runTime.inWholeSeconds / 60.0).toInt()
+	val hours = totalMinutes / 60
+	val minutes = totalMinutes % 60
+
 	InfoRowItem(
 		icon = ImageVector.vectorResource(id = R.drawable.ic_time),
 		contentDescription = null,
 	) {
-		Text(TimeUtils.formatMillis(runTime.inWholeMilliseconds))
+		Text(
+			if (hours > 0) stringResource(R.string.runtime_hours_minutes, hours, minutes)
+			else stringResource(R.string.runtime_minutes, minutes)
+		)
 	}
 }
 
@@ -153,11 +173,17 @@ fun InfoRowMediaDetails(mediaSource: MediaSourceInfo) {
 	val hasSdhSubtitleStream = mediaSource.mediaStreams?.any { it.type == MediaStreamType.SUBTITLE && it.isHearingImpaired } == true
 	val hasCcSubtitleStream = mediaSource.mediaStreams?.any { it.type == MediaStreamType.SUBTITLE && !it.isHearingImpaired } == true
 
+	// A chip is a claim about this file that could have been otherwise. Everything is SDR and
+	// stereo unless it says so, and spending a chip to say the ordinary thing costs the same
+	// attention as saying a useful one — five identical pills in a row are five equals, and a row
+	// of equals ranks nothing. So the ordinary cases are dropped below, and what is left is graded:
+	// what the file *is* at full strength, what it merely *offers* at half.
+
 	// Subtitles
 	if (hasSdhSubtitleStream) {
 		InfoRowItem(
 			contentDescription = null,
-			colors = InfoRowColors.Default,
+			colors = InfoRowColors.Muted,
 		) {
 			Text(stringResource(R.string.indicator_subtitles_hearing_impaired))
 		}
@@ -166,7 +192,7 @@ fun InfoRowMediaDetails(mediaSource: MediaSourceInfo) {
 	if (hasCcSubtitleStream) {
 		InfoRowItem(
 			contentDescription = null,
-			colors = InfoRowColors.Default,
+			colors = InfoRowColors.Muted,
 		) {
 			Text(stringResource(R.string.indicator_subtitles))
 		}
@@ -188,9 +214,11 @@ fun InfoRowMediaDetails(mediaSource: MediaSourceInfo) {
 		}
 	}
 
-	// Video range
+	// Video range. Plain SDR is left out — it is what every file is unless it says otherwise, so
+	// the chip only ever confirms the assumption the viewer already made. The Dolby Vision cases
+	// keep their SDR chip, where it is not the assumption but the half of a two-part answer.
 	val videoRangeNames: Set<String> = when (videoStream?.videoRangeType) {
-		VideoRangeType.SDR -> setOf(stringResource(R.string.sdr))
+		VideoRangeType.SDR -> emptySet()
 		VideoRangeType.HDR10 -> setOf(stringResource(R.string.hdr10))
 		VideoRangeType.HDR10_PLUS -> setOf(stringResource(R.string.hdr10_plus))
 		VideoRangeType.HLG -> setOf(stringResource(R.string.hlg))
@@ -238,8 +266,11 @@ fun InfoRowMediaDetails(mediaSource: MediaSourceInfo) {
 		}
 	}
 
-	// Audio channel layout
+	// Audio channel layout. Stereo goes the way of SDR: it is the floor, not a feature. Mono stays,
+	// because on a library of ripped-from-anywhere files it is the one layout worth being warned
+	// about before you sit down.
 	val audioChannelLayout = audioStream?.channelLayout?.uppercase()
+		?.takeUnless { it == AudioChannelLayoutStereo }
 	if (!audioChannelLayout.isNullOrBlank()) {
 		InfoRowItem(
 			contentDescription = null,
