@@ -232,7 +232,7 @@ class SocketHandler(
 					PlaystateCommand.NEXT_TRACK -> playbackManager.queue.next()
 					PlaystateCommand.PREVIOUS_TRACK -> playbackManager.queue.previous()
 					PlaystateCommand.SEEK -> state.seek(
-						(message.data?.seekPositionTicks ?: 0).ticks
+						(message.data?.seekPositionTicks ?: 0L).ticks
 					)
 
 					PlaystateCommand.REWIND -> state.rewind()
