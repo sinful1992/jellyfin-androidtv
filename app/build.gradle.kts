@@ -122,6 +122,17 @@ android {
 		}
 	}
 
+	// 69 values-* folders, 2.4 MB of translated strings, all of it shipped. shrinkResources does
+	// not touch locales — only a filter does — so this is one of the few size findings that R8 was
+	// never going to handle on its own.
+	//
+	// A language filter keeps that language's regional variants, so values-en-rGB rides along with
+	// "en". Add to the list to read the app in another language; values/ itself is the fallback and
+	// is always kept, so nothing can end up with no strings at all.
+	androidResources {
+		localeFilters += listOf("en")
+	}
+
 	lint {
 		lintConfig = file("$rootDir/android-lint.xml")
 		abortOnError = false
