@@ -133,6 +133,11 @@ fun ItemCard(
 	) {
 		image()
 
+		// Over the artwork but under the overlay. The overlay carries the resume bar and the
+		// unplayed badge, which say things about the item that are no less true while something
+		// else has the focus — dimming those would be dimming the information, not the picture.
+		ItemCardUnfocusedScrim(focused = focused)
+
 		if (overlay != null) {
 			Box(
 				modifier = Modifier.fillMaxSize(),
@@ -140,7 +145,6 @@ fun ItemCard(
 			)
 		}
 
-		ItemCardUnfocusedScrim(focused = focused)
 		ItemCardFocusRing(focused = focused, shape = shape)
 	}
 }

@@ -102,6 +102,10 @@ class GridButtonPresenter @JvmOverloads constructor(
 					)
 				}
 
+				// Over the image, under the label: the tile is mostly its label, and dimming that
+				// would take the word away rather than push the picture back.
+				ItemCardUnfocusedScrim(focused = focused)
+
 				Text(
 					text = value.text,
 					style = JellyfinTheme.typography.label.copy(
@@ -112,7 +116,6 @@ class GridButtonPresenter @JvmOverloads constructor(
 						.align(Alignment.BottomStart)
 				)
 
-				ItemCardUnfocusedScrim(focused = focused)
 				ItemCardFocusRing(focused = focused, shape = shape)
 			}
 		}
