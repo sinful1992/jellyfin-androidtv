@@ -89,6 +89,29 @@ class HomeHeroRow(items: List<BaseItemDto>) : Row() {
 	/** The title currently on show. */
 	val selection: StateFlow<HomeHeroSelection> = _selection.asStateFlow()
 
+	// True to start with: the hero is the top row and is what the screen opens on, and the focus is
+	// handed to it without leanback dispatching a selection for it — see HomeRowsFragment.
+	private val _selected = MutableStateFlow(true)
+
+	/**
+	 * Whether the hero is the row being looked at.
+	 *
+	 * Leanback holds the selected row a fixed distance down the screen whatever is above it, so
+	 * moving down to the first row of cards does not take the hero away. It scrolls up by its own
+	 * height less that distance and leaves a band of itself on show — and left as it was, that band
+	 * is the bottom of the card: the tail of a description cut mid-line, and two buttons that answer
+	 * no key, above a row that does.
+	 *
+	 * So the card is told to close, and keeps only the picture and the title's lettering. See
+	 * [HomeHero].
+	 */
+	val selected: StateFlow<Boolean> = _selected.asStateFlow()
+
+	/** Told by the fragment, which is the only thing that knows where the selection has gone. */
+	fun setSelected(selected: Boolean) {
+		_selected.value = selected
+	}
+
 	/**
 	 * Move [delta] places along the shortlist, wrapping round at either end.
 	 *
@@ -165,7 +188,7 @@ class HomeFragmentHeroRow(
 	 */
 	fun refresh(
 		rowsAdapter: MutableObjectAdapter<Row>,
-		onAdded: (HomeHeroRow) -> Unit = {},
+		onAdded: () -> Unit = {},
 	) {
 		lifecycleScope.launch {
 			val items = loadItems()
@@ -181,7 +204,7 @@ class HomeFragmentHeroRow(
 				// Told after the insert, and only on the insert: whoever is watching the rows has
 				// to move the selection onto a row that did not exist a moment ago, and a later
 				// refresh replacing the shortlist is not a reason to do that again.
-				onAdded(added)
+				onAdded()
 			} else {
 				existing.replace(items)
 			}
@@ -293,11 +316,13 @@ class HomeHeroRowPresenter(
 				val currentRow = row
 				if (currentRow != null) {
 					val selection by currentRow.selection.collectAsState()
+					val selected by currentRow.selected.collectAsState()
 
 					HomeHero(
 						selection = selection,
 						focus = focus,
 						focused = focused,
+						expanded = selected,
 					)
 				}
 			}
