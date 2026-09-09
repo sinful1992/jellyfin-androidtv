@@ -90,42 +90,15 @@ class BackgroundService(
 	private var _currentIndex = 0
 	private var _currentBackground = MutableStateFlow<Backdrop?>(null)
 	private var _blurBackground = MutableStateFlow(false)
-	private var _plainBackground = MutableStateFlow(false)
-
-	/**
-	 * What [plainBackground] becomes once the picture it was asked for is the one on the screen.
-	 *
-	 * Held back rather than published straight away because the two have to change together. The
-	 * pictures arrive whenever they finish loading, and a flag that changed on the asking would
-	 * strip the blur off whatever was still showing and put it back again when the new one landed.
-	 */
-	private var _pendingPlain = false
 	private var _enabled = MutableStateFlow(true)
 	val currentBackground get() = _currentBackground.asStateFlow()
 	val blurBackground get() = _blurBackground.asStateFlow()
-
-	/**
-	 * Whether the picture is being shown for its own sake rather than as something to read over.
-	 *
-	 * Everywhere else the backdrop is scenery behind a screenful of text, and is blurred and dimmed
-	 * until it cannot compete with it. The home hero is the one place where the picture is the point
-	 * — it is the artwork of the title being put forward, and there is nothing else on that half of
-	 * the screen — so it is shown as it is and the lettering is given a wash of its own instead.
-	 *
-	 * Set by whoever asks for the background, which means every ordinary call turns it back off and
-	 * no screen can be left wearing it.
-	 */
-	val plainBackground get() = _plainBackground.asStateFlow()
 	val enabled get() = _enabled.asStateFlow()
 
 	/**
 	 * Use all available backdrops from [baseItem] as background.
-	 *
-	 * [plain] asks for the picture unblurred and undimmed, for a screen that carries its own
-	 * lettering. See [plainBackground].
 	 */
-	@JvmOverloads
-	fun setBackground(baseItem: BaseItemDto?, plain: Boolean = false) {
+	fun setBackground(baseItem: BaseItemDto?) {
 		val backdropBehavior = userPreferences[UserPreferences.backdropBehavior]
 
 		// Check if item is set and backgrounds are enabled
@@ -134,7 +107,6 @@ class BackgroundService(
 
 		// Enable blur for backdrops
 		_blurBackground.value = backdropBehavior == BackdropBehavior.BACKDROP_WITH_BLUR
-		_pendingPlain = plain
 
 		// Get all backdrop urls
 		val backdropUrls = (baseItem.itemBackdropImages + baseItem.parentBackdropImages)
@@ -158,7 +130,6 @@ class BackgroundService(
 
 		// Disable blur on splashscreen
 		_blurBackground.value = false
-		_pendingPlain = false
 
 		// Manually grab the backdrop URL
 		val api = jellyfin.createApi(baseUrl = server.address)
@@ -276,10 +247,6 @@ class BackgroundService(
 	fun clearBackgrounds() {
 		loadBackgroundsJob?.cancel()
 
-		// Both, because this can return below without ever reaching the update that pairs them.
-		_pendingPlain = false
-		_plainBackground.value = false
-
 		// Re-enable backgrounds if disabled
 		_enabled.value = true
 
@@ -308,7 +275,6 @@ class BackgroundService(
 
 		// Set background
 		_currentBackground.value = _backgrounds.getOrNull(_currentIndex)
-		_plainBackground.value = _pendingPlain
 
 		// Set timer for next background
 		if (_backgrounds.size > 1) setTimer()

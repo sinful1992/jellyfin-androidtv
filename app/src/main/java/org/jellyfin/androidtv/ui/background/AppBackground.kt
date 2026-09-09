@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
@@ -62,25 +61,6 @@ private fun AppThemeBackground() {
 }
 
 /**
- * The wash laid over a plain background, on top of the lighter filter it keeps.
- *
- * A screen that carries its own lettering keeps it to one side — the hero sets its title, its facts
- * and its buttons down the left and leaves the rest of the width to the picture — so the darkness
- * goes there too and thins out towards the far side, where the artwork is actually visible.
- *
- * Sideways rather than downwards because there is no edge to it that way: a band of darkness across
- * the middle of the screen would have to stop somewhere, and wherever it stopped would show.
- *
- * Three stops rather than two. A straight line from full to nothing reaches nothing *at* the stop,
- * so whatever sits near the end of the run gets no cover at all — which is what happened here: the
- * words ran to 72% of the width and the wash was gone by 65%, leaving the tail of every description
- * on bare artwork. The middle stop holds a little darkness across the rest of the words and lets it
- * go only once they have ended, so the ending is out past the text instead of inside it.
- *
- * Kept in step with [org.jellyfin.androidtv.ui.home.HomeHeroMeasure], which is what decides how far
- * the words actually run.
- */
-/**
  * How dark the backdrop should end up once the filter is over it.
  *
  * Everything below exists to land every picture on roughly this, whatever it started at.
@@ -116,18 +96,11 @@ private fun backdropFilterAlpha(luminance: Float): Float =
 	(1f - BACKDROP_TARGET_LUMINANCE / luminance.coerceAtLeast(BACKDROP_TARGET_LUMINANCE))
 		.coerceIn(BACKDROP_FILTER_MIN_ALPHA, BACKDROP_FILTER_MAX_ALPHA)
 
-private val PlainBackgroundScrim = Brush.horizontalGradient(
-	0.00f to Color.Black.copy(alpha = 0.55f),
-	0.55f to Color.Black.copy(alpha = 0.20f),
-	0.85f to Color.Transparent,
-)
-
 @Composable
 fun AppBackground() {
 	val backgroundService = koinInject<BackgroundService>()
 	val currentBackground by backgroundService.currentBackground.collectAsState()
 	val blurBackground by backgroundService.blurBackground.collectAsState()
-	val plainBackground by backgroundService.plainBackground.collectAsState()
 	val enabled by backgroundService.enabled.collectAsState()
 
 	if (enabled) {
@@ -141,18 +114,10 @@ fun AppBackground() {
 				label = "BackgroundTransition",
 			) { background ->
 				if (background != null) {
-					// A lighter filter, at a fixed weight, when the picture is being shown for its
-					// own sake: the hero carries its own scrim under its lettering and the picture
-					// beside it is meant to be seen, so it is not measured or adjusted.
-					//
-					// Everywhere else the backdrop is scenery behind a screenful of text, and the
-					// weight is chosen from how bright this particular picture is.
-					val filter = if (plainBackground) {
-						colorResource(R.color.background_filter_plain)
-					} else {
-						colorResource(R.color.background_filter)
-							.copy(alpha = backdropFilterAlpha(background.luminance))
-					}
+					// The backdrop is scenery behind a screenful of text, and the weight of the
+					// filter over it is chosen from how bright this particular picture is.
+					val filter = colorResource(R.color.background_filter)
+						.copy(alpha = backdropFilterAlpha(background.luminance))
 
 					Image(
 						bitmap = background.image,
@@ -162,21 +127,11 @@ fun AppBackground() {
 						colorFilter = ColorFilter.tint(filter, BlendMode.SrcAtop),
 						modifier = Modifier
 							.fillMaxSize()
-							.then(if (blurBackground && !plainBackground) Modifier.blur(10.dp) else Modifier)
+							.then(if (blurBackground) Modifier.blur(10.dp) else Modifier)
 					)
 				} else {
 					AppThemeBackground()
 				}
-			}
-
-			// Outside the crossfade above, or a step from one title to the next would lay two
-			// scrims over each other halfway through and darken the screen as it went.
-			if (plainBackground && currentBackground != null) {
-				Box(
-					modifier = Modifier
-						.fillMaxSize()
-						.background(PlainBackgroundScrim)
-				)
 			}
 		}
 	}
