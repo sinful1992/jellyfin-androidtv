@@ -62,7 +62,7 @@ import kotlin.time.Duration.Companion.seconds
 private val LeadTime = 30.seconds
 
 /** How heavy the ring around the focused card is. The same weight the home screen cards use. */
-private val FocusRingWidth = 3.dp
+private val FocusRingWidth = 4.dp
 
 @Immutable
 data class PlayerNextUpState(
@@ -136,7 +136,8 @@ fun PlayerNextUpCard(
 	// A pill changing colour is a small thing to spot from across a room, and the card is what the
 	// remote is actually pointed at: while it holds the focus, up and down are its keys and not the
 	// player's. So the whole card is ringed, in the same colour and weight that marks the focused
-	// card on the home screen.
+	// card on the home screen. Not the shade band that goes with it there — this card draws its own
+	// dark ground, so the ring already has something to hold against on both sides.
 	val ringAlpha by animateFloatAsState(if (focused) 1f else 0f, label = "next up focus ring")
 
 	Row(
@@ -150,7 +151,7 @@ fun PlayerNextUpCard(
 			.background(JellyfinTheme.colorScheme.surface, JellyfinTheme.shapes.medium)
 			.border(
 				width = FocusRingWidth,
-				color = JellyfinTheme.colorScheme.buttonFocused.let { it.copy(alpha = it.alpha * ringAlpha) },
+				color = JellyfinTheme.colorScheme.cardFocusRing.let { it.copy(alpha = it.alpha * ringAlpha) },
 				shape = JellyfinTheme.shapes.medium,
 			)
 			.padding(horizontal = 20.dp, vertical = 16.dp)
