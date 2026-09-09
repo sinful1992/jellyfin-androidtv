@@ -65,7 +65,14 @@ android {
 			// Set flavored application name
 			resValue("string", "app_name", "@string/app_name_release")
 
-			buildConfigField("boolean", "DEVELOPMENT", "false")
+			// False for anything that leaves this machine. The flag draws development-only UI, and
+			// SettingsPlaybackPlayerScreen gates the "New video player" option on it, so hardcoded
+			// it made a signed release the one build that cannot reach the rewrite player — which
+			// is a problem only for a release built to be used here rather than shipped.
+			//
+			// Asked for by name and off unless it is: -Pdevelopment.build=true, or DEVELOPMENT_BUILD
+			// in the environment. A distribution build passes neither and is unchanged.
+			buildConfigField("boolean", "DEVELOPMENT", (getProperty("development.build") == "true").toString())
 
 			signingConfig = signingConfigs.findByName("release")
 		}
