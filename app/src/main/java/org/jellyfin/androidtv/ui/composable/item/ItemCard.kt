@@ -19,10 +19,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 
@@ -43,6 +45,33 @@ private val FocusRingShadeWidth = 1.dp
 fun rememberCardFocusScale(): Float {
 	val context = LocalContext.current
 	return remember(context) { context.resources.getFraction(R.fraction.card_scale_focus, 1, 1) }
+}
+
+/**
+ * Reserve the room the focused card grows into, around a card that still measures its resting size.
+ *
+ * Compose cannot draw outside the ComposeView it lives in — the same limit that makes Popup exist —
+ * and leanback gives each card a view of its own. So a card scaled past its own bounds is simply
+ * cut back to them: the growth is applied, and then clipped away along with the ring riding on the
+ * card's edge. Turning off clipChildren does not reach it, because the clip is Compose's own.
+ *
+ * The answer is for the card to ask for a slightly larger box than it draws in, and grow into that.
+ * The reserved band matches [scale] exactly, and the card sits at the bottom centre of it, which is
+ * the pivot the growth uses — so a focused card lands precisely on the reserved edges and nothing
+ * is clipped at any size.
+ *
+ * The cost is honest and unavoidable: showing a bigger card means the space was always going to be
+ * spent somewhere. lb_browse_item_horizontal_spacing is set low because this band now supplies most
+ * of the gutter between cards.
+ */
+fun Modifier.cardFocusGrowthRoom(scale: Float) = layout { measurable, constraints ->
+	val placeable = measurable.measure(constraints)
+	val extraWidth = (placeable.width * (scale - 1f)).roundToInt().coerceAtLeast(0)
+	val extraHeight = (placeable.height * (scale - 1f)).roundToInt().coerceAtLeast(0)
+
+	layout(placeable.width + extraWidth, placeable.height + extraHeight) {
+		placeable.place(extraWidth / 2, extraHeight)
+	}
 }
 
 /**
@@ -147,8 +176,12 @@ fun ItemCard(
 	shape: Shape = JellyfinTheme.shapes.medium,
 	focused: Boolean = false,
 ) {
+	// The reserved band is asked for before the caller's modifier rather than after, because it has
+	// to sit outside the size the caller fixes — inside it, the card's own size would clamp it away.
 	Box(
-		modifier = modifier
+		modifier = Modifier
+			.cardFocusGrowthRoom(rememberCardFocusScale())
+			.then(modifier)
 			.cardFocusScale(focused)
 			.clip(shape)
 			.background(JellyfinTheme.colorScheme.surface, shape)

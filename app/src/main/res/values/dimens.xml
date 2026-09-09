@@ -3,19 +3,23 @@
     <dimen name="overscan_vertical">48dp</dimen>
 
     <fraction name="card_scale_default">100%</fraction>
-    <!-- The focused card grows by half of this past its own edge on each side, over whatever is
-         next to it, so the growth has to fit in the gutter below. At 115% a 185dp card reached
-         14dp into a neighbour that was only 8dp away. At 106% it was inside the gutter but too
-         small to read across a room, which is the whole job. 112% on a 185dp card is 11dp a side
-         against a 16dp gutter — the largest step that still leaves the cards apart.
+    <!-- How much bigger the focused card is drawn. Each card reserves a band of exactly this much
+         around itself (cardFocusGrowthRoom) and grows into it, so the growth is never clipped and
+         never lands on a neighbour, whatever this is set to.
 
-         BrowseGridFragment reads this too, to reserve room for the same growth in library grids.
-         That coupling is deliberate: a card that grows more needs more room in both places. -->
-    <fraction name="card_scale_focus">112%</fraction>
+         106% was too small to read across a room, which is the whole job. The ceiling is not the
+         gutter any more but the resting layout: the band is spent whether a card is focused or
+         not, so raising this pushes every card further apart and fits fewer on a row.
 
-    <!-- Leanback leaves 8dp between cards, which was room for nothing. Wide enough now to read as
-         a gutter, and to hold the focused card's growth without the two cards meeting. -->
-    <dimen name="lb_browse_item_horizontal_spacing">16dp</dimen>
+         BrowseGridFragment reads this too, to reserve the same band in library grids. That
+         coupling is deliberate, and still right: the band is part of the card's footprint. -->
+    <fraction name="card_scale_focus">110%</fraction>
+
+    <!-- Most of the gutter is now the band each card reserves for its own growth (see
+         cardFocusGrowthRoom), which is proportional to the card and so already scales with it. On a
+         185dp card that band is 9dp a side, giving 22dp between two resting cards. This is only the
+         floor under it, for cards small enough that their band comes to almost nothing. -->
+    <dimen name="lb_browse_item_horizontal_spacing">4dp</dimen>
 
     <!-- Leanback is told not to scale anything, and the growth in card_scale_focus is applied
          inside the card instead.

@@ -27,8 +27,10 @@ import org.jellyfin.androidtv.ui.GridButton
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.composable.item.ItemCardUnfocusedScrim
-import org.jellyfin.androidtv.ui.composable.item.itemCardFocusRing
+import org.jellyfin.androidtv.ui.composable.item.cardFocusGrowthRoom
 import org.jellyfin.androidtv.ui.composable.item.cardFocusScale
+import org.jellyfin.androidtv.ui.composable.item.itemCardFocusRing
+import org.jellyfin.androidtv.ui.composable.item.rememberCardFocusScale
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 
 class GridButtonPresenter @JvmOverloads constructor(
@@ -88,6 +90,7 @@ class GridButtonPresenter @JvmOverloads constructor(
 
 			Box(
 				modifier = Modifier
+					.cardFocusGrowthRoom(rememberCardFocusScale())
 					.width(width.dp)
 					.cardFocusScale(focused)
 					.clip(shape)
