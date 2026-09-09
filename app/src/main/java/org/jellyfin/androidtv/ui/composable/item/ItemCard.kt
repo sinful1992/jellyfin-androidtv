@@ -12,10 +12,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.jellyfin.androidtv.R
@@ -74,46 +79,63 @@ fun Modifier.cardFocusScale(focused: Boolean): Modifier {
  * The parent clips to the card's shape, so this needs no shape of its own.
  */
 @Composable
-fun BoxScope.ItemCardUnfocusedScrim(focused: Boolean) {
+fun ItemCardUnfocusedScrim(
+	focused: Boolean,
+	modifier: Modifier,
+) {
 	val scrim = JellyfinTheme.colorScheme.cardUnfocusedScrim
 	val dim by animateFloatAsState(if (focused) 0f else 1f, label = "card unfocused scrim")
 	if (dim <= 0f) return
 
-	Box(
-		modifier = Modifier
-			.matchParentSize()
-			.background(scrim.copy(alpha = scrim.alpha * dim))
-	)
+	Box(modifier = modifier.background(scrim.copy(alpha = scrim.alpha * dim)))
 }
 
 /**
- * The ring that marks the focused card, drawn over the artwork inside the card's own bounds.
+ * Draw the ring that marks the focused card, over whatever the card contains.
  *
  * Being larger than its neighbours is all that otherwise marks the focused card, and on a row that
  * runs off the edge of the screen there is often nothing beside it to be larger than. A ring says
  * where the focus is without needing anything to compare against.
  *
- * Two bands, not one, and both struck from the same bounds with the same [shape] so they stay
- * concentric at the corners: a wider shaded one underneath, then the ring itself over its outer
- * part. What is left showing is the ring with a dark edge on its inside, which is the side facing
- * the artwork and the only side that is not already against the screen's dark background.
+ * Drawn from the modifier chain rather than as a child of the card, after the content: a child
+ * would have to be told how big the card is, and the one way to ask for that inside a Box —
+ * matchParentSize — does not survive the way leanback measures these rows.
+ *
+ * Two strokes, both centred on the card's own edge and both clipped to it, so only their inner
+ * halves land: the ring, and a wider shaded one under it that shows as a dark band on the inside
+ * edge. Sharing the edge is what keeps them concentric at the corners. The shade matters because
+ * the ring is drawn over the artwork — against a bright poster a white ring alone is a band you
+ * cannot find, while the side facing outwards already has the dark screen behind it.
  */
 @Composable
-fun BoxScope.ItemCardFocusRing(
+fun Modifier.itemCardFocusRing(
 	focused: Boolean,
 	shape: Shape,
-) {
+): Modifier {
 	val ringAlpha by animateFloatAsState(if (focused) 1f else 0f, label = "card focus ring")
-	if (ringAlpha <= 0f) return
+	val ringColor = JellyfinTheme.colorScheme.cardFocusRing
+	val shadeColor = JellyfinTheme.colorScheme.cardFocusRingShade
 
-	fun Color.fade() = copy(alpha = alpha * ringAlpha)
+	return drawWithContent {
+		drawContent()
 
-	Box(
-		modifier = Modifier
-			.matchParentSize()
-			.border(FocusRingWidth + FocusRingShadeWidth, JellyfinTheme.colorScheme.cardFocusRingShade.fade(), shape)
-			.border(FocusRingWidth, JellyfinTheme.colorScheme.cardFocusRing.fade(), shape)
-	)
+		if (ringAlpha <= 0f) return@drawWithContent
+
+		val path = Path().apply {
+			when (val outline = shape.createOutline(size, layoutDirection, this@drawWithContent)) {
+				is Outline.Rectangle -> addRect(outline.rect)
+				is Outline.Rounded -> addRoundRect(outline.roundRect)
+				is Outline.Generic -> addPath(outline.path)
+			}
+		}
+
+		fun Color.fade() = copy(alpha = alpha * ringAlpha)
+
+		clipPath(path) {
+			drawPath(path, color = shadeColor.fade(), style = Stroke((FocusRingWidth + FocusRingShadeWidth).toPx() * 2))
+			drawPath(path, color = ringColor.fade(), style = Stroke(FocusRingWidth.toPx() * 2))
+		}
+	}
 }
 
 @Composable
@@ -130,13 +152,14 @@ fun ItemCard(
 			.cardFocusScale(focused)
 			.clip(shape)
 			.background(JellyfinTheme.colorScheme.surface, shape)
+			.itemCardFocusRing(focused = focused, shape = shape)
 	) {
 		image()
 
 		// Over the artwork but under the overlay. The overlay carries the resume bar and the
 		// unplayed badge, which say things about the item that are no less true while something
 		// else has the focus — dimming those would be dimming the information, not the picture.
-		ItemCardUnfocusedScrim(focused = focused)
+		ItemCardUnfocusedScrim(focused = focused, modifier = Modifier.fillMaxSize())
 
 		if (overlay != null) {
 			Box(
@@ -144,7 +167,5 @@ fun ItemCard(
 				content = overlay
 			)
 		}
-
-		ItemCardFocusRing(focused = focused, shape = shape)
 	}
 }

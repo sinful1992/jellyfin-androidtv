@@ -26,8 +26,8 @@ import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.GridButton
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
-import org.jellyfin.androidtv.ui.composable.item.ItemCardFocusRing
 import org.jellyfin.androidtv.ui.composable.item.ItemCardUnfocusedScrim
+import org.jellyfin.androidtv.ui.composable.item.itemCardFocusRing
 import org.jellyfin.androidtv.ui.composable.item.cardFocusScale
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 
@@ -92,6 +92,7 @@ class GridButtonPresenter @JvmOverloads constructor(
 					.cardFocusScale(focused)
 					.clip(shape)
 					.background(colorResource(R.color.button_default_normal_background))
+					.itemCardFocusRing(focused = focused, shape = shape)
 			) {
 				if (value.imageRes != null) {
 					Image(
@@ -103,8 +104,13 @@ class GridButtonPresenter @JvmOverloads constructor(
 				}
 
 				// Over the image, under the label: the tile is mostly its label, and dimming that
-				// would take the word away rather than push the picture back.
-				ItemCardUnfocusedScrim(focused = focused)
+				// would take the word away rather than push the picture back. Sized to the image
+				// rather than to the tile, because the tile's own height is whatever its content
+				// comes to and there is nothing here to ask for it.
+				ItemCardUnfocusedScrim(
+					focused = focused,
+					modifier = Modifier.size(width.dp, imageHeight.dp),
+				)
 
 				Text(
 					text = value.text,
@@ -115,8 +121,6 @@ class GridButtonPresenter @JvmOverloads constructor(
 						.padding(15.dp, 10.dp)
 						.align(Alignment.BottomStart)
 				)
-
-				ItemCardFocusRing(focused = focused, shape = shape)
 			}
 		}
 	}
