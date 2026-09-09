@@ -4,14 +4,18 @@
 
     <fraction name="card_scale_default">100%</fraction>
     <!-- The focused card grows by half of this past its own edge on each side, over whatever is
-         next to it. At 115% a 185dp card reached 14dp into its neighbour, which is wider than the
-         gap between them. Small enough now to stay inside the gutter, and the ring around the
-         focused card carries the rest of the message. -->
-    <fraction name="card_scale_focus">106%</fraction>
+         next to it, so the growth has to fit in the gutter below. At 115% a 185dp card reached
+         14dp into a neighbour that was only 8dp away. At 106% it was inside the gutter but too
+         small to read across a room, which is the whole job. 112% on a 185dp card is 11dp a side
+         against a 16dp gutter — the largest step that still leaves the cards apart.
+
+         BrowseGridFragment reads this too, to reserve room for the same growth in library grids.
+         That coupling is deliberate: a card that grows more needs more room in both places. -->
+    <fraction name="card_scale_focus">112%</fraction>
 
     <!-- Leanback leaves 8dp between cards, which was room for nothing. Wide enough now to read as
-         a gutter, and to hold the focused card's growth. -->
-    <dimen name="lb_browse_item_horizontal_spacing">12dp</dimen>
+         a gutter, and to hold the focused card's growth without the two cards meeting. -->
+    <dimen name="lb_browse_item_horizontal_spacing">16dp</dimen>
 
     <!-- Leanback is told not to scale anything, and the growth in card_scale_focus is applied
          inside the card instead.
@@ -20,7 +24,11 @@
          cards that view is the card AND its two lines of text. So the focused card's title grew
          and slid down with it while its neighbours' titles stayed where they were, and no two
          titles in a row shared a baseline — the row rippled as you moved along it. Scaling the
-         artwork alone leaves the words where they were put. See ItemCard. -->
+         artwork alone leaves the words where they were put. See ItemCard.
+
+         Every card that leanback lays out therefore has to draw its own focus state. ItemCard and
+         GridButtonPresenter do; anything else added to a row must too, or it will show nothing at
+         all when focused. -->
     <fraction name="lb_focus_zoom_factor_small">@fraction/card_scale_default</fraction>
     <fraction name="lb_focus_zoom_factor_xsmall">@fraction/card_scale_default</fraction>
     <fraction name="lb_focus_zoom_factor_medium">@fraction/card_scale_default</fraction>

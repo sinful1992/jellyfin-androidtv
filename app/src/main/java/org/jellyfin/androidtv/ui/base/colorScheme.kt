@@ -36,6 +36,9 @@ fun colorScheme(): ColorScheme = ColorScheme(
 	listButtonFocused = Tokens.Color.colorBluegrey800,
 	surface = Tokens.Color.colorBluegrey900,
 	scrim = Tokens.Color.colorBlack.copy(alpha = 0.67f),
+	cardFocusRing = Tokens.Color.colorWhite,
+	cardFocusRingShade = Tokens.Color.colorBlack.copy(alpha = 0.55f),
+	cardUnfocusedScrim = Tokens.Color.colorBlack.copy(alpha = 0.28f),
 )
 
 @Immutable
@@ -77,6 +80,27 @@ data class ColorScheme(
 
 	val surface: Color,
 	val scrim: Color,
+
+	/** The ring that marks the focused card. */
+	val cardFocusRing: Color,
+
+	/**
+	 * A darker band drawn just inside [cardFocusRing], between the ring and the artwork.
+	 *
+	 * The ring is drawn inside the card's own bounds, so it sits on the artwork. Against a dark
+	 * poster it reads on its own; against a bright one a white ring on near-white artwork is a
+	 * band you cannot find. This gives the ring an edge to hold whatever it is drawn over.
+	 */
+	val cardFocusRingShade: Color,
+
+	/**
+	 * Laid over every card that is not focused, so the focused one is the bright one.
+	 *
+	 * The ring and the extra size both ask the eye to judge one card on its own. This asks it to
+	 * compare, which is the easier question and the one that does not depend on how bright the
+	 * artwork happens to be.
+	 */
+	val cardUnfocusedScrim: Color,
 )
 
 val LocalColorScheme = staticCompositionLocalOf { colorScheme() }
