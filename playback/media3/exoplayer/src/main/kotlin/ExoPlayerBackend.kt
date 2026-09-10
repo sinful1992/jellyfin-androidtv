@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.core.content.getSystemService
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -17,6 +18,7 @@ import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -50,6 +52,8 @@ import org.jellyfin.playback.core.support.PlaySupportReport
 import org.jellyfin.playback.core.timedevent.TimedEvent
 import org.jellyfin.playback.core.ui.PlayerSubtitleView
 import org.jellyfin.playback.core.ui.PlayerSurfaceView
+import org.jellyfin.playback.media3.exoplayer.mapping.getFfmpegAudioMimeType
+import org.jellyfin.playback.media3.exoplayer.mapping.getFfmpegSubtitleMimeType
 import org.jellyfin.playback.media3.exoplayer.support.getPlaySupportReport
 import org.jellyfin.playback.media3.exoplayer.support.toFormats
 import timber.log.Timber
@@ -348,13 +352,15 @@ class ExoPlayerBackend(
 	}
 
 	override fun selectAudioTrack(index: Int): Boolean {
-		val group = findTrackGroup<MediaStreamAudioTrack>(C.TRACK_TYPE_AUDIO, index) ?: return false
+		val group = findTrackGroup<MediaStreamAudioTrack>(C.TRACK_TYPE_AUDIO, index) { track, format ->
+			format.sampleMimeType == getFfmpegAudioMimeType(track.codec)
+		} ?: return false
 
 		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
 			.setOverrideForType(TrackSelectionOverride(group, 0))
 			.build()
 
-		Timber.i("Selected audio track $index client side (${group.getFormat(0).language})")
+		Timber.i("Selected audio track $index client side (${group.getFormat(0).language}, ${group.getFormat(0).sampleMimeType})")
 		return true
 	}
 
@@ -373,7 +379,9 @@ class ExoPlayerBackend(
 			return true
 		}
 
-		val group = findTrackGroup<MediaStreamSubtitleTrack>(C.TRACK_TYPE_TEXT, index) ?: return false
+		val group = findTrackGroup<MediaStreamSubtitleTrack>(C.TRACK_TYPE_TEXT, index) { track, format ->
+			format.sampleMimeType == getFfmpegSubtitleMimeType(track.codec)
+		} ?: return false
 
 		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
 			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
@@ -405,26 +413,59 @@ class ExoPlayerBackend(
 	}
 
 	/**
-	 * Find the track group holding the track the media source lists at [index]. The container
-	 * exposes its tracks of a given type in the same order the media source lists them, so the
-	 * position within that type is enough to match the two up.
+	 * Whether the media source and the container describe the same track, matched on what both
+	 * sides actually state rather than on the order they happen to list things in.
+	 *
+	 * The media source spells languages out in three letters where the container has normalised
+	 * them to two, so both sides go through the same normalisation before they are compared. A
+	 * track without a language only matches a group without one.
+	 */
+	private fun sameLanguage(mediaSource: String?, container: String?): Boolean =
+		mediaSource?.let(Util::normalizeLanguageCode) == container?.let(Util::normalizeLanguageCode)
+
+	/**
+	 * Find the track group holding the track the media source lists at [index], or null when the
+	 * two cannot be matched up with certainty.
+	 *
+	 * Matching is by identity, not by position. The container was assumed to expose its tracks in
+	 * the order the media source lists them, and it does not: resolving the stream again can hand
+	 * back a differently ordered list, so the same index selected a different language depending on
+	 * what had happened earlier in the session.
+	 *
+	 * Language alone settles most files. Where several tracks share a language the codec decides
+	 * between them, and anything still ambiguous returns null so the caller resolves the stream
+	 * again rather than playing a track nobody asked for.
 	 */
 	private inline fun <reified T : MediaStreamTrack> findTrackGroup(
 		trackType: Int,
 		index: Int,
+		matchesFormat: (track: T, format: Format) -> Boolean,
 	): TrackGroup? {
 		if (!containerMatchesMediaSource<T>(trackType)) return null
 
-		val tracks = currentStream?.tracks.orEmpty().filterIsInstance<T>()
-		val groups = exoPlayer.currentTracks.groups.filter { it.type == trackType }
+		val track = currentStream?.tracks.orEmpty()
+			.filterIsInstance<T>()
+			.firstOrNull { it.index == index }
 
-		val position = tracks.indexOfFirst { it.index == index }
-		if (position == -1) {
+		if (track == null) {
 			Timber.d("Cannot select track $index client side: the media source does not list it")
 			return null
 		}
 
-		val group = groups[position]
+		val groups = exoPlayer.currentTracks.groups.filter { it.type == trackType }
+		val sharingLanguage = groups.filter { sameLanguage(track.language, it.getTrackFormat(0).language) }
+
+		val group = sharingLanguage.singleOrNull()
+			?: sharingLanguage.singleOrNull { matchesFormat(track, it.getTrackFormat(0)) }
+
+		if (group == null) {
+			Timber.d(
+				"Cannot select track $index client side: ${sharingLanguage.size} of ${groups.size} " +
+					"groups in the container match language ${track.language} and codec ${track.codec}"
+			)
+			return null
+		}
+
 		if (!group.isSupported) {
 			Timber.d("Cannot select track $index client side: the player cannot decode ${group.getTrackFormat(0).sampleMimeType}")
 			return null
