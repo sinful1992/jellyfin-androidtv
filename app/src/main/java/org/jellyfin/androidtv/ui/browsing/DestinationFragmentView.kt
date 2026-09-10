@@ -135,12 +135,23 @@ class DestinationFragmentView @JvmOverloads constructor(
 		if (fragment == null) {
 			fragment = fragmentManager.fragmentFactory.instantiate(context.classLoader, entry.name.name).apply {
 				setInitialSavedState(entry.savedState)
+
+				// Arguments belong to the fragment for its whole life here, so they are set on the
+				// one path that creates it. HistoryEntry.arguments is a val fixed at construction
+				// and this is its only reader, so an entry already holding a fragment is carrying
+				// this exact bundle and re-assigning it changed nothing.
+				//
+				// It did throw, though: setArguments raises "Fragment already added and state has
+				// been saved" once the fragment has a FragmentManager whose state is saved. goBack()
+				// reactivates the previous entry, whose fragment was detached rather than removed on
+				// the way forward and so still has one, so a back navigation arriving after
+				// onSaveInstanceState crashed before it could reach the commitAllowingStateLoss
+				// branch below. Forward navigation never hit it — a fragment this line just built
+				// has no FragmentManager yet.
+				arguments = entry.arguments
 			}
 			entry.fragment = fragment
 		}
-
-		// Update arguments
-		fragment.arguments = entry.arguments
 
 		transaction.apply {
 			// Set options
