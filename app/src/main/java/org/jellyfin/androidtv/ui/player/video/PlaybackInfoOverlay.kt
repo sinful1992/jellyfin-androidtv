@@ -20,6 +20,7 @@ import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStreamAudioTrack
 import org.jellyfin.playback.core.mediastream.MediaStreamVideoTrack
 import org.jellyfin.playback.core.mediastream.mediaStreamFlow
+import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndexFlow
 
 @Composable
 fun PlaybackInfoOverlay(
@@ -29,9 +30,18 @@ fun PlaybackInfoOverlay(
 	val entry by rememberQueueEntry(playbackManager)
 	val mediaStream by entry?.mediaStreamFlow?.collectAsState(null) ?: return
 	val stream = mediaStream ?: return
+	val selectedAudioStreamIndex by entry?.selectedAudioStreamIndexFlow?.collectAsState(null) ?: return
 
 	val videoTrack = stream.tracks.filterIsInstance<MediaStreamVideoTrack>().firstOrNull()
-	val audioTrack = stream.tracks.filterIsInstance<MediaStreamAudioTrack>().firstOrNull()
+
+	// The track being played, not the first one the container happens to list. Reading the first
+	// was right while there was no way to choose another; now that there is, it reported whatever
+	// the file led with however many times the track had been changed, which is exactly the
+	// question this overlay is opened to answer.
+	val audioTracks = stream.tracks.filterIsInstance<MediaStreamAudioTrack>()
+	val audioTrack = selectedAudioStreamIndex?.let { index -> audioTracks.firstOrNull { it.index == index } }
+		?: audioTracks.firstOrNull { it.isDefault }
+		?: audioTracks.firstOrNull()
 
 	Column(
 		verticalArrangement = Arrangement.spacedBy(4.dp),
