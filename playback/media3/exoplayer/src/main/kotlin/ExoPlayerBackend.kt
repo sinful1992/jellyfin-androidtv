@@ -2,6 +2,7 @@ package org.jellyfin.playback.media3.exoplayer
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.Handler
 import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.core.content.getSystemService
@@ -54,6 +55,7 @@ import org.jellyfin.playback.media3.exoplayer.support.toFormats
 import timber.log.Timber
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(UnstableApi::class)
 class ExoPlayerBackend(
@@ -72,6 +74,26 @@ class ExoPlayerBackend(
 	private val audioAttributeState = AudioAttributeState()
 	private val timedEventState = TimedEventState()
 	private var lastKnownDuration: Duration? = null
+
+	/**
+	 * How long playback may sit in [Player.STATE_BUFFERING] while still being reported as playing.
+	 *
+	 * Buffering with the intent to play is normally a moment of waiting, but a renderer that never
+	 * recovers stays in that state forever, and reporting it as playing leaves a frozen picture the
+	 * controls insist is playing. Past this point the truth is more useful than the smoothing.
+	 *
+	 * Generous on purpose: a direct play of a high bitrate stream can legitimately buffer for
+	 * several seconds, and calling that paused brings back the flashing pause icon this smoothing
+	 * exists to prevent.
+	 */
+	private val stallTimeout = 15.seconds
+
+	private val stallHandler by lazy { Handler(exoPlayer.applicationLooper) }
+
+	private val reportStalled = Runnable {
+		Timber.w("Still buffering after $stallTimeout with playback requested, reporting it as paused")
+		listener?.onPlayStateChange(PlayState.PAUSED)
+	}
 
 	private val assHandler by lazy {
 		AssHandler(AssRenderType.OVERLAY_OPEN_GL)
@@ -155,6 +177,10 @@ class ExoPlayerBackend(
 
 	inner class PlayerListener : Player.Listener {
 		override fun onIsPlayingChanged(isPlaying: Boolean) {
+			// Every path below decides afresh whether playback is stalled, so drop the pending verdict
+			// from the previous one before arming a new one.
+			stallHandler.removeCallbacks(reportStalled)
+
 			val state = when {
 				isPlaying -> PlayState.PLAYING
 
@@ -168,7 +194,10 @@ class ExoPlayerBackend(
 				// The intent to play is what separates the two. Anything that really did stop
 				// playback clears it, so a genuine pause and a loss of audio focus both still
 				// report as paused.
-				exoPlayer.playbackState == Player.STATE_BUFFERING && exoPlayer.playWhenReady -> PlayState.PLAYING
+				exoPlayer.playbackState == Player.STATE_BUFFERING && exoPlayer.playWhenReady -> {
+					stallHandler.postDelayed(reportStalled, stallTimeout.inWholeMilliseconds)
+					PlayState.PLAYING
+				}
 
 				else -> PlayState.PAUSED
 			}
@@ -176,6 +205,7 @@ class ExoPlayerBackend(
 		}
 
 		override fun onPlayerError(error: PlaybackException) {
+			stallHandler.removeCallbacks(reportStalled)
 			listener?.onPlayStateChange(PlayState.ERROR)
 		}
 
@@ -414,6 +444,7 @@ class ExoPlayerBackend(
 	}
 
 	override fun stop() {
+		stallHandler.removeCallbacks(reportStalled)
 		exoPlayer.stop()
 		currentStream = null
 	}
