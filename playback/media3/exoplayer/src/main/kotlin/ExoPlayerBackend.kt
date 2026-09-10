@@ -86,13 +86,24 @@ class ExoPlayerBackend(
 	 * recovers stays in that state forever, and reporting it as playing leaves a frozen picture the
 	 * controls insist is playing. Past this point the truth is more useful than the smoothing.
 	 *
-	 * Generous on purpose: a direct play of a high bitrate stream can legitimately buffer for
-	 * several seconds, and calling that paused brings back the flashing pause icon this smoothing
-	 * exists to prevent.
+	 * Only counted once the stream has produced a picture, so this is the bound on a stall rather
+	 * than on opening a stream, which legitimately takes longer. Still generous: rebuffering mid
+	 * playback is normal, and calling that paused brings back the flashing pause icon this
+	 * smoothing exists to prevent.
 	 */
 	private val stallTimeout = 15.seconds
 
 	private val stallHandler by lazy { Handler(exoPlayer.applicationLooper) }
+
+	/**
+	 * Whether the stream being played has produced a picture yet.
+	 *
+	 * Opening a stream can wait far longer than a stall mid-playback ever should: a large direct
+	 * play took sixteen seconds to hand over its first frame on the hardware this was measured on,
+	 * which any bound tight enough to be useful later would have called stalled. Nothing is stuck
+	 * until something has run.
+	 */
+	private var hasPlayedCurrentStream = false
 
 	private val reportStalled = Runnable {
 		Timber.w("Still buffering after $stallTimeout with playback requested, reporting it as paused")
@@ -184,6 +195,7 @@ class ExoPlayerBackend(
 			// Every path below decides afresh whether playback is stalled, so drop the pending verdict
 			// from the previous one before arming a new one.
 			stallHandler.removeCallbacks(reportStalled)
+			if (isPlaying) hasPlayedCurrentStream = true
 
 			val state = when {
 				isPlaying -> PlayState.PLAYING
@@ -199,7 +211,7 @@ class ExoPlayerBackend(
 				// playback clears it, so a genuine pause and a loss of audio focus both still
 				// report as paused.
 				exoPlayer.playbackState == Player.STATE_BUFFERING && exoPlayer.playWhenReady -> {
-					stallHandler.postDelayed(reportStalled, stallTimeout.inWholeMilliseconds)
+					if (hasPlayedCurrentStream) stallHandler.postDelayed(reportStalled, stallTimeout.inWholeMilliseconds)
 					PlayState.PLAYING
 				}
 
@@ -302,6 +314,7 @@ class ExoPlayerBackend(
 		if (currentStream == stream) return
 
 		currentStream = stream
+		hasPlayedCurrentStream = false
 
 		// Track overrides belong to the stream they were chosen for, and the player keeps them
 		// across items, so drop them before playing a different one.
@@ -488,6 +501,7 @@ class ExoPlayerBackend(
 		stallHandler.removeCallbacks(reportStalled)
 		exoPlayer.stop()
 		currentStream = null
+		hasPlayedCurrentStream = false
 	}
 
 	override fun seekTo(position: Duration) {
