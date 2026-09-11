@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.rememberAsyncImagePainter
-import org.jellyfin.androidtv.BuildConfig
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ExternalAppRepository
 import org.jellyfin.androidtv.preference.UserPreferences
@@ -42,7 +41,6 @@ fun SettingsPlaybackPlayerScreen() {
 	val currentExternalPlayer = remember(context) { externalAppRepository.getCurrentExternalPlayerApp(context) }
 
 	var playbackRewriteVideoEnabled by rememberPreference(userPreferences, UserPreferences.playbackRewriteVideoEnabled)
-	val showNewPlayer = playbackRewriteVideoEnabled || BuildConfig.DEVELOPMENT
 
 	SettingsColumn {
 		item {
@@ -76,7 +74,11 @@ fun SettingsPlaybackPlayerScreen() {
 			)
 		}
 
-		if (showNewPlayer) item {
+		// Offered to everyone, not only to development builds. The preference defaults to false and
+		// this screen is the only way to change it, so gating the option on the preference already
+		// being set meant a distributed build could never reach the new player at all: the one
+		// build type that can choose it is the one that does not need to.
+		item {
 			ListButton(
 				leadingContent = {
 					Image(
