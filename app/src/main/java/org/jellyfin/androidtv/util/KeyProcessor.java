@@ -113,15 +113,6 @@ public class KeyProcessor {
                         break;
                     case Chapter:
                         break;
-                    case LiveTvChannel:
-                    case LiveTvRecording:
-                        // retrieve full item and play
-                        playbackHelper.getValue().retrieveAndPlay(rowItem.getItemId(), false, activity);
-                        return true;
-                    case LiveTvProgram:
-                        // retrieve channel this program belongs to and play
-                        playbackHelper.getValue().retrieveAndPlay(rowItem.getBaseItem().getChannelId(), false, activity);
-                        return true;
                     case GridButton:
                         break;
                 }
@@ -161,13 +152,7 @@ public class KeyProcessor {
                         break;
                     case Chapter:
                         break;
-                    case LiveTvChannel:
-                        break;
-                    case LiveTvRecording:
-                        break;
                     case GridButton:
-                        break;
-                    case LiveTvProgram:
                         break;
                 }
                 return true;

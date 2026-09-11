@@ -2,7 +2,6 @@ package org.jellyfin.androidtv.util
 
 import android.content.Context
 import android.widget.Toast
-import org.jellyfin.sdk.model.api.UserDto
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import org.koin.core.component.KoinComponent
 import java.util.UUID
@@ -67,9 +66,6 @@ object Utils : KoinComponent {
 		position >= duration -> (duration - 1000).coerceAtLeast(0)
 		else -> position.coerceAtLeast(0)
 	}
-
-	@JvmStatic
-	fun canManageRecordings(user: UserDto?): Boolean = user?.policy?.enableLiveTvManagement == true
 
 	@JvmStatic
 	fun uuidOrNull(string: String?): UUID? = string?.toUUIDOrNull()

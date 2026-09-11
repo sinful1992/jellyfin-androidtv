@@ -36,7 +36,6 @@ import androidx.lifecycle.Lifecycle;
 
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.auth.repository.UserRepository;
-import org.jellyfin.androidtv.constant.CustomMessage;
 import org.jellyfin.androidtv.constant.QueryType;
 import org.jellyfin.androidtv.data.model.ChapterItemInfo;
 import org.jellyfin.androidtv.data.model.DataRefreshService;
@@ -44,20 +43,16 @@ import org.jellyfin.androidtv.data.model.InfoItem;
 import org.jellyfin.androidtv.data.querying.GetAdditionalPartsRequest;
 import org.jellyfin.androidtv.data.querying.GetSpecialsRequest;
 import org.jellyfin.androidtv.data.querying.GetTrailersRequest;
-import org.jellyfin.androidtv.data.repository.CustomMessageRepository;
 import org.jellyfin.androidtv.data.service.BackgroundService;
 import org.jellyfin.androidtv.databinding.FragmentFullDetailsBinding;
 import org.jellyfin.androidtv.preference.UserPreferences;
 import org.jellyfin.androidtv.preference.constant.ClockBehavior;
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel;
-import org.jellyfin.androidtv.ui.RecordPopup;
-import org.jellyfin.androidtv.ui.RecordingIndicatorView;
 import org.jellyfin.androidtv.ui.TextUnderButton;
 import org.jellyfin.androidtv.ui.browsing.BrowsingUtils;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
-import org.jellyfin.androidtv.ui.livetv.TvManager;
 import org.jellyfin.androidtv.ui.navigation.Destinations;
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
 import org.jellyfin.androidtv.ui.playback.MediaManager;
@@ -67,7 +62,6 @@ import org.jellyfin.androidtv.ui.presentation.CustomListRowPresenter;
 import org.jellyfin.androidtv.ui.presentation.InfoCardPresenter;
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
 import org.jellyfin.androidtv.ui.presentation.MyDetailsOverviewRowPresenter;
-import org.jellyfin.androidtv.util.CoroutineUtils;
 import org.jellyfin.androidtv.util.DateTimeExtensionsKt;
 import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.KeyProcessor;
@@ -75,7 +69,6 @@ import org.jellyfin.androidtv.util.MarkdownRenderer;
 import org.jellyfin.androidtv.util.PlaybackHelper;
 import org.jellyfin.androidtv.util.TimeUtils;
 import org.jellyfin.androidtv.util.Utils;
-import org.jellyfin.androidtv.util.apiclient.BaseItemUtils;
 import org.jellyfin.androidtv.util.apiclient.Response;
 import org.jellyfin.androidtv.util.sdk.BaseItemExtensionsKt;
 import org.jellyfin.androidtv.util.sdk.TrailerUtils;
@@ -87,7 +80,6 @@ import org.jellyfin.sdk.model.api.MediaSourceInfo;
 import org.jellyfin.sdk.model.api.MediaStream;
 import org.jellyfin.sdk.model.api.MediaType;
 import org.jellyfin.sdk.model.api.PersonKind;
-import org.jellyfin.sdk.model.api.SeriesTimerInfoDto;
 import org.jellyfin.sdk.model.api.UserDto;
 import org.jellyfin.sdk.model.serializer.UUIDSerializerKt;
 import org.koin.java.KoinJavaComponent;
@@ -101,27 +93,20 @@ import java.util.List;
 import java.util.UUID;
 
 import kotlin.Lazy;
-import kotlinx.serialization.json.Json;
 import timber.log.Timber;
 
-public class FullDetailsFragment extends Fragment implements RecordingIndicatorView, View.OnKeyListener {
+public class FullDetailsFragment extends Fragment implements View.OnKeyListener {
 
     private int BUTTON_SIZE;
 
     TextUnderButton mResumeButton;
     private TextUnderButton mVersionsButton;
     TextUnderButton mPrevButton;
-    private TextUnderButton mRecordButton;
-    private TextUnderButton mRecSeriesButton;
-    private TextUnderButton mSeriesSettingsButton;
     TextUnderButton mWatchedToggleButton;
 
     private DisplayMetrics mMetrics;
 
-    protected BaseItemDto mProgramInfo;
-    protected SeriesTimerInfoDto mSeriesTimerInfo;
     protected UUID mItemId;
-    protected UUID mChannelId;
     protected BaseRowItem mCurrentItem;
     private Instant mLastUpdated;
     public UUID mPrevItemId;
@@ -145,7 +130,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
     private final Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
     final Lazy<MediaManager> mediaManager = inject(MediaManager.class);
     private final Lazy<MarkdownRenderer> markdownRenderer = inject(MarkdownRenderer.class);
-    private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
     final Lazy<NavigationRepository> navigationRepository = inject(NavigationRepository.class);
     private final Lazy<ItemLauncher> itemLauncher = inject(ItemLauncher.class);
     private final Lazy<KeyProcessor> keyProcessor = inject(KeyProcessor.class);
@@ -172,42 +156,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
         mDorPresenter = new MyDetailsOverviewRowPresenter(markdownRenderer.getValue());
 
         mItemId = Utils.uuidOrNull(getArguments().getString("ItemId"));
-        mChannelId = Utils.uuidOrNull(getArguments().getString("ChannelId"));
-        String programJson = getArguments().getString("ProgramInfo");
-        if (programJson != null) {
-            mProgramInfo = Json.Default.decodeFromString(BaseItemDto.Companion.serializer(), programJson);
-        }
-        String timerJson = getArguments().getString("SeriesTimer");
-        if (timerJson != null) {
-            mSeriesTimerInfo = Json.Default.decodeFromString(SeriesTimerInfoDto.Companion.serializer(), timerJson);
-        }
-
-        CoroutineUtils.readCustomMessagesOnLifecycle(getLifecycle(), customMessageRepository.getValue(), message -> {
-            if (message.equals(CustomMessage.ActionComplete.INSTANCE) && mSeriesTimerInfo != null) {
-                //update info
-                FullDetailsFragmentHelperKt.getLiveTvSeriesTimer(this, mSeriesTimerInfo.getId(), seriesTimerInfoDto -> {
-                    mSeriesTimerInfo = seriesTimerInfoDto;
-                    mBaseItem = JavaCompat.copyWithOverview(mBaseItem, BaseItemUtils.getSeriesOverview(mSeriesTimerInfo, requireContext()));
-                    mDorPresenter.getViewHolder().setSummary(mBaseItem.getOverview());
-                    return null;
-                });
-
-                mRowsAdapter.clear();
-                mRowsAdapter.add(mDetailsOverviewRow);
-                //re-retrieve the schedule after giving it a second to rebuild
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
-                            return;
-
-                        addAdditionalRows(mRowsAdapter);
-
-                    }
-                }, 1500);
-            }
-            return null;
-        });
 
         loadItem(mItemId);
 
@@ -356,25 +304,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
     }
 
     private void loadItem(UUID id) {
-        if (mChannelId != null && mProgramInfo == null) {
-            // if we are displaying a live tv channel - we want to get whatever is showing now on that channel
-            FullDetailsFragmentHelperKt.getLiveTvChannel(this, mChannelId, channel -> {
-                mProgramInfo = channel.getCurrentProgram();
-                mItemId = mProgramInfo.getId();
-                FullDetailsFragmentHelperKt.getItem(FullDetailsFragment.this, mItemId, item -> {
-                    if (item != null) {
-                        setBaseItem(item);
-                    } else {
-                        // Failed to load item
-                        navigationRepository.getValue().goBack();
-                    }
-                    return null;
-                });
-                return null;
-            });
-        } else if (mSeriesTimerInfo != null) {
-            setBaseItem(FullDetailsFragmentHelperKt.createFakeSeriesTimerBaseItemDto(this, mSeriesTimerInfo));
-        } else {
+        {
             FullDetailsFragmentHelperKt.getItem(FullDetailsFragment.this, id, item -> {
                 if (item != null) {
                     setBaseItem(item);
@@ -389,22 +319,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
         mLastUpdated = Instant.now();
     }
 
-    @Override
-    public void setRecTimer(String id) {
-        mProgramInfo = JavaCompat.copyWithTimerId(mProgramInfo, id);
-        if (mRecordButton != null) mRecordButton.setActivated(id != null);
-    }
-
     private int posterHeight;
-
-    @Override
-    public void setRecSeriesTimer(String id) {
-        if (mProgramInfo != null) mProgramInfo = JavaCompat.copyWithTimerId(mProgramInfo, id);
-        if (mRecSeriesButton != null) mRecSeriesButton.setActivated(id != null);
-        if (mSeriesSettingsButton != null)
-            mSeriesSettingsButton.setVisibility(id == null ? View.GONE : View.VISIBLE);
-
-    }
 
     private class BuildDorTask extends AsyncTask<BaseItemDto, Integer, MyDetailsOverviewRow> {
 
@@ -495,16 +410,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
         mBaseItem = item;
         backgroundService.getValue().setBackground(item);
         if (mBaseItem != null) {
-            if (mChannelId != null) {
-                mBaseItem = JavaCompat.copyWithParentId(mBaseItem, mChannelId);
-                mBaseItem = JavaCompat.copyWithDates(
-                        mBaseItem,
-                        mProgramInfo.getStartDate(),
-                        mProgramInfo.getEndDate(),
-                        mBaseItem.getOfficialRating(),
-                        mProgramInfo.getRunTimeTicks()
-                );
-            }
             new BuildDorTask().execute(item);
         }
     }
@@ -519,11 +424,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
 
     protected void addAdditionalRows(MutableObjectAdapter<Row> adapter) {
         Timber.d("Item type: %s", mBaseItem.getType().toString());
-
-        if (mSeriesTimerInfo != null) {
-            TvManager.getScheduleRowsAsync(this, mSeriesTimerInfo.getId(), new CardPresenter(true), adapter);
-            return;
-        }
 
         switch (mBaseItem.getType()) {
             case MOVIE:
@@ -792,7 +692,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
             boolean isSeries = baseItem.getType() == BaseItemKind.SERIES;
             boolean isStarted = baseItem.getUserData().getPlayedPercentage() != null && baseItem.getUserData().getPlayedPercentage() > 0;
 
-            playButton = TextUnderButton.create(requireContext(), R.drawable.ic_play, buttonSize, 2, getString(BaseItemExtensionsKt.isLiveTv(mBaseItem) ? R.string.lbl_tune_to_channel : Utils.getSafeValue(mBaseItem.isFolder(), false) ? R.string.lbl_play_all : R.string.lbl_play), new View.OnClickListener() {
+            playButton = TextUnderButton.create(requireContext(), R.drawable.ic_play, buttonSize, 2, getString(Utils.getSafeValue(mBaseItem.isFolder(), false) ? R.string.lbl_play_all : R.string.lbl_play), new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     play(mBaseItem, 0, false);
@@ -871,100 +771,8 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
             mDetailsOverviewRow.addAction(trailerButton);
         }
 
-        if (mProgramInfo != null && Utils.canManageRecordings(KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue())) {
-            if (mBaseItem.getEndDate().isAfter(LocalDateTime.now())) {
-                //Record button
-                mRecordButton = TextUnderButton.create(requireContext(), R.drawable.ic_record, buttonSize, 4, getString(R.string.lbl_record), new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (mProgramInfo.getTimerId() == null) {
-                            //Create one-off recording with defaults
-                            FullDetailsFragmentHelperKt.getLiveTvDefaultTimer(FullDetailsFragment.this, mProgramInfo.getId(), seriesTimer -> {
-                                FullDetailsFragmentHelperKt.createLiveTvSeriesTimer(FullDetailsFragment.this, seriesTimer, () -> {
-                                    FullDetailsFragmentHelperKt.getLiveTvProgram(FullDetailsFragment.this, mProgramInfo.getId(), program -> {
-                                        mProgramInfo = program;
-                                        setRecSeriesTimer(program.getSeriesTimerId());
-                                        setRecTimer(program.getTimerId());
-                                        Utils.showToast(requireContext(), R.string.msg_set_to_record);
-                                        return null;
-                                    });
-                                    return null;
-                                });
-                                return null;
-                            });
-                        } else {
-                            FullDetailsFragmentHelperKt.cancelLiveTvSeriesTimer(FullDetailsFragment.this, mProgramInfo.getTimerId(), () -> {
-                                setRecTimer(null);
-                                dataRefreshService.getValue().setLastDeletedItemId(mProgramInfo.getId());
-                                Utils.showToast(requireContext(), R.string.msg_recording_cancelled);
-                                return null;
-                            });
-                        }
-                    }
-                });
-                mRecordButton.setActivated(mProgramInfo.getTimerId() != null);
-
-                mDetailsOverviewRow.addAction(mRecordButton);
-            }
-
-            if (mProgramInfo.isSeries() != null && mProgramInfo.isSeries()) {
-                mRecSeriesButton = TextUnderButton.create(requireContext(), R.drawable.ic_record_series, buttonSize, 4, getString(R.string.lbl_record_series), new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (mProgramInfo.getSeriesTimerId() == null) {
-                            //Create series recording with default options
-                            FullDetailsFragmentHelperKt.getLiveTvDefaultTimer(FullDetailsFragment.this, mProgramInfo.getId(), seriesTimer -> {
-                                FullDetailsFragmentHelperKt.createLiveTvSeriesTimer(FullDetailsFragment.this, seriesTimer, () -> {
-                                    FullDetailsFragmentHelperKt.getLiveTvProgram(FullDetailsFragment.this, mProgramInfo.getId(), program -> {
-                                        mProgramInfo = program;
-                                        setRecSeriesTimer(program.getSeriesTimerId());
-                                        setRecTimer(program.getTimerId());
-                                        Utils.showToast(requireContext(), R.string.msg_set_to_record);
-                                        return null;
-                                    });
-                                    return null;
-                                });
-                                return null;
-                            });
-                        } else {
-                            new AlertDialog.Builder(requireContext())
-                                    .setTitle(getString(R.string.lbl_cancel_series))
-                                    .setMessage(getString(R.string.msg_cancel_entire_series))
-                                    .setNegativeButton(R.string.lbl_no, null)
-                                    .setPositiveButton(R.string.lbl_yes, new DialogInterface.OnClickListener() {
-                                        @Override
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            FullDetailsFragmentHelperKt.cancelLiveTvSeriesTimer(FullDetailsFragment.this, mProgramInfo.getSeriesTimerId(), () -> {
-                                                setRecSeriesTimer(null);
-                                                setRecTimer(null);
-                                                dataRefreshService.getValue().setLastDeletedItemId(mProgramInfo.getId());
-                                                Utils.showToast(requireContext(), R.string.msg_recording_cancelled);
-                                                return null;
-                                            });
-                                        }
-                                    }).show();
-                        }
-                    }
-                });
-                mRecSeriesButton.setActivated(mProgramInfo.getSeriesTimerId() != null);
-
-                mDetailsOverviewRow.addAction(mRecSeriesButton);
-
-                mSeriesSettingsButton = TextUnderButton.create(requireContext(), R.drawable.ic_settings, buttonSize, 2, getString(R.string.lbl_series_settings), new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        showRecordingOptions(mProgramInfo.getSeriesTimerId(), mProgramInfo, true);
-                    }
-                });
-
-                mSeriesSettingsButton.setVisibility(mProgramInfo.getSeriesTimerId() != null ? View.VISIBLE : View.GONE);
-
-                mDetailsOverviewRow.addAction(mSeriesSettingsButton);
-            }
-        }
-
         org.jellyfin.sdk.model.api.UserItemDataDto userData = mBaseItem.getUserData();
-        if (userData != null && mProgramInfo == null) {
+        if (userData != null) {
             if (mBaseItem.getType() != BaseItemKind.MUSIC_ARTIST && mBaseItem.getType() != BaseItemKind.PERSON) {
                 mWatchedToggleButton = TextUnderButton.create(requireContext(), R.drawable.ic_watch, buttonSize, 0, getString(R.string.lbl_watched), markWatchedListener);
                 mWatchedToggleButton.setActivated(userData.getPlayed());
@@ -1021,46 +829,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
                 }
             });
             mDetailsOverviewRow.addAction(deleteButton);
-        }
-
-        if (mSeriesTimerInfo != null) {
-            //Settings
-            mDetailsOverviewRow.addAction(TextUnderButton.create(requireContext(), R.drawable.ic_settings, buttonSize, 0, getString(R.string.lbl_series_settings), new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    //show recording options
-                    showRecordingOptions(mSeriesTimerInfo.getId(), mBaseItem, true);
-                }
-            }));
-
-            //Delete
-            TextUnderButton del = TextUnderButton.create(requireContext(), R.drawable.ic_trash, buttonSize, 0, getString(R.string.lbl_cancel_series), new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle(R.string.lbl_delete)
-                            .setMessage(getString(R.string.msg_cancel_entire_series))
-                            .setPositiveButton(R.string.lbl_cancel_series, new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int whichButton) {
-                                    FullDetailsFragmentHelperKt.cancelLiveTvSeriesTimer(FullDetailsFragment.this, mSeriesTimerInfo.getId(), () -> {
-                                        Utils.showToast(requireContext(), getString(R.string.msg_recording_cancelled));
-                                        dataRefreshService.getValue().setLastDeletedItemId(UUIDSerializerKt.toUUID(mSeriesTimerInfo.getId()));
-                                        if (navigationRepository.getValue().getCanGoBack()) {
-                                            navigationRepository.getValue().goBack();
-                                        } else {
-                                            navigationRepository.getValue().reset(Destinations.INSTANCE.getHome());
-                                        }
-                                        return null;
-                                    });
-                                }
-                            })
-                            .setNegativeButton(R.string.lbl_no, null)
-                            .show();
-
-                }
-            });
-            mDetailsOverviewRow.addAction(del);
-
         }
 
         //Now, create a more button to show if needed
@@ -1157,36 +925,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
         moreButton.setVisibility(collapsedOptions > 0 ? View.VISIBLE : View.GONE);
     }
 
-    RecordPopup mRecordPopup;
-
-    public void showRecordingOptions(String id, final BaseItemDto program, final boolean recordSeries) {
-        if (mRecordPopup == null) {
-            int width = Utils.convertDpToPixel(requireContext(), 600);
-            Point size = new Point();
-            requireActivity().getWindowManager().getDefaultDisplay().getSize(size);
-            mRecordPopup = new RecordPopup(requireActivity(), getLifecycle(), mRowsFragment.getView(), (size.x / 2) - (width / 2), mRowsFragment.getView().getTop() + 40, width);
-        }
-        FullDetailsFragmentHelperKt.getLiveTvSeriesTimer(this, id, response -> {
-            if (recordSeries || Utils.isTrue(program.isSports())) {
-                mRecordPopup.setContent(requireContext(), program, response, FullDetailsFragment.this, recordSeries);
-                mRecordPopup.show();
-            } else {
-                //just record with defaults
-                FullDetailsFragmentHelperKt.createLiveTvSeriesTimer(this, response, () -> {
-                    Utils.showToast(requireContext(), R.string.msg_set_to_record);
-
-                    // we have to re-retrieve the program to get the timer id
-                    FullDetailsFragmentHelperKt.getLiveTvProgram(this, mProgramInfo.getId(), programInfo -> {
-                        setRecTimer(programInfo.getTimerId());
-                        return null;
-                    });
-
-                    return null;
-                });
-            }
-            return null;
-        });
-    }
 
 
     private final class ItemViewClickedListener implements OnItemViewClickedListener {

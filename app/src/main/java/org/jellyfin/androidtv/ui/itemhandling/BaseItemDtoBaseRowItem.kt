@@ -24,17 +24,7 @@ open class BaseItemDtoBaseRowItem @JvmOverloads constructor(
 	selectAction: BaseRowItemSelectAction = BaseRowItemSelectAction.ShowDetails,
 	val preferSeriesPoster: Boolean = false,
 ) : BaseRowItem(
-	baseRowType = when (item.type) {
-		BaseItemKind.TV_CHANNEL,
-		BaseItemKind.LIVE_TV_CHANNEL -> BaseRowType.LiveTvChannel
-
-		BaseItemKind.PROGRAM,
-		BaseItemKind.TV_PROGRAM,
-		BaseItemKind.LIVE_TV_PROGRAM -> BaseRowType.LiveTvProgram
-
-		BaseItemKind.RECORDING -> BaseRowType.LiveTvRecording
-		else -> BaseRowType.BaseItem
-	},
+	baseRowType = BaseRowType.BaseItem,
 	staticHeight = staticHeight,
 	preferParentThumb = preferParentThumb,
 	selectAction = selectAction,

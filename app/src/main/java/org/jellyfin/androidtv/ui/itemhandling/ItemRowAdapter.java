@@ -20,7 +20,6 @@ import org.jellyfin.androidtv.data.model.ChapterItemInfo;
 import org.jellyfin.androidtv.data.model.DataRefreshService;
 import org.jellyfin.androidtv.data.model.FilterOptions;
 import org.jellyfin.androidtv.data.querying.GetAdditionalPartsRequest;
-import org.jellyfin.androidtv.data.querying.GetSeriesTimersRequest;
 import org.jellyfin.androidtv.data.querying.GetSpecialsRequest;
 import org.jellyfin.androidtv.data.querying.GetTrailersRequest;
 import org.jellyfin.androidtv.data.querying.GetUserViewsRequest;
@@ -40,7 +39,6 @@ import org.jellyfin.sdk.model.api.request.GetAlbumArtistsRequest;
 import org.jellyfin.sdk.model.api.request.GetArtistsRequest;
 import org.jellyfin.sdk.model.api.request.GetItemsRequest;
 import org.jellyfin.sdk.model.api.request.GetLatestMediaRequest;
-import org.jellyfin.sdk.model.api.request.GetLiveTvChannelsRequest;
 import org.jellyfin.sdk.model.api.request.GetNextUpRequest;
 import org.jellyfin.sdk.model.api.request.GetRecommendedProgramsRequest;
 import org.jellyfin.sdk.model.api.request.GetRecordingsRequest;
@@ -65,9 +63,6 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
     private GetSpecialsRequest mSpecialsQuery;
     private GetAdditionalPartsRequest mAdditionalPartsQuery;
     private GetTrailersRequest mTrailersQuery;
-    private GetLiveTvChannelsRequest mTvChannelQuery;
-    private GetRecommendedProgramsRequest mTvProgramQuery;
-    private GetRecordingsRequest mTvRecordingQuery;
     private GetArtistsRequest mArtistsQuery;
     private GetAlbumArtistsRequest mAlbumArtistsQuery;
     private GetLatestMediaRequest mLatestQuery;
@@ -201,13 +196,6 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
         this.staticHeight = true;
     }
 
-    public ItemRowAdapter(Context context, GetSeriesTimersRequest query, Presenter presenter, MutableObjectAdapter<Row> parent) {
-        super(presenter);
-        this.context = context;
-        mParent = parent;
-        queryType = QueryType.SeriesTimer;
-    }
-
     public ItemRowAdapter(Context context, GetLatestMediaRequest query, boolean preferParentThumb, Presenter presenter, MutableObjectAdapter<Row> parent) {
         super(presenter);
         this.context = context;
@@ -274,34 +262,6 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
         mParent = parent;
         mTrailersQuery = query;
         queryType = QueryType.Trailers;
-    }
-
-    public ItemRowAdapter(Context context, GetLiveTvChannelsRequest query, int chunkSize, Presenter presenter, MutableObjectAdapter<Row> parent) {
-        super(presenter);
-        this.context = context;
-        mParent = parent;
-        mTvChannelQuery = query;
-        this.chunkSize = chunkSize;
-        queryType = QueryType.LiveTvChannel;
-    }
-
-    public ItemRowAdapter(Context context, GetRecommendedProgramsRequest query, Presenter presenter, MutableObjectAdapter<Row> parent) {
-        super(presenter);
-        this.context = context;
-        mParent = parent;
-        mTvProgramQuery = query;
-        queryType = QueryType.LiveTvProgram;
-        staticHeight = true;
-    }
-
-    public ItemRowAdapter(Context context, GetRecordingsRequest query, int chunkSize, Presenter presenter, MutableObjectAdapter<Row> parent) {
-        super(presenter);
-        this.context = context;
-        mParent = parent;
-        mTvRecordingQuery = query;
-        this.chunkSize = chunkSize;
-        queryType = QueryType.LiveTvRecording;
-        staticHeight = true;
     }
 
     public ItemRowAdapter(Context context, GetSimilarItemsRequest query, QueryType queryType, Presenter presenter, MutableObjectAdapter<Row> parent) {
@@ -499,15 +459,6 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
         }
 
         switch (queryType) {
-            case LiveTvChannel:
-                if (mTvChannelQuery == null) {
-                    return;
-                }
-                notifyRetrieveStarted();
-
-                ItemRowAdapterHelperKt.retrieveLiveTvChannels(this, api.getValue(), mTvChannelQuery, itemsLoaded, chunkSize);
-                break;
-
             case Artists:
                 if (mArtistsQuery == null) {
                     return;
@@ -600,15 +551,6 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
             case SimilarMovies:
                 ItemRowAdapterHelperKt.retrieveSimilarItems(this, api.getValue(), mSimilarQuery);
                 break;
-            case LiveTvChannel:
-                ItemRowAdapterHelperKt.retrieveLiveTvChannels(this, api.getValue(), mTvChannelQuery, 0, chunkSize);
-                break;
-            case LiveTvProgram:
-                ItemRowAdapterHelperKt.retrieveLiveTvRecommendedPrograms(this, api.getValue(), mTvProgramQuery);
-                break;
-            case LiveTvRecording:
-                ItemRowAdapterHelperKt.retrieveLiveTvRecordings(this, api.getValue(), mTvRecordingQuery);
-                break;
             case StaticPeople:
                 loadPeople();
                 break;
@@ -642,10 +584,6 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
                 break;
             case Premieres:
                 ItemRowAdapterHelperKt.retrievePremieres(this, api.getValue(), mQuery);
-                break;
-            case SeriesTimer:
-                boolean canManageRecordings = Utils.canManageRecordings(KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue());
-                ItemRowAdapterHelperKt.retrieveLiveTvSeriesTimers(this, api.getValue(), context, canManageRecordings);
                 break;
             case Resume:
                 ItemRowAdapterHelperKt.retrieveResumeItems(this, api.getValue(), resumeQuery);

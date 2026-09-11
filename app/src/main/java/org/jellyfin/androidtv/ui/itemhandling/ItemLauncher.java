@@ -4,7 +4,6 @@ import android.content.Context;
 
 import androidx.annotation.Nullable;
 
-import org.jellyfin.androidtv.constant.LiveTvOption;
 import org.jellyfin.androidtv.constant.QueryType;
 import org.jellyfin.androidtv.data.model.ChapterItemInfo;
 import org.jellyfin.androidtv.preference.LibraryPreferences;
@@ -59,7 +58,6 @@ public class ItemLauncher {
                 if (!enableSmartScreen) return Destinations.INSTANCE.libraryBrowser(baseItem, null);
                 else return Destinations.INSTANCE.librarySmartScreen(baseItem);
             case MUSIC:
-            case LIVETV:
                 return Destinations.INSTANCE.librarySmartScreen(baseItem);
             default:
                 return Destinations.INSTANCE.libraryBrowser(baseItem, null);
@@ -187,91 +185,6 @@ public class ItemLauncher {
 
                 break;
 
-            case LiveTvProgram:
-                BaseItemDto program = rowItem.getBaseItem();
-                switch (rowItem.getSelectAction()) {
-
-                    case ShowDetails:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.channelDetails(program.getId(), program.getChannelId(), program));
-                        break;
-                    case Play:
-                        //Just play it directly - need to retrieve program channel via items api to convert to BaseItem
-                        ItemLauncherHelper.getItem(program.getChannelId(), new Response<BaseItemDto>() {
-                            @Override
-                            public void onResponse(BaseItemDto response) {
-                                if (!isActive()) return;
-                                List<BaseItemDto> items = new ArrayList<>(1);
-                                items.add(response);
-                                playbackLauncher.getValue().launch(context, items);
-
-                            }
-                        });
-                }
-                break;
-
-            case LiveTvChannel:
-                //Just tune to it by playing
-                final BaseItemDto channel = rowItem.getBaseItem();
-                ItemLauncherHelper.getItem(channel.getId(), new Response<BaseItemDto>() {
-                    @Override
-                    public void onResponse(BaseItemDto response) {
-                        if (!isActive()) return;
-                        playbackHelper.getValue().getItemsToPlay(context, response, false, false, new Response<List<BaseItemDto>>() {
-                            @Override
-                            public void onResponse(List<BaseItemDto> response) {
-                                if (!isActive()) return;
-                                playbackLauncher.getValue().launch(context, response);
-                            }
-                        });
-                    }
-                });
-                break;
-
-            case LiveTvRecording:
-                switch (rowItem.getSelectAction()) {
-
-                    case ShowDetails:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.itemDetails(rowItem.getBaseItem().getId()));
-                        break;
-                    case Play:
-                        //Just play it directly but need to retrieve as base item
-                        ItemLauncherHelper.getItem(rowItem.getBaseItem().getId(), new Response<BaseItemDto>() {
-                            @Override
-                            public void onResponse(BaseItemDto response) {
-                                if (!isActive()) return;
-                                List<BaseItemDto> items = new ArrayList<>(1);
-                                items.add(response);
-                                playbackLauncher.getValue().launch(context, items);
-                            }
-                        });
-                        break;
-                }
-                break;
-
-            case SeriesTimer:
-                navigationRepository.getValue().navigate(Destinations.INSTANCE.seriesTimerDetails(rowItem.getItemId(), ((SeriesTimerInfoDtoBaseRowItem) rowItem).getSeriesTimerInfo()));
-                break;
-
-
-            case GridButton:
-                switch (((GridButtonBaseRowItem) rowItem).getGridButton().getId()) {
-                    case LiveTvOption.LIVE_TV_GUIDE_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvGuide());
-                        break;
-
-                    case LiveTvOption.LIVE_TV_RECORDINGS_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvRecordings());
-                        break;
-
-                    case LiveTvOption.LIVE_TV_SERIES_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvSeriesRecordings());
-                        break;
-
-                    case LiveTvOption.LIVE_TV_SCHEDULE_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvSchedule());
-                        break;
-                }
-                break;
         }
     }
 }
