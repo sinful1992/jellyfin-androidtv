@@ -1,5 +1,6 @@
 package org.jellyfin.androidtv.ui.player.video
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
@@ -14,6 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -28,7 +32,7 @@ import org.jellyfin.androidtv.ui.base.popover.Popover
 /**
  * A control row button, named [label] while focused, opening a single-choice list of [options],
  * each a value paired with the label to show for it. The option equal to [activeOption] is marked
- * as selected.
+ * as selected and holds focus when the list opens.
  */
 @Composable
 fun <T> PlayerOptionPicker(
@@ -45,6 +49,12 @@ fun <T> PlayerOptionPicker(
 		label = label,
 		onClick = { expanded = true },
 	)
+
+	// The popover focuses its content as it opens, which lands on the first option: a list of tracks
+	// would open on the top one, with nothing but a small tick further down to say which is playing.
+	// Redirect that entry to the option already in use, so the list opens on the current choice.
+	val activeOptionFocusRequester = remember { FocusRequester() }
+	val hasActiveOption = options.any { (option, _) -> option == activeOption }
 
 	// Long option lists scroll, but only inside a popover that still fits the screen: one grown
 	// to the full window height has nowhere left to be positioned.
@@ -65,16 +75,30 @@ fun <T> PlayerOptionPicker(
 				.padding(4.dp)
 				.widthIn(min = 220.dp, max = 400.dp)
 				.heightIn(max = maxHeight)
+				.focusGroup()
+				.focusProperties {
+					// Only when the requester has a row to land on: there is no active option when
+					// nothing has been selected and the server marked no default, and requesting
+					// focus through an unattached requester throws.
+					if (hasActiveOption) onEnter = { activeOptionFocusRequester.requestFocus() }
+				}
 				.verticalScroll(rememberScrollState())
 		) {
 			for ((option, label) in options) {
+				val isActiveOption = option == activeOption
+
 				ListButton(
 					onClick = {
 						expanded = false
 						onSelect(option)
 					},
+					modifier = if (isActiveOption) {
+						Modifier.focusRequester(activeOptionFocusRequester)
+					} else {
+						Modifier
+					},
 					headingContent = { Text(label) },
-					trailingContent = { RadioButton(checked = option == activeOption) },
+					trailingContent = { RadioButton(checked = isActiveOption) },
 				)
 			}
 		}
