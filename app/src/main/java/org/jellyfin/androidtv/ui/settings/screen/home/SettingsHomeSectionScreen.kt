@@ -44,7 +44,12 @@ fun SettingsHomeSectionScreen(index: Int) {
 			)
 		}
 
-		items(HomeSectionType.entries) { entry ->
+		// Live TV sections parse but draw nothing, so they are not offered as a choice.
+		val selectableSections = HomeSectionType.entries.filterNot {
+			it == HomeSectionType.LIVE_TV || it == HomeSectionType.ACTIVE_RECORDINGS
+		}
+
+		items(selectableSections) { entry ->
 			ListButton(
 				headingContent = { Text(stringResource(entry.nameRes)) },
 				trailingContent = { RadioButton(checked = sectionType == entry) },

@@ -152,11 +152,6 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		var doviProfile8Override = enumPreference("dovi_profile_8_override", HdrOverrideMode.AUTO)
 
 		/* Live TV */
-		/**
-		 * Use direct play
-		 */
-		var liveTvDirectPlayEnabled = booleanPreference("pref_live_direct", true)
-
 		/* Developer options */
 		/**
 		 * Show additional debug information

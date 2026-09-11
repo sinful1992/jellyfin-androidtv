@@ -31,7 +31,6 @@ import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.constant.CustomMessage;
 import org.jellyfin.androidtv.constant.Extras;
 import org.jellyfin.androidtv.constant.ImageType;
-import org.jellyfin.androidtv.constant.LiveTvOption;
 import org.jellyfin.androidtv.constant.QueryType;
 import org.jellyfin.androidtv.data.model.DataRefreshService;
 import org.jellyfin.androidtv.data.querying.GetUserViewsRequest;
@@ -249,20 +248,8 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
                 case SimilarMovies:
                     rowAdapter = new ItemRowAdapter(requireContext(), def.getSimilarQuery(), QueryType.SimilarMovies, mCardPresenter, mRowsAdapter);
                     break;
-                case LiveTvChannel:
-                    rowAdapter = new ItemRowAdapter(requireContext(), def.getTvChannelQuery(), 40, mCardPresenter, mRowsAdapter);
-                    break;
-                case LiveTvProgram:
-                    rowAdapter = new ItemRowAdapter(requireContext(), def.getProgramQuery(), mCardPresenter, mRowsAdapter);
-                    break;
-                case LiveTvRecording:
-                    rowAdapter = new ItemRowAdapter(requireContext(), def.getRecordingQuery(), def.getChunkSize(), mCardPresenter, mRowsAdapter);
-                    break;
                 case Premieres:
                     rowAdapter = new ItemRowAdapter(requireContext(), def.getQuery(), def.getChunkSize(), def.getPreferParentThumb(), def.isStaticHeight(), mCardPresenter, mRowsAdapter, def.getQueryType());
-                    break;
-                case SeriesTimer:
-                    rowAdapter = new ItemRowAdapter(requireContext(), def.getSeriesTimerQuery(), mCardPresenter, mRowsAdapter);
                     break;
                 case Specials:
                     rowAdapter = new ItemRowAdapter(requireContext(), def.getSpecialsQuery(), new CardPresenter(true, ImageType.THUMB, 150), mRowsAdapter);
@@ -419,24 +406,6 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
 
                     case FAVSONGS:
                         navigationRepository.getValue().navigate(Destinations.INSTANCE.musicFavorites(mFolder.getId()));
-                        break;
-
-                    case SERIES:
-                    case LiveTvOption.LIVE_TV_SERIES_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvSeriesRecordings());
-                        break;
-
-                    case SCHEDULE:
-                    case LiveTvOption.LIVE_TV_SCHEDULE_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvSchedule());
-                        break;
-
-                    case LiveTvOption.LIVE_TV_RECORDINGS_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvRecordings());
-                        break;
-
-                    case LiveTvOption.LIVE_TV_GUIDE_OPTION_ID:
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.getLiveTvGuide());
                         break;
 
                     default:

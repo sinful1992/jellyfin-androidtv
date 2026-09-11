@@ -15,7 +15,6 @@ import org.jellyfin.androidtv.data.repository.ItemRepository
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.util.TimeUtils
-import org.jellyfin.androidtv.util.apiclient.getSeriesOverview
 import org.jellyfin.androidtv.util.popupMenu
 import org.jellyfin.androidtv.util.sdk.TrailerUtils.getExternalTrailerIntent
 import org.jellyfin.androidtv.util.sdk.compat.canResume
@@ -24,13 +23,11 @@ import org.jellyfin.androidtv.util.showIfNotEmpty
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
 import org.jellyfin.sdk.api.client.extensions.libraryApi
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.MediaType
-import org.jellyfin.sdk.model.api.SeriesTimerInfoDto
 import org.jellyfin.sdk.model.extensions.ticks
 import org.jellyfin.sdk.model.serializer.toUUID
 import org.koin.android.ext.android.inject
@@ -100,15 +97,6 @@ fun FullDetailsFragment.showDetailsMenu(
 		item(getString(R.string.lbl_goto_series)) { gotoSeries() }
 	}
 }.showIfNotEmpty()
-
-fun FullDetailsFragment.createFakeSeriesTimerBaseItemDto(timer: SeriesTimerInfoDto) = BaseItemDto(
-	id = requireNotNull(timer.id).toUUID(),
-	type = BaseItemKind.FOLDER,
-	mediaType = MediaType.UNKNOWN,
-	seriesTimerId = timer.id,
-	name = timer.name,
-	overview = timer.getSeriesOverview(requireContext()),
-)
 
 fun FullDetailsFragment.toggleFavorite() {
 	val itemMutationRepository by inject<ItemMutationRepository>()
@@ -296,105 +284,3 @@ fun FullDetailsFragment.showResumeMenu(
 		play(nextUpEpisode, 0, false)
 	}
 }.showIfNotEmpty()
-
-fun FullDetailsFragment.getLiveTvSeriesTimer(
-	id: String,
-	callback: (timer: SeriesTimerInfoDto) -> Unit,
-) {
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.getSeriesTimer(id).content
-			}
-		}.onSuccess { timer ->
-			callback(timer)
-		}
-	}
-}
-
-fun FullDetailsFragment.getLiveTvProgram(
-	id: UUID,
-	callback: (program: BaseItemDto) -> Unit,
-) {
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.getProgram(id.toString()).content
-			}
-		}.onSuccess { program ->
-			callback(program)
-		}
-	}
-}
-
-fun FullDetailsFragment.createLiveTvSeriesTimer(
-	seriesTimer: SeriesTimerInfoDto,
-	callback: () -> Unit,
-) {
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.createSeriesTimer(seriesTimer)
-			}
-		}.onSuccess {
-			callback()
-		}
-	}
-}
-
-fun FullDetailsFragment.getLiveTvDefaultTimer(
-	id: UUID,
-	callback: (seriesTimer: SeriesTimerInfoDto) -> Unit,
-) {
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.getDefaultTimer(id.toString()).content
-			}
-		}.onSuccess { seriesTimer ->
-			callback(seriesTimer)
-		}
-	}
-}
-
-fun FullDetailsFragment.cancelLiveTvSeriesTimer(
-	timerId: String,
-	callback: () -> Unit,
-) {
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.cancelTimer(timerId)
-			}
-		}.onSuccess {
-			callback()
-		}
-	}
-}
-
-fun FullDetailsFragment.getLiveTvChannel(
-	id: UUID,
-	callback: (channel: BaseItemDto) -> Unit,
-) {
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.getChannel(id).content
-			}
-		}.onSuccess { channel ->
-			callback(channel)
-		}
-	}
-}

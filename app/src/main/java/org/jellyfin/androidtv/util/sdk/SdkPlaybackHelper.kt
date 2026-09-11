@@ -17,7 +17,6 @@ import org.jellyfin.androidtv.util.apiclient.Response
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.instantMixApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.videosApi
@@ -210,22 +209,6 @@ class SdkPlaybackHelper(
 				)
 
 				listOf(channelWithProgramMetadata)
-			}
-
-			BaseItemKind.TV_CHANNEL -> {
-				val channel by api.liveTvApi.getChannel(mainItem.id)
-				val currentProgram = channel.currentProgram
-				if (currentProgram != null) {
-					val channelWithCurrentProgramMetadata = channel.copy(
-						premiereDate = currentProgram.premiereDate,
-						endDate = currentProgram.endDate,
-						officialRating = currentProgram.officialRating,
-						runTimeTicks = currentProgram.runTimeTicks,
-					)
-					listOf(channelWithCurrentProgramMetadata)
-				} else {
-					listOf(channel)
-				}
 			}
 
 			else -> {

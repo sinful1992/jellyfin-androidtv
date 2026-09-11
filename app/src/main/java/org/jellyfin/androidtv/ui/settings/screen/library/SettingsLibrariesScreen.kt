@@ -37,14 +37,8 @@ fun SettingsLibrariesScreen() {
 			val allowGridView = viewModel.allowGridView(userView.collectionType)
 			val displayPreferencesId = userView.displayPreferencesId
 
-			if (userView.collectionType == CollectionType.LIVETV) {
-				ListButton(
-					leadingContent = { Icon(painterResource(R.drawable.ic_guide), contentDescription = null) },
-					headingContent = { Text(userView.name.orEmpty()) },
-					onClick = { router.push(Routes.LIVETV_GUIDE_OPTIONS) },
-					modifier = Modifier.focusKey(Routes.LIVETV_GUIDE_OPTIONS)
-				)
-			} else {
+			// A live TV library has no settings of its own now that the guide is gone.
+			if (userView.collectionType != CollectionType.LIVETV) {
 				val canOpen = allowGridView && displayPreferencesId != null
 
 				ListButton(

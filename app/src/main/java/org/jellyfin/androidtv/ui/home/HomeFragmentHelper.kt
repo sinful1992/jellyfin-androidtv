@@ -10,8 +10,6 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.MediaType
 import org.jellyfin.sdk.model.api.request.GetNextUpRequest
-import org.jellyfin.sdk.model.api.request.GetRecommendedProgramsRequest
-import org.jellyfin.sdk.model.api.request.GetRecordingsRequest
 import org.jellyfin.sdk.model.api.request.GetResumeItemsRequest
 
 class HomeFragmentHelper(
@@ -43,16 +41,6 @@ class HomeFragmentHelper(
 		return loadResume(context.getString(R.string.continue_listening), listOf(MediaType.AUDIO))
 	}
 
-	fun loadLatestLiveTvRecordings(): HomeFragmentRow {
-		val query = GetRecordingsRequest(
-			fields = ItemRepository.itemFields,
-			enableImages = true,
-			limit = ITEM_LIMIT_RECORDINGS
-		)
-
-		return HomeFragmentBrowseRowDefRow(BrowseRowDef(context.getString(R.string.lbl_recordings), query))
-	}
-
 	fun loadNextUp(): HomeFragmentRow {
 		val query = GetNextUpRequest(
 			imageTypeLimit = 1,
@@ -64,23 +52,9 @@ class HomeFragmentHelper(
 		return HomeFragmentBrowseRowDefRow(BrowseRowDef(context.getString(R.string.lbl_next_up), query, arrayOf(ChangeTriggerType.TvPlayback)))
 	}
 
-	fun loadOnNow(): HomeFragmentRow {
-		val query = GetRecommendedProgramsRequest(
-			isAiring = true,
-			fields = ItemRepository.itemFields,
-			imageTypeLimit = 1,
-			enableTotalRecordCount = false,
-			limit = ITEM_LIMIT_ON_NOW
-		)
-
-		return HomeFragmentBrowseRowDefRow(BrowseRowDef(context.getString(R.string.lbl_on_now), query))
-	}
-
 	companion object {
 		// Maximum amount of items loaded for a row
 		private const val ITEM_LIMIT_RESUME = 50
-		private const val ITEM_LIMIT_RECORDINGS = 40
 		private const val ITEM_LIMIT_NEXT_UP = 50
-		private const val ITEM_LIMIT_ON_NOW = 20
 	}
 }

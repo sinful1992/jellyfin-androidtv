@@ -3,8 +3,6 @@ package org.jellyfin.androidtv.ui.navigation
 import kotlinx.serialization.json.Json
 import org.jellyfin.androidtv.constant.Extras
 import org.jellyfin.androidtv.ui.browsing.BrowseGridFragment
-import org.jellyfin.androidtv.ui.browsing.BrowseRecordingsFragment
-import org.jellyfin.androidtv.ui.browsing.BrowseScheduleFragment
 import org.jellyfin.androidtv.ui.browsing.BrowseViewFragment
 import org.jellyfin.androidtv.ui.browsing.ByGenreFragment
 import org.jellyfin.androidtv.ui.browsing.ByLetterFragment
@@ -15,14 +13,12 @@ import org.jellyfin.androidtv.ui.home.HomeFragment
 import org.jellyfin.androidtv.ui.itemdetail.FullDetailsFragment
 import org.jellyfin.androidtv.ui.itemdetail.ItemListFragment
 import org.jellyfin.androidtv.ui.itemdetail.MusicFavoritesListFragment
-import org.jellyfin.androidtv.ui.livetv.LiveTvGuideFragment
 import org.jellyfin.androidtv.ui.playback.AudioNowPlayingFragment
 import org.jellyfin.androidtv.ui.player.photo.PhotoPlayerFragment
 import org.jellyfin.androidtv.ui.player.video.VideoPlayerFragment
 import org.jellyfin.androidtv.ui.search.SearchFragment
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.ItemSortBy
-import org.jellyfin.sdk.model.api.SeriesTimerInfoDto
 import org.jellyfin.sdk.model.api.SortOrder
 import java.util.UUID
 
@@ -83,20 +79,6 @@ object Destinations {
 	}
 
 	// TODO only pass item id instead of complete JSON to browsing destinations
-	fun channelDetails(item: UUID, channel: UUID, programInfo: BaseItemDto) =
-		fragmentDestination<FullDetailsFragment> {
-			putString("ItemId", item.toString())
-			putString("ChannelId", channel.toString())
-			putString("ProgramInfo", Json.encodeToString(programInfo))
-		}
-
-	// TODO only pass item id instead of complete JSON to browsing destinations
-	fun seriesTimerDetails(item: UUID, seriesTimer: SeriesTimerInfoDto) =
-		fragmentDestination<FullDetailsFragment> {
-			putString("ItemId", item.toString())
-			putString("SeriesTimer", Json.encodeToString(seriesTimer))
-		}
-
 	fun itemList(item: UUID) = fragmentDestination<ItemListFragment> {
 		putString("ItemId", item.toString())
 	}
@@ -106,13 +88,6 @@ object Destinations {
 	}
 
 	// Live TV
-	val liveTvGuide = fragmentDestination<LiveTvGuideFragment>()
-	val liveTvSchedule = fragmentDestination<BrowseScheduleFragment>()
-	val liveTvRecordings = fragmentDestination<BrowseRecordingsFragment>()
-	val liveTvSeriesRecordings = fragmentDestination<BrowseViewFragment> {
-		putBoolean(Extras.IsLiveTvSeriesRecordings, true)
-	}
-
 	// Playback
 	val nowPlaying = fragmentDestination<AudioNowPlayingFragment>()
 

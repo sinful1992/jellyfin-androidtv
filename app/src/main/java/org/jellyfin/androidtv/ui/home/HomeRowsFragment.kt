@@ -30,7 +30,6 @@ import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.constant.CustomMessage
 import org.jellyfin.androidtv.constant.HomeSectionType
 import org.jellyfin.androidtv.constant.ImageType
-import org.jellyfin.androidtv.constant.LiveTvOption
 import org.jellyfin.androidtv.constant.QueryType
 import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.androidtv.data.repository.CustomMessageRepository
@@ -131,12 +130,9 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				HomeSectionType.RESUME -> rows.add(helper.loadResumeVideo())
 				HomeSectionType.RESUME_AUDIO -> rows.add(helper.loadResumeAudio())
 				HomeSectionType.RESUME_BOOK -> Unit // Books are not (yet) supported
-				HomeSectionType.ACTIVE_RECORDINGS -> rows.add(helper.loadLatestLiveTvRecordings())
+				HomeSectionType.ACTIVE_RECORDINGS -> Unit // Live TV is not supported
 				HomeSectionType.NEXT_UP -> rows.add(helper.loadNextUp())
-				HomeSectionType.LIVE_TV -> if (currentUser.policy?.enableLiveTvAccess == true) {
-					rows.add(HomeFragmentLiveTVRow(requireActivity(), userRepository))
-					rows.add(helper.loadOnNow())
-				}
+				HomeSectionType.LIVE_TV -> Unit // Live TV is not supported
 
 				HomeSectionType.NONE -> Unit
 			}
@@ -168,12 +164,6 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				@Suppress("UNCHECKED_CAST")
 				val rowsAdapter = adapter as MutableObjectAdapter<Row>
 				for (i in 0 until rowsAdapter.size()) {
-					val listRow = rowsAdapter.get(i) as? ListRow ?: continue
-					val itemAdapter = listRow.adapter as? ItemRowAdapter ?: continue
-					if (itemAdapter.queryType == QueryType.LiveTvProgram && i > 0) {
-						val previousRow = rowsAdapter.get(i - 1)
-						if (previousRow != null) itemAdapter.setSiblingRow(previousRow)
-					}
 				}
 			}
 		}
@@ -349,15 +339,6 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			rowViewHolder: RowPresenter.ViewHolder?,
 			row: Row?,
 		) {
-			if (item is GridButton) {
-				when (item.id) {
-					LiveTvOption.LIVE_TV_GUIDE_OPTION_ID -> navigationRepository.navigate(Destinations.liveTvGuide)
-					LiveTvOption.LIVE_TV_SCHEDULE_OPTION_ID -> navigationRepository.navigate(Destinations.liveTvSchedule)
-					LiveTvOption.LIVE_TV_RECORDINGS_OPTION_ID -> navigationRepository.navigate(Destinations.liveTvRecordings)
-					LiveTvOption.LIVE_TV_SERIES_OPTION_ID -> navigationRepository.navigate(Destinations.liveTvSeriesRecordings)
-				}
-			}
-
 			if (item !is BaseRowItem) return
 			if (row !is ListRow) return
 			@Suppress("UNCHECKED_CAST")

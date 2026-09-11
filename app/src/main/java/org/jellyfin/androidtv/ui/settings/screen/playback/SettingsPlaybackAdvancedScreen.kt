@@ -251,19 +251,6 @@ fun SettingsPlaybackAdvancedScreen() {
 			)
 		}
 
-		item { ListSection(headingContent = { Text(stringResource(R.string.pref_live_tv_cat)) }) }
-
-		item {
-			var liveTvDirectPlayEnabled by rememberPreference(userPreferences, UserPreferences.liveTvDirectPlayEnabled)
-
-			ListButton(
-				headingContent = { Text(stringResource(R.string.lbl_direct_stream_live)) },
-				trailingContent = { Checkbox(checked = liveTvDirectPlayEnabled) },
-				onClick = { liveTvDirectPlayEnabled = !liveTvDirectPlayEnabled },
-				modifier = Modifier.focusKey("live_tv_direct_play_enabled")
-			)
-		}
-
 		item { ListSection(headingContent = { Text(stringResource(R.string.pref_audio)) }) }
 
 		item {

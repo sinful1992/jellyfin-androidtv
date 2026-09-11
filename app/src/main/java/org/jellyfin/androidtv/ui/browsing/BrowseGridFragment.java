@@ -638,15 +638,6 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             case SimilarMovies:
                 mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getSimilarQuery(), QueryType.SimilarMovies, mCardPresenter, null);
                 break;
-            case LiveTvChannel:
-                mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getTvChannelQuery(), 40, mCardPresenter, null);
-                break;
-            case LiveTvProgram:
-                mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getProgramQuery(), mCardPresenter, null);
-                break;
-            case LiveTvRecording:
-                mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getRecordingQuery(), chunkSize, mCardPresenter, null);
-                break;
             case Artists:
                 mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getArtistsQuery(), chunkSize, mCardPresenter, null);
                 break;

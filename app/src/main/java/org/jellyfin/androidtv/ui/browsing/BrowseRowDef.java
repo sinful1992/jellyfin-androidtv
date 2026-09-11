@@ -2,16 +2,12 @@ package org.jellyfin.androidtv.ui.browsing;
 
 import org.jellyfin.androidtv.constant.ChangeTriggerType;
 import org.jellyfin.androidtv.constant.QueryType;
-import org.jellyfin.androidtv.data.querying.GetSeriesTimersRequest;
 import org.jellyfin.androidtv.data.querying.GetSpecialsRequest;
 import org.jellyfin.sdk.model.api.request.GetAlbumArtistsRequest;
 import org.jellyfin.sdk.model.api.request.GetArtistsRequest;
 import org.jellyfin.sdk.model.api.request.GetItemsRequest;
 import org.jellyfin.sdk.model.api.request.GetLatestMediaRequest;
-import org.jellyfin.sdk.model.api.request.GetLiveTvChannelsRequest;
 import org.jellyfin.sdk.model.api.request.GetNextUpRequest;
-import org.jellyfin.sdk.model.api.request.GetRecommendedProgramsRequest;
-import org.jellyfin.sdk.model.api.request.GetRecordingsRequest;
 import org.jellyfin.sdk.model.api.request.GetResumeItemsRequest;
 import org.jellyfin.sdk.model.api.request.GetSimilarItemsRequest;
 
@@ -21,10 +17,6 @@ public class BrowseRowDef {
     private GetNextUpRequest nextUpQuery;
     private GetSimilarItemsRequest similarQuery;
     private GetLatestMediaRequest latestItemsQuery;
-    private GetLiveTvChannelsRequest tvChannelQuery;
-    private GetRecommendedProgramsRequest programQuery;
-    private GetRecordingsRequest recordingQuery;
-    private GetSeriesTimersRequest seriesTimerQuery;
 
     private GetArtistsRequest artistsQuery;
     private GetAlbumArtistsRequest albumArtistsQuery;
@@ -85,13 +77,6 @@ public class BrowseRowDef {
         this.changeTriggers = changeTriggers;
     }
 
-    public BrowseRowDef(String header, GetSeriesTimersRequest query) {
-        headerText = header;
-        this.seriesTimerQuery = query;
-        this.staticHeight = true;
-        this.queryType = QueryType.SeriesTimer;
-    }
-
     public BrowseRowDef(String header, GetNextUpRequest query, ChangeTriggerType[] changeTriggers) {
         headerText = header;
         this.nextUpQuery = query;
@@ -106,29 +91,6 @@ public class BrowseRowDef {
         this.queryType = QueryType.LatestItems;
         this.staticHeight = true;
         this.changeTriggers = changeTriggers;
-    }
-
-    public BrowseRowDef(String header, GetLiveTvChannelsRequest query) {
-        headerText = header;
-        this.tvChannelQuery = query;
-        this.queryType = QueryType.LiveTvChannel;
-    }
-
-    public BrowseRowDef(String header, GetRecommendedProgramsRequest query) {
-        headerText = header;
-        this.programQuery = query;
-        this.queryType = QueryType.LiveTvProgram;
-    }
-
-    public BrowseRowDef(String header, GetRecordingsRequest query) {
-        this(header, query, 0);
-    }
-
-    public BrowseRowDef(String header, GetRecordingsRequest query, int chunkSize) {
-        headerText = header;
-        this.recordingQuery = query;
-        this.chunkSize = chunkSize;
-        this.queryType = QueryType.LiveTvRecording;
     }
 
     public BrowseRowDef(String header, GetSimilarItemsRequest query, QueryType type) {
@@ -179,22 +141,10 @@ public class BrowseRowDef {
         return queryType;
     }
 
-    public GetLiveTvChannelsRequest getTvChannelQuery() {
-        return tvChannelQuery;
-    }
-
-    public GetRecommendedProgramsRequest getProgramQuery() {
-        return programQuery;
-    }
-
-    public GetRecordingsRequest getRecordingQuery() { return recordingQuery; }
-
     public boolean getPreferParentThumb() { return preferParentThumb; }
 
     public GetArtistsRequest getArtistsQuery() { return artistsQuery; }
     public GetAlbumArtistsRequest getAlbumArtistsQuery() { return albumArtistsQuery; }
-
-    public GetSeriesTimersRequest getSeriesTimerQuery() { return seriesTimerQuery; }
 
     public GetResumeItemsRequest getResumeQuery() { return resumeQuery; }
 

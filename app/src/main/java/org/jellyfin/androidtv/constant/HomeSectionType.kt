@@ -18,8 +18,10 @@ enum class HomeSectionType(
 	RESUME("resume", R.string.home_section_resume),
 	RESUME_AUDIO("resumeaudio", R.string.home_section_resume_audio),
 	RESUME_BOOK("resumebook", R.string.home_section_resume_book),
+	/** Kept so a server sending it still parses; live TV is not supported, so it draws nothing. */
 	ACTIVE_RECORDINGS("activerecordings", R.string.home_section_active_recordings),
 	NEXT_UP("nextup", R.string.home_section_next_up),
+	/** Kept so a server sending it still parses; live TV is not supported, so it draws nothing. */
 	LIVE_TV("livetv", R.string.home_section_livetv),
 	NONE("none", R.string.home_section_none),
 }

@@ -8,7 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.constant.LiveTvOption
 import org.jellyfin.androidtv.data.querying.GetAdditionalPartsRequest
 import org.jellyfin.androidtv.data.querying.GetSpecialsRequest
 import org.jellyfin.androidtv.data.querying.GetTrailersRequest
@@ -20,19 +19,16 @@ import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.api.client.extensions.artistsApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.api.client.extensions.videosApi
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
-import org.jellyfin.sdk.model.api.SeriesTimerInfoDto
 import org.jellyfin.sdk.model.api.request.GetAlbumArtistsRequest
 import org.jellyfin.sdk.model.api.request.GetArtistsRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.model.api.request.GetLatestMediaRequest
-import org.jellyfin.sdk.model.api.request.GetLiveTvChannelsRequest
 import org.jellyfin.sdk.model.api.request.GetNextUpRequest
 import org.jellyfin.sdk.model.api.request.GetRecommendedProgramsRequest
 import org.jellyfin.sdk.model.api.request.GetRecordingsRequest
@@ -330,153 +326,6 @@ fun ItemRowAdapter.retrieveTrailers(api: ApiClient, query: GetTrailersRequest) {
 			)
 
 			if (response.isEmpty()) removeRow()
-		}.fold(
-			onSuccess = { notifyRetrieveFinished() },
-			onFailure = { error -> notifyRetrieveFinished(error as? Exception) }
-		)
-	}
-}
-
-fun ItemRowAdapter.retrieveLiveTvRecommendedPrograms(
-	api: ApiClient,
-	query: GetRecommendedProgramsRequest
-) {
-	ProcessLifecycleOwner.get().lifecycleScope.launch {
-		runCatching {
-			val response = withContext(Dispatchers.IO) {
-				api.liveTvApi.getRecommendedPrograms(query).content
-			}
-
-			setItems(
-				items = response.items,
-				transform = { item, _ ->
-					BaseItemDtoBaseRowItem(
-						item,
-						false,
-						isStaticHeight,
-					)
-				}
-			)
-
-			if (response.items.isEmpty()) removeRow()
-		}.fold(
-			onSuccess = { notifyRetrieveFinished() },
-			onFailure = { error -> notifyRetrieveFinished(error as? Exception) }
-		)
-	}
-}
-
-fun ItemRowAdapter.retrieveLiveTvRecordings(api: ApiClient, query: GetRecordingsRequest) {
-	ProcessLifecycleOwner.get().lifecycleScope.launch {
-		runCatching {
-			val response = withContext(Dispatchers.IO) {
-				api.liveTvApi.getRecordings(query).content
-			}
-
-			setItems(
-				items = response.items,
-				transform = { item, _ ->
-					BaseItemDtoBaseRowItem(
-						item,
-						false,
-						isStaticHeight,
-					)
-				}
-			)
-
-			if (response.items.isEmpty()) removeRow()
-		}.fold(
-			onSuccess = { notifyRetrieveFinished() },
-			onFailure = { error -> notifyRetrieveFinished(error as? Exception) }
-		)
-	}
-}
-
-fun ItemRowAdapter.retrieveLiveTvSeriesTimers(
-	api: ApiClient,
-	context: Context,
-	canManageRecordings: Boolean
-) {
-	ProcessLifecycleOwner.get().lifecycleScope.launch {
-		runCatching {
-			val response = withContext(Dispatchers.IO) {
-				api.liveTvApi.getSeriesTimers().content
-			}
-
-			setItems(
-				items = buildList {
-					add(
-						GridButton(
-							LiveTvOption.LIVE_TV_RECORDINGS_OPTION_ID,
-							context.getString(R.string.lbl_recorded_tv)
-						)
-					)
-
-					if (canManageRecordings) {
-						add(
-							GridButton(
-								LiveTvOption.LIVE_TV_SCHEDULE_OPTION_ID,
-								context.getString(R.string.lbl_schedule)
-							)
-						)
-
-						add(
-							GridButton(
-								LiveTvOption.LIVE_TV_SERIES_OPTION_ID,
-								context.getString(R.string.lbl_series)
-							)
-						)
-					}
-
-					addAll(response.items)
-				},
-				transform = { item, _ ->
-					when (item) {
-						is GridButton -> GridButtonBaseRowItem(item)
-						is SeriesTimerInfoDto -> SeriesTimerInfoDtoBaseRowItem(item)
-						else -> error("Unknown type for item")
-					}
-				}
-			)
-
-			if (response.items.isEmpty()) removeRow()
-		}.fold(
-			onSuccess = { notifyRetrieveFinished() },
-			onFailure = { error -> notifyRetrieveFinished(error as? Exception) }
-		)
-	}
-}
-
-fun ItemRowAdapter.retrieveLiveTvChannels(
-	api: ApiClient,
-	query: GetLiveTvChannelsRequest,
-	startIndex: Int,
-	batchSize: Int
-) {
-	ProcessLifecycleOwner.get().lifecycleScope.launch {
-		runCatching {
-			val response = withContext(Dispatchers.IO) {
-				api.liveTvApi.getLiveTvChannels(
-					query.copy(
-						startIndex = startIndex,
-						limit = batchSize,
-					)
-				).content
-			}
-
-			totalItems = response.totalRecordCount
-			setItems(
-				items = response.items,
-				transform = { item, _ ->
-					BaseItemDtoBaseRowItem(
-						item,
-						false,
-						isStaticHeight,
-					)
-				},
-			)
-
-			if (response.items.isEmpty()) removeRow()
 		}.fold(
 			onSuccess = { notifyRetrieveFinished() },
 			onFailure = { error -> notifyRetrieveFinished(error as? Exception) }

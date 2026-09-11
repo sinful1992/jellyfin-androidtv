@@ -297,45 +297,6 @@ private fun BaseRowItem.getArtworkDisplayConfig(imageType: ImageType, uniformAsp
 		}
 	}
 
-	BaseRowType.LiveTvChannel -> BaseRowItemDisplayConfig(
-		aspectRatio = when (imageType) {
-			ImageType.BANNER -> ImageHelper.ASPECT_RATIO_BANNER.toFloat()
-			ImageType.THUMB -> ImageHelper.ASPECT_RATIO_16_9.toFloat()
-			else -> baseItem?.primaryImageAspectRatio?.toFloat() ?: 1f
-		},
-		image = getImage(imageType),
-		scaleType = ImageView.ScaleType.FIT_CENTER,
-		iconRes = R.drawable.ic_tv,
-	)
-
-	BaseRowType.LiveTvProgram -> BaseRowItemDisplayConfig(
-		aspectRatio = when (imageType) {
-			ImageType.BANNER -> ImageHelper.ASPECT_RATIO_BANNER.toFloat()
-			ImageType.THUMB -> ImageHelper.ASPECT_RATIO_16_9.toFloat()
-			else -> baseItem?.primaryImageAspectRatio?.toFloat() ?: ImageHelper.ASPECT_RATIO_7_9.toFloat()
-		},
-		image = getImage(imageType),
-		iconRes = R.drawable.ic_tv,
-		overrideShowInfo = true,
-	)
-
-	BaseRowType.LiveTvRecording -> BaseRowItemDisplayConfig(
-		aspectRatio = when (imageType) {
-			ImageType.BANNER -> ImageHelper.ASPECT_RATIO_BANNER.toFloat()
-			ImageType.THUMB -> ImageHelper.ASPECT_RATIO_16_9.toFloat()
-			else -> baseItem?.primaryImageAspectRatio?.toFloat() ?: ImageHelper.ASPECT_RATIO_7_9.toFloat()
-		},
-		image = getImage(imageType),
-		iconRes = R.drawable.ic_tv,
-	)
-
-	BaseRowType.SeriesTimer -> BaseRowItemDisplayConfig(
-		aspectRatio = ImageHelper.ASPECT_RATIO_16_9.toFloat(),
-		iconRes = R.drawable.ic_tv_timer,
-		image = getImage(imageType),
-		overrideShowInfo = true,
-	)
-
 	BaseRowType.Person -> BaseRowItemDisplayConfig(
 		aspectRatio = ImageHelper.ASPECT_RATIO_7_9.toFloat(),
 		image = getImage(imageType),
