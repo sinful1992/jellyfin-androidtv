@@ -39,13 +39,13 @@ import org.jellyfin.androidtv.ui.navigation.Destinations;
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
 import org.jellyfin.androidtv.ui.playback.AudioEventListener;
 import org.jellyfin.androidtv.ui.playback.MediaManager;
-import org.jellyfin.androidtv.ui.playback.PlaybackController;
 import org.jellyfin.androidtv.ui.playback.PlaybackLauncher;
 import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.InfoLayoutHelper;
 import org.jellyfin.androidtv.util.PlaybackHelper;
 import org.jellyfin.androidtv.util.Utils;
 import org.jellyfin.androidtv.util.sdk.BaseItemExtensionsKt;
+import org.jellyfin.playback.core.model.PlayState;
 import org.jellyfin.sdk.model.api.BaseItemDto;
 import org.jellyfin.sdk.model.api.BaseItemKind;
 import org.jellyfin.sdk.model.api.MediaType;
@@ -189,7 +189,7 @@ public class ItemListFragment extends Fragment implements View.OnKeyListener {
         super.onResume();
         mediaManager.getValue().addAudioEventListener(mAudioEventListener);
         // and fire it to be sure we're updated
-        mAudioEventListener.onPlaybackStateChange(mediaManager.getValue().isPlayingAudio() ? PlaybackController.PlaybackState.PLAYING : PlaybackController.PlaybackState.IDLE, mediaManager.getValue().getCurrentAudioItem());
+        mAudioEventListener.onPlaybackStateChange(mediaManager.getValue().isPlayingAudio() ? PlayState.PLAYING : PlayState.STOPPED, mediaManager.getValue().getCurrentAudioItem());
 
         if (!firstTime && dataRefreshService.getValue().getLastPlayback() != null && dataRefreshService.getValue().getLastPlayback().isAfter(lastUpdated)) {
             if (MediaType.VIDEO.equals(mBaseItem.getMediaType())) {
@@ -218,10 +218,10 @@ public class ItemListFragment extends Fragment implements View.OnKeyListener {
 
     private AudioEventListener mAudioEventListener = new AudioEventListener() {
         @Override
-        public void onPlaybackStateChange(@NonNull PlaybackController.PlaybackState newState, @Nullable BaseItemDto currentItem) {
+        public void onPlaybackStateChange(@NonNull PlayState newState, @Nullable BaseItemDto currentItem) {
             Timber.i("Got playback state change event %s for item %s", newState.toString(), currentItem != null ? currentItem.getName() : "<unknown>");
 
-            if (newState != PlaybackController.PlaybackState.PLAYING || currentItem == null) {
+            if (newState != PlayState.PLAYING || currentItem == null) {
                 if (mCurrentlyPlayingRow != null) mCurrentlyPlayingRow.updateCurrentTime(-1);
                 mCurrentlyPlayingRow = mItemList.updatePlaying(null);
             } else {
@@ -332,7 +332,7 @@ public class ItemListFragment extends Fragment implements View.OnKeyListener {
             }
             if (mediaManager.getValue().isPlayingAudio()) {
                 //update our status
-                mAudioEventListener.onPlaybackStateChange(PlaybackController.PlaybackState.PLAYING, mediaManager.getValue().getCurrentAudioItem());
+                mAudioEventListener.onPlaybackStateChange(PlayState.PLAYING, mediaManager.getValue().getCurrentAudioItem());
             }
 
             updateBackdrop();

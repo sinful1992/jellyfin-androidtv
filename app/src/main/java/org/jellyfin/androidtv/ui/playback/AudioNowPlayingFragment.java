@@ -39,6 +39,7 @@ import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter;
 import org.jellyfin.androidtv.util.KeyProcessor;
 import org.jellyfin.androidtv.util.TimeUtils;
 import org.jellyfin.playback.core.PlaybackManager;
+import org.jellyfin.playback.core.model.PlayState;
 
 import java.util.List;
 
@@ -250,7 +251,7 @@ public class AudioNowPlayingFragment extends Fragment {
 
     private AudioEventListener audioEventListener = new AudioEventListener() {
         @Override
-        public void onPlaybackStateChange(@NonNull PlaybackController.PlaybackState newState, @Nullable org.jellyfin.sdk.model.api.BaseItemDto currentItem) {
+        public void onPlaybackStateChange(@NonNull PlayState newState, @Nullable org.jellyfin.sdk.model.api.BaseItemDto currentItem) {
             Timber.d("**** Got playstate change: %s", newState.toString());
             if (currentItem != mBaseItem) loadItem();
             updateButtons();
