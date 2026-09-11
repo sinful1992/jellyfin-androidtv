@@ -16,7 +16,6 @@ import org.jellyfin.androidtv.ui.navigation.LocalRouter
 import org.jellyfin.androidtv.ui.navigation.focus.focusKey
 import org.jellyfin.androidtv.ui.settings.Routes
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
-import org.jellyfin.sdk.model.api.CollectionType
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -36,26 +35,22 @@ fun SettingsLibrariesScreen() {
 		items(userViews) { userView ->
 			val allowGridView = viewModel.allowGridView(userView.collectionType)
 			val displayPreferencesId = userView.displayPreferencesId
+			val canOpen = allowGridView && displayPreferencesId != null
 
-			// A live TV library has no settings of its own now that the guide is gone.
-			if (userView.collectionType != CollectionType.LIVETV) {
-				val canOpen = allowGridView && displayPreferencesId != null
-
-				ListButton(
-					leadingContent = { Icon(painterResource(R.drawable.ic_folder), contentDescription = null) },
-					headingContent = { Text(userView.name.orEmpty()) },
-					enabled = canOpen,
-					onClick = {
-						if (canOpen) {
-							router.push(
-								Routes.LIBRARIES_DISPLAY,
-								mapOf("itemId" to userView.id.toString(), "displayPreferencesId" to userView.displayPreferencesId!!)
-							)
-						}
-					},
-					modifier = Modifier.focusKey("library_${userView.id}")
-				)
-			}
+			ListButton(
+				leadingContent = { Icon(painterResource(R.drawable.ic_folder), contentDescription = null) },
+				headingContent = { Text(userView.name.orEmpty()) },
+				enabled = canOpen,
+				onClick = {
+					if (canOpen) {
+						router.push(
+							Routes.LIBRARIES_DISPLAY,
+							mapOf("itemId" to userView.id.toString(), "displayPreferencesId" to displayPreferencesId!!)
+						)
+					}
+				},
+				modifier = Modifier.focusKey("library_${userView.id}")
+			)
 		}
 	}
 }
