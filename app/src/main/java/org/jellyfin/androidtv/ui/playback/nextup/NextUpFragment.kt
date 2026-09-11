@@ -85,7 +85,7 @@ fun NextUpScreen(
 	LaunchedEffect(state) {
 		when (state) {
 			// Open next item
-			NextUpState.PLAY_NEXT -> navigationRepository.navigate(Destinations.videoPlayer(0), true)
+			NextUpState.PLAY_NEXT -> navigationRepository.navigate(Destinations.videoPlayerNew(0), true)
 			// Close activity
 			NextUpState.CLOSE -> navigationRepository.goBack()
 			// Unknown state

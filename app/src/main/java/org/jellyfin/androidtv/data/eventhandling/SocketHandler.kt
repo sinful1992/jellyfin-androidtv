@@ -65,10 +65,10 @@ class SocketHandler(
 	/**
 	 * Whether the rewrite player is the one with something in it.
 	 *
-	 * Asked of the queue rather than of the `playbackRewriteVideoEnabled` preference: the
-	 * preference says which player the *next* item would open in, while the queue says which one
-	 * is playing now. Under the legacy player the queue is empty and every branch below falls
-	 * through to the [PlaybackControllerContainer] path that has always handled it.
+	 * Asked of the queue, which says what is playing now. The legacy player leaves it empty, so
+	 * every branch below falls through to the [PlaybackControllerContainer] path that has always
+	 * handled it. Nothing can reach the legacy player any more, so that path is now unreachable;
+	 * it goes when the player itself does.
 	 */
 	private val rewritePlayerActive get() = playbackManager.queue.entry.value != null
 

@@ -176,15 +176,6 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		var debuggingEnabled = booleanPreference("pref_enable_debug", false)
 
 		/**
-		 * Use playback rewrite module for video.
-		 *
-		 * On by default: this fork has moved to the rewrite player, and the legacy one is what you
-		 * choose rather than what you are left on. An install that never touched the setting moves
-		 * with it; anything that did keeps what it asked for.
-		 */
-		var playbackRewriteVideoEnabled = booleanPreference("playback_new", true)
-
-		/**
 		 * When to show the clock.
 		 */
 		var clockBehavior = enumPreference("pref_clock_behavior", ClockBehavior.ALWAYS)

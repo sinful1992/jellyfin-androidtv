@@ -86,7 +86,7 @@ fun StillWatchingScreen(
 	LaunchedEffect(state) {
 		when (state) {
 			// Open next item
-			StillWatchingState.STILL_WATCHING -> navigationRepository.navigate(Destinations.videoPlayer(0), true)
+			StillWatchingState.STILL_WATCHING -> navigationRepository.navigate(Destinations.videoPlayerNew(0), true)
 			// Close activity
 			StillWatchingState.CLOSE -> navigationRepository.goBack()
 			// Unknown state
