@@ -34,7 +34,9 @@ class UserViewsRepositoryImpl(
 	private companion object {
 		private val unsupportedCollectionTypes = arrayOf(
 			CollectionType.BOOKS,
-			CollectionType.FOLDERS
+			CollectionType.FOLDERS,
+			// Live TV was removed; without this its library opens a browse screen with no rows.
+			CollectionType.LIVETV
 		)
 
 		private val disallowViewSelectionCollectionTypes = arrayOf(
