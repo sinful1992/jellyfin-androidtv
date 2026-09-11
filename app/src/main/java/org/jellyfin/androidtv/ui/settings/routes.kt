@@ -40,7 +40,6 @@ import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackHdrOve
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackBufferLengthScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackCodecScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackHEVCLevelScreen
-import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackInactivityPromptScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackMaxBitrateScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackPlayerScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackPhotoPlayerScreen
@@ -94,7 +93,6 @@ object Routes {
 	const val PLAYBACK_PHOTO_PLAYER = "/playback/photo-player"
 	const val PLAYBACK_NEXT_UP = "/playback/next-up"
 	const val PLAYBACK_NEXT_UP_BEHAVIOR = "/playback/next-up/behavior"
-	const val PLAYBACK_INACTIVITY_PROMPT = "/playback/inactivity-prompt"
 	const val PLAYBACK_PREROLLS = "/playback/prerolls"
 	const val PLAYBACK_MEDIA_SEGMENTS = "/playback/media-segments"
 	const val PLAYBACK_MEDIA_SEGMENT = "/playback/media-segments/{segmentType}"
@@ -230,9 +228,6 @@ val routes = mapOf<String, RouteComposable>(
 	},
 	Routes.PLAYBACK_NEXT_UP_BEHAVIOR to {
 		SettingsPlaybackNextUpBehaviorScreen()
-	},
-	Routes.PLAYBACK_INACTIVITY_PROMPT to {
-		SettingsPlaybackInactivityPromptScreen()
 	},
 	Routes.PLAYBACK_PREROLLS to {
 		SettingsPlaybackPrerollsScreen()

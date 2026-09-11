@@ -17,8 +17,6 @@ import org.jellyfin.androidtv.ui.itemdetail.ItemListFragment
 import org.jellyfin.androidtv.ui.itemdetail.MusicFavoritesListFragment
 import org.jellyfin.androidtv.ui.livetv.LiveTvGuideFragment
 import org.jellyfin.androidtv.ui.playback.AudioNowPlayingFragment
-import org.jellyfin.androidtv.ui.playback.nextup.NextUpFragment
-import org.jellyfin.androidtv.ui.playback.stillwatching.StillWatchingFragment
 import org.jellyfin.androidtv.ui.player.photo.PhotoPlayerFragment
 import org.jellyfin.androidtv.ui.player.video.VideoPlayerFragment
 import org.jellyfin.androidtv.ui.search.SearchFragment
@@ -132,13 +130,5 @@ object Destinations {
 
 	fun videoPlayerNew(position: Int?) = fragmentDestination<VideoPlayerFragment> {
 		putInt(VideoPlayerFragment.EXTRA_POSITION, position ?: 0)
-	}
-
-	fun nextUp(item: UUID) = fragmentDestination<NextUpFragment> {
-		putString(NextUpFragment.ARGUMENT_ITEM_ID, item.toString())
-	}
-
-	fun stillWatching(item: UUID) = fragmentDestination<StillWatchingFragment> {
-		putString(NextUpFragment.ARGUMENT_ITEM_ID, item.toString())
 	}
 }

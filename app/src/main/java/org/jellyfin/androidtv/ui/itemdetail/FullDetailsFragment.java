@@ -1232,7 +1232,6 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
                     return;
                 }
 
-                interactionTracker.getValue().notifyStartSession(item, response);
                 KoinJavaComponent.<PlaybackLauncher>get(PlaybackLauncher.class).launch(getContext(), response, pos, false, 0, shuffle);
             }
         });
