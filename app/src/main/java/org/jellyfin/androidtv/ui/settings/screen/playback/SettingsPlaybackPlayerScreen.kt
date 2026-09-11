@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.rememberAsyncImagePainter
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ExternalAppRepository
-import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.base.LocalShapes
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.form.RadioButton
@@ -24,14 +23,12 @@ import org.jellyfin.androidtv.ui.base.list.ListMessage
 import org.jellyfin.androidtv.ui.base.list.ListSection
 import org.jellyfin.androidtv.ui.navigation.LocalRouter
 import org.jellyfin.androidtv.ui.navigation.focus.focusKey
-import org.jellyfin.androidtv.ui.settings.compat.rememberPreference
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
 import org.jellyfin.androidtv.util.componentName
 import org.koin.compose.koinInject
 
 @Composable
 fun SettingsPlaybackPlayerScreen() {
-	val userPreferences = koinInject<UserPreferences>()
 	val externalAppRepository = koinInject<ExternalAppRepository>()
 	val context = LocalContext.current
 	val router = LocalRouter.current
@@ -39,8 +36,6 @@ fun SettingsPlaybackPlayerScreen() {
 
 	val externalPlayerApps = remember(context) { externalAppRepository.getExternalPlayerApps(context) }
 	val currentExternalPlayer = remember(context) { externalAppRepository.getCurrentExternalPlayerApp(context) }
-
-	var playbackRewriteVideoEnabled by rememberPreference(userPreferences, UserPreferences.playbackRewriteVideoEnabled)
 
 	SettingsColumn {
 		item {
@@ -62,43 +57,14 @@ fun SettingsPlaybackPlayerScreen() {
 					)
 				},
 				headingContent = { Text(stringResource(R.string.app_name)) },
-				trailingContent = { RadioButton(checked = currentExternalPlayer == null && !playbackRewriteVideoEnabled) },
+				trailingContent = { RadioButton(checked = currentExternalPlayer == null) },
 				captionContent = { Text(stringResource(R.string.video_player_internal)) },
 				onClick = {
-					playbackRewriteVideoEnabled = false
 					externalAppRepository.setExternalPlayerapp(null)
 					router.back()
 				},
 				modifier = Modifier
-					.focusKey("player_internal", initialFocus = currentExternalPlayer == null && !playbackRewriteVideoEnabled)
-			)
-		}
-
-		// Offered to everyone, not only to development builds. The preference defaults to false and
-		// this screen is the only way to change it, so gating the option on the preference already
-		// being set meant a distributed build could never reach the new player at all: the one
-		// build type that can choose it is the one that does not need to.
-		item {
-			ListButton(
-				leadingContent = {
-					Image(
-						painter = rememberAsyncImagePainter(R.drawable.ic_flask),
-						contentDescription = null,
-						modifier = Modifier
-							.size(32.dp)
-							.clip(LocalShapes.current.small)
-					)
-				},
-				headingContent = { Text("New video player") },
-				trailingContent = { RadioButton(checked = currentExternalPlayer == null && playbackRewriteVideoEnabled) },
-				captionContent = { Text(stringResource(R.string.enable_playback_module_description)) },
-				onClick = {
-					playbackRewriteVideoEnabled = true
-					externalAppRepository.setExternalPlayerapp(null)
-					router.back()
-				},
-				modifier = Modifier
-					.focusKey("player_new", initialFocus = currentExternalPlayer == null && playbackRewriteVideoEnabled)
+					.focusKey("player_internal", initialFocus = currentExternalPlayer == null)
 			)
 		}
 
