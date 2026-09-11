@@ -55,13 +55,13 @@ class MainActivity : FragmentActivity() {
 		navigationRepository.currentAction
 			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
 			.onEach {
-				interactionTrackerViewModel.notifyInteraction(canCancel = false, userInitiated = false)
+				interactionTrackerViewModel.notifyInteraction(canCancel = false)
 			}.launchIn(lifecycleScope)
 
 		setContent {
 			JellyfinTheme {
 				ProvideLocalInteractionTracker(
-					interactionTracker = { interactionTrackerViewModel.notifyInteraction(false, userInitiated = true) }
+					interactionTracker = { interactionTrackerViewModel.notifyInteraction(false) }
 				) {
 					AppBackground()
 					AppNavigationHost(

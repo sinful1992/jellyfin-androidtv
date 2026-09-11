@@ -21,5 +21,3 @@ enum class NextUpBehavior(
 	 */
 	DISABLED(R.string.lbl_never),
 }
-
-const val NEXTUP_TIMER_DISABLED: Int = 0

@@ -29,7 +29,7 @@ fun InAppScreensaver() {
 	DialogBase(
 		visible = visible,
 		onDismissRequest = {
-			interactionTrackerViewModel.notifyInteraction(canCancel = true, userInitiated = false)
+			interactionTrackerViewModel.notifyInteraction(canCancel = true)
 		},
 		scrimColor = Color.Black,
 		enterTransition = fadeIn(tween(1_000)),
@@ -40,13 +40,12 @@ fun InAppScreensaver() {
 				interactionSource = remember { MutableInteractionSource() },
 				indication = null,
 			) {
-				interactionTrackerViewModel.notifyInteraction(canCancel = true, userInitiated = false)
+				interactionTrackerViewModel.notifyInteraction(canCancel = true)
 			}
 			.onKeyEvent { event ->
 				if (!event.nativeKeyEvent.isMediaSessionKeyEvent()) {
 					interactionTrackerViewModel.notifyInteraction(
 						canCancel = event.type == KeyEventType.KeyUp,
-						userInitiated = true,
 					)
 				}
 				false

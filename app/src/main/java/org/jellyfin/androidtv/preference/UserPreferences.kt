@@ -13,7 +13,6 @@ import org.jellyfin.androidtv.preference.constant.HdrOverrideMode
 import org.jellyfin.androidtv.preference.constant.HEVCLevel
 import org.jellyfin.androidtv.preference.constant.NextUpBehavior
 import org.jellyfin.androidtv.preference.constant.RefreshRateSwitchingBehavior
-import org.jellyfin.androidtv.preference.constant.StillWatchingBehavior
 import org.jellyfin.androidtv.preference.constant.WatchedIndicatorBehavior
 import org.jellyfin.androidtv.preference.constant.ZoomMode
 import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentAction
@@ -66,12 +65,6 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		var nextUpBehavior = enumPreference("next_up_behavior", NextUpBehavior.EXTENDED)
 
 		/**
-		 * Next up timeout before playing next item
-		 * Stored in milliseconds
-		 */
-		var nextUpTimeout = intPreference("next_up_timeout", 1000 * 7)
-
-		/**
 		 * Duration in seconds to subtract from resume time
 		 */
 		var resumeSubtractDuration = stringPreference("pref_resume_preroll", "0")
@@ -80,11 +73,6 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		 * Enable cinema mode
 		 */
 		var cinemaModeEnabled = booleanPreference("pref_enable_cinema_mode", true)
-
-		/**
-		 * Enable still watching
-		 */
-		var stillWatchingBehavior = enumPreference("enable_still_watching", StillWatchingBehavior.DISABLED)
 
 		/* Playback - Video */
 		/**

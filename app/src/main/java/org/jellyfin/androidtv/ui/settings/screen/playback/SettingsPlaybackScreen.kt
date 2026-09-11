@@ -84,17 +84,6 @@ fun SettingsPlaybackScreen() {
 		}
 
 		item {
-			var stillWatchingBehavior by rememberPreference(userPreferences, UserPreferences.stillWatchingBehavior)
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_zzz), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_playback_inactivity_prompt)) },
-				captionContent = { Text(stringResource(stillWatchingBehavior.nameRes)) },
-				onClick = { router.push(Routes.PLAYBACK_INACTIVITY_PROMPT) },
-				modifier = Modifier.focusKey(Routes.PLAYBACK_INACTIVITY_PROMPT)
-			)
-		}
-
-		item {
 			ListButton(
 				leadingContent = { Icon(painterResource(R.drawable.ic_trailer), contentDescription = null) },
 				headingContent = { Text(stringResource(R.string.pref_playback_prerolls)) },
