@@ -51,6 +51,7 @@ import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapterHelperKt;
 import org.jellyfin.androidtv.ui.presentation.CardPresenter;
+import org.jellyfin.androidtv.ui.presentation.CardRecycledViewPool;
 import org.jellyfin.androidtv.ui.presentation.HorizontalGridPresenter;
 import org.jellyfin.androidtv.util.CoroutineUtils;
 import org.jellyfin.androidtv.util.ImageHelper;
@@ -123,6 +124,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private int mCardsScreenStride = 0;
     private double mCardFocusScale = 1.15; // 115%, just a default we use the resource card_scale_focus otherwise
     private final int MIN_NUM_CARDS = 5; // minimum number of visible cards we allow, this results in more empty space
+    private final int POOLED_LINES_OF_CARDS = 2; // how many lines' worth of card views to keep for re-use, beyond the ones on screen
     private final double CARD_SPACING_PCT = 1.0; // 100% expressed as relative to the padding_left/top, which depends on the mCardFocusScale and AspectRatio
     private final double CARD_SPACING_HORIZONTAL_BANNER_PCT = 0.5; // 50% allow horizontal card overlapping for banners, otherwise spacing is too large
     private final int VIEW_SELECT_UPDATE_DELAY = 250; // delay in ms until we update the top-row info for a selected item
@@ -234,10 +236,41 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         mGridView.setHorizontalSpacing(mGridItemSpacingHorizontal);
         mGridView.setVerticalSpacing(mGridItemSpacingVertical);
         mGridView.setFocusable(true);
+        setUpCardRecycling();
         binding.rowsFragment.removeAllViews();
         binding.rowsFragment.addView(mGridViewHolder.view);
 
         updateAdapter();
+    }
+
+    /**
+     * Keep enough card views around that a scroll can re-use them instead of building new ones.
+     *
+     * A scroll of one line releases a line of cards and asks for a line of cards. RecyclerView's
+     * defaults hold two of them in its view cache and five in its pool, so at the eleven cards a
+     * line the default poster size gives, most of every line was being built from scratch — one
+     * ComposeView and one first composition each, on the UI thread, in the middle of the scroll.
+     * Leanback already does this for rows and has no equivalent for grids; see
+     * {@link CardRecycledViewPool}.
+     *
+     * The cache is a line, so stepping onto a line and back off it rebinds nothing. The pool is
+     * {@link #POOLED_LINES_OF_CARDS} lines, which is headroom over the one line a single scroll
+     * needs — views in it are unbound and hold no artwork, so the cost of the spare is small.
+     */
+    private void setUpCardRecycling() {
+        int cardsPerLine;
+        if (mGridPresenter instanceof VerticalGridPresenter) {
+            cardsPerLine = ((VerticalGridPresenter) mGridPresenter).getNumberOfColumns();
+        } else if (mGridPresenter instanceof HorizontalGridPresenter) {
+            cardsPerLine = ((HorizontalGridPresenter) mGridPresenter).getNumberOfRows();
+        } else {
+            return;
+        }
+
+        if (cardsPerLine < 1) return;
+
+        mGridView.setItemViewCacheSize(cardsPerLine);
+        mGridView.setRecycledViewPool(new CardRecycledViewPool(cardsPerLine * POOLED_LINES_OF_CARDS));
     }
 
     private void updateAdapter() {
