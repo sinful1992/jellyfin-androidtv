@@ -93,6 +93,17 @@ fun VideoPlayerOverlay(
 
 	var showPlaybackInfo by remember { mutableStateOf(false) }
 
+	// The panel belongs to the controls rather than to the picture, so it leaves when they do.
+	// Nothing else ever closed it: the button that opened it is inside the controls, so once they
+	// timed out the panel was left sitting over playing video with no way to reach the toggle
+	// again, and resuming from a pause did not take it away either.
+	LaunchedEffect(visibilityState.visible) {
+		if (!visibilityState.visible) showPlaybackInfo = false
+	}
+
+	// And Back closes the panel before it closes playback, the same way it does for the card above.
+	BackHandler(enabled = showPlaybackInfo, onBack = { showPlaybackInfo = false })
+
 	val entry by rememberQueueEntry(playbackManager)
 	val item = entry?.run { baseItemFlow.collectAsState(baseItem) }?.value
 
@@ -152,7 +163,8 @@ fun VideoPlayerOverlay(
 			)
 		}
 
-		// Playback info overlay - positioned below header area, always visible when enabled
+		// Playback info overlay - positioned below the header area, and shown for as long as the
+		// controls it was opened from are.
 		if (showPlaybackInfo) {
 			PlaybackInfoOverlay(
 				playbackManager = playbackManager,
