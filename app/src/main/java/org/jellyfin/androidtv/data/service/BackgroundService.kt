@@ -2,6 +2,7 @@ package org.jellyfin.androidtv.data.service
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import coil3.ImageLoader
@@ -58,11 +59,10 @@ class BackgroundService(
 		private const val BACKDROP_WIDTH = 1920
 		private const val BACKDROP_HEIGHT = 1080
 
-		// A mean does not need every pixel, and this runs for every backdrop that is decoded. 16x9
-		// keeps the frame's proportions and is small enough that the scale and the sum together are
-		// lost next to the decode that just happened.
-		private const val LUMINANCE_SAMPLE_WIDTH = 16
-		private const val LUMINANCE_SAMPLE_HEIGHT = 9
+		// A mean does not need every pixel. Nine lines spread down the frame is a stratified sample
+		// of the whole picture for a fiftieth of the reads, and reading whole lines keeps it to nine
+		// getPixels calls rather than one that copies eight megabytes.
+		private const val LUMINANCE_SAMPLE_ROWS = 9
 
 		// Rec. 709. Green carries most of what the eye reads as brightness, blue almost none.
 		private const val RED_WEIGHT = 0.2126
@@ -144,29 +144,55 @@ class BackgroundService(
 	 * Without a bound the request decodes at the source resolution, which for a backdrop is
 	 * routinely larger than the screen it is about to be drawn on — every pixel of the difference
 	 * paid for in decode time and in heap.
+	 *
+	 * The decode is asked for in software so that [measureLuminance] can read it, and handed to the
+	 * GPU afterwards. That ordering is the whole point: it replaces a second decode of the same
+	 * file, which a trace on a Chromecast measured at 19-344 ms against the 63-541 ms this one
+	 * costs. Scaling a decode down does not make it cheap — the JPEG is parsed either way — so the
+	 * thumbnail that used to be fetched purely to be measured was costing a third to a half of the
+	 * picture it was measuring, on every focus step in every grid in the app.
 	 */
 	private suspend fun loadBackground(url: String): Backdrop? {
-		val bitmap = imageLoader
+		val decoded = imageLoader
 			.execute(
 				request = ImageRequest.Builder(context)
 					.data(url)
 					.size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
+					// Readable, so the brightness comes off this decode rather than another one.
+					.allowHardware(false)
 					.build()
 			)
 			.image?.toBitmap() ?: return null
 
-		return Backdrop(image = bitmap.asImageBitmap(), luminance = measureLuminance(url))
+		val luminance = measureLuminance(decoded)
+
+		return Backdrop(image = decoded.toHardwareBitmapOrSelf().asImageBitmap(), luminance = luminance)
 	}
 
 	/**
-	 * How bright the picture at [url] is overall, between 0f for black and 1f for white.
+	 * Move the picture into graphics memory, on the platforms that have somewhere to put it.
 	 *
-	 * Decoded a second time at thumbnail size rather than measured from the picture that is about to
-	 * be drawn. That one is a hardware bitmap — Coil's default, and the right thing for something the
-	 * GPU redraws every frame — and a hardware bitmap cannot be read back at all: `getPixels` throws
-	 * `IllegalStateException` outright. Getting at one means copying the whole 1920x1080 surface out
-	 * of graphics memory first, which costs far more than decoding 144 pixels out of the cache entry
-	 * the request above has just filled.
+	 * Backdrops are held for the length of a selection — one for the screen and the rest for a
+	 * slideshow — and at 1920x1080 each is eight megabytes of heap it would rather not be. A
+	 * hardware bitmap is also what the GPU wants for something redrawn on every frame, which is why
+	 * this is Coil's default and why the request above turns it off only for as long as it takes to
+	 * read the pixels.
+	 *
+	 * The copy can fail when graphics memory is short, and returns null rather than throwing; the
+	 * software bitmap is a perfectly good fallback, so nothing is lost but the heap.
+	 */
+	private fun Bitmap.toHardwareBitmapOrSelf(): Bitmap {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return this
+
+		return copy(Bitmap.Config.HARDWARE, false) ?: this
+	}
+
+	/**
+	 * How bright [bitmap] is overall, between 0f for black and 1f for white.
+	 *
+	 * Measured from the picture that is about to be drawn, over [LUMINANCE_SAMPLE_ROWS] lines spread
+	 * down it rather than every pixel of it — a mean does not need all two million, and the sparse
+	 * read is what keeps this off the cost of the decode it follows.
 	 *
 	 * Rec. 709 weights on the sRGB values as they are stored, without converting back to linear light
 	 * first. That makes this a perceptual average rather than a photometric one, which is what is
@@ -174,36 +200,32 @@ class BackgroundService(
 	 *
 	 * Anything unexpected returns [DEFAULT_LUMINANCE], which is the brightness the old fixed filter
 	 * was tuned for — so a picture that cannot be measured is treated exactly as every picture used
-	 * to be, rather than left unreadable or blacked out.
+	 * to be, rather than left unreadable or blacked out. A hardware bitmap is the case that matters:
+	 * `getPixels` on one throws `IllegalStateException` outright, and this runs for every backdrop on
+	 * every screen, so getting it wrong would take the app down.
 	 */
-	private suspend fun measureLuminance(url: String): Float {
-		val sample = imageLoader
-			.execute(
-				request = ImageRequest.Builder(context)
-					.data(url)
-					.size(LUMINANCE_SAMPLE_WIDTH, LUMINANCE_SAMPLE_HEIGHT)
-					// The whole point of this second decode: a readable bitmap.
-					.allowHardware(false)
-					.build()
-			)
-			.image?.toBitmap() ?: return DEFAULT_LUMINANCE
+	private fun measureLuminance(bitmap: Bitmap): Float {
+		if (bitmap.config == Bitmap.Config.HARDWARE) return DEFAULT_LUMINANCE
+		if (bitmap.width < 1 || bitmap.height < 1) return DEFAULT_LUMINANCE
 
-		// Belt and braces against the request above being honoured differently than expected. This
-		// runs for every backdrop on every screen, and getting it wrong takes the app down.
-		if (sample.config == Bitmap.Config.HARDWARE) return DEFAULT_LUMINANCE
-
-		val pixels = IntArray(sample.width * sample.height)
-		if (pixels.isEmpty()) return DEFAULT_LUMINANCE
-		sample.getPixels(pixels, 0, sample.width, 0, 0, sample.width, sample.height)
-
+		val rows = LUMINANCE_SAMPLE_ROWS.coerceAtMost(bitmap.height)
+		val row = IntArray(bitmap.width)
 		var total = 0.0
-		for (pixel in pixels) {
-			total += RED_WEIGHT * ((pixel shr RED_SHIFT) and CHANNEL_MASK) +
-				GREEN_WEIGHT * ((pixel shr GREEN_SHIFT) and CHANNEL_MASK) +
-				BLUE_WEIGHT * (pixel and CHANNEL_MASK)
+
+		for (index in 0 until rows) {
+			// Centres of equal bands, so the sample is spread over the frame rather than bunched at
+			// one edge of it, and never falls outside the picture.
+			val y = (((index * 2 + 1) * bitmap.height) / (rows * 2)).coerceIn(0, bitmap.height - 1)
+			bitmap.getPixels(row, 0, bitmap.width, 0, y, bitmap.width, 1)
+
+			for (pixel in row) {
+				total += RED_WEIGHT * ((pixel shr RED_SHIFT) and CHANNEL_MASK) +
+					GREEN_WEIGHT * ((pixel shr GREEN_SHIFT) and CHANNEL_MASK) +
+					BLUE_WEIGHT * (pixel and CHANNEL_MASK)
+			}
 		}
 
-		return (total / pixels.size / MAX_CHANNEL_VALUE).toFloat()
+		return (total / (rows * bitmap.width) / MAX_CHANNEL_VALUE).toFloat()
 	}
 
 	private fun loadBackgrounds(backdropUrls: Set<String>) {
