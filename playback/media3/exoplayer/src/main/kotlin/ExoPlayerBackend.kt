@@ -494,6 +494,16 @@ class ExoPlayerBackend(
 	override fun play() {
 		// If the item has ended, revert first so the item will start over again
 		if (exoPlayer.playbackState == Player.STATE_ENDED) exoPlayer.seekTo(0)
+
+		// An error leaves the player idle, and play() alone does nothing there. The controls offer
+		// play as the action for a failed item — pressing it did nothing at all, which is a dead
+		// end on exactly the titles most likely to fail, and leaves restarting playback from the
+		// beginning as the only way out. Preparing again retries from the current position.
+		if (exoPlayer.playbackState == Player.STATE_IDLE) {
+			Timber.i("Play requested while idle, preparing again to retry")
+			exoPlayer.prepare()
+		}
+
 		exoPlayer.play()
 	}
 
