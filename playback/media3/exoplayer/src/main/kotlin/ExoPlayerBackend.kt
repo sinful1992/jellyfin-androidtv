@@ -105,6 +105,12 @@ class ExoPlayerBackend(
 	 */
 	private var hasPlayedCurrentStream = false
 
+	/**
+	 * Where playback had reached when it was stopped, reported in place of the player's own
+	 * position until playback starts again. See [stop].
+	 */
+	private var stoppedPosition: Duration? = null
+
 	private val reportStalled = Runnable {
 		Timber.w("Still buffering after $stallTimeout with playback requested, reporting it as paused")
 		listener?.onPlayStateChange(PlayState.PAUSED)
@@ -195,7 +201,11 @@ class ExoPlayerBackend(
 			// Every path below decides afresh whether playback is stalled, so drop the pending verdict
 			// from the previous one before arming a new one.
 			stallHandler.removeCallbacks(reportStalled)
-			if (isPlaying) hasPlayedCurrentStream = true
+			if (isPlaying) {
+				hasPlayedCurrentStream = true
+				// Playing again, so the player's own position is the truthful one once more.
+				stoppedPosition = null
+			}
 
 			val state = when {
 				isPlaying -> PlayState.PLAYING
@@ -513,6 +523,13 @@ class ExoPlayerBackend(
 
 	override fun stop() {
 		stallHandler.removeCallbacks(reportStalled)
+
+		// Read before stopping. The player's reported position falls back when it is stopped -
+		// measured at 34 seconds behind where playback actually was - and everything that asks
+		// where the viewer got to asks after the stop: the media session, and the report that tells
+		// the server where to resume from.
+		stoppedPosition = exoPlayer.currentPosition.milliseconds
+
 		exoPlayer.stop()
 		currentStream = null
 		hasPlayedCurrentStream = false
@@ -522,6 +539,9 @@ class ExoPlayerBackend(
 		if (!exoPlayer.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) || !exoPlayer.isCurrentMediaItemSeekable) {
 			Timber.w("Trying to seek but ExoPlayer doesn't support it for the current item")
 		}
+
+		// The seek is now where playback is, so a position remembered from a stop is stale.
+		stoppedPosition = null
 
 		exoPlayer.seekTo(position.inWholeMilliseconds)
 	}
@@ -539,7 +559,7 @@ class ExoPlayerBackend(
 	}
 
 	override fun getPositionInfo(): PositionInfo = PositionInfo(
-		active = exoPlayer.currentPosition.milliseconds,
+		active = stoppedPosition ?: exoPlayer.currentPosition.milliseconds,
 		buffer = exoPlayer.bufferedPosition.milliseconds,
 		duration = lastKnownDuration ?: Duration.ZERO,
 	)
