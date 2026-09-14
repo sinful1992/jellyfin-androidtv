@@ -91,6 +91,15 @@ fun Modifier.cardFocusScale(focused: Boolean): Modifier {
 	val cardScale = rememberCardFocusScale()
 	val scale by animateFloatAsState(if (focused) cardScale else 1f, label = "card focus scale")
 
+	// A card sitting at its resting size asks for no layer at all. A graphicsLayer is a render node
+	// per card and all but one card on screen is unfocused and at rest, so this is most of them.
+	//
+	// Gated on the value rather than on focus: the two disagree for the length of the animation,
+	// and dropping the layer while the scale is still moving would snap the card to its resting
+	// size part way through. At exactly 1.0 the layer is doing nothing, whichever direction it
+	// arrived from.
+	if (scale == 1f) return this
+
 	return graphicsLayer {
 		scaleX = scale
 		scaleY = scale
