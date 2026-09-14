@@ -379,9 +379,16 @@ class ExoPlayerBackend(
 	}
 
 	override fun selectAudioTrack(index: Int): Boolean {
-		val group = findTrackGroup<MediaStreamAudioTrack>(C.TRACK_TYPE_AUDIO, index) { track, format ->
-			format.sampleMimeType == getFfmpegAudioMimeType(track.codec)
-		} ?: return false
+		val tracks = currentStream?.tracks.orEmpty().filterIsInstance<MediaStreamAudioTrack>()
+
+		val group = findTrackGroup<MediaStreamAudioTrack>(
+			trackType = C.TRACK_TYPE_AUDIO,
+			index = index,
+			mediaSourceTracks = tracks,
+			discriminators = listOf(
+				{ track, format -> format.sampleMimeType == getFfmpegAudioMimeType(track.codec) },
+			),
+		) ?: return false
 
 		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
 			.setOverrideForType(TrackSelectionOverride(group, 0))
@@ -392,10 +399,17 @@ class ExoPlayerBackend(
 	}
 
 	override fun selectSubtitleTrack(index: Int): Boolean {
+		// Only the tracks inside the container reach the player. The media source lists external
+		// subtitles alongside them, and counting those against the container made every file that
+		// has one refuse client-side selection - including turning subtitles off.
+		val embedded = currentStream?.tracks.orEmpty()
+			.filterIsInstance<MediaStreamSubtitleTrack>()
+			.filterNot { it.isExternal }
+
 		if (index == MediaStreamSubtitleTrack.INDEX_NONE) {
 			// Subtitles burned into a transcode cannot be turned off by selecting tracks, and that
 			// shows up the same way any other rewritten stream does.
-			if (!containerMatchesMediaSource<MediaStreamSubtitleTrack>(C.TRACK_TYPE_TEXT)) return false
+			if (!containerMatchesMediaSource(C.TRACK_TYPE_TEXT, embedded.size)) return false
 
 			exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
 				.clearOverridesOfType(C.TRACK_TYPE_TEXT)
@@ -406,9 +420,30 @@ class ExoPlayerBackend(
 			return true
 		}
 
-		val group = findTrackGroup<MediaStreamSubtitleTrack>(C.TRACK_TYPE_TEXT, index) { track, format ->
-			format.sampleMimeType == getFfmpegSubtitleMimeType(track.codec)
-		} ?: return false
+		// An external track is not in the container at all, so there is nothing to select. Say so
+		// here rather than letting the matcher report it as an ambiguity it is not.
+		val isExternal = currentStream?.tracks.orEmpty()
+			.filterIsInstance<MediaStreamSubtitleTrack>()
+			.any { it.index == index && it.isExternal }
+
+		if (isExternal) {
+			Timber.d("Cannot select subtitle track $index client side: it lives outside the container")
+			return false
+		}
+
+		val group = findTrackGroup<MediaStreamSubtitleTrack>(
+			trackType = C.TRACK_TYPE_TEXT,
+			index = index,
+			mediaSourceTracks = embedded,
+			discriminators = listOf(
+				{ track, format -> format.sampleMimeType == getFfmpegSubtitleMimeType(track.codec) },
+				// Several tracks of one language is the normal case for subtitles - a forced
+				// track beside a full one, or SDH beside plain - so the flags the container
+				// carries are what tells them apart once the codec cannot.
+				{ track, format -> format.hasSelectionFlag(C.SELECTION_FLAG_FORCED) == track.isForced },
+				{ track, format -> format.hasSelectionFlag(C.SELECTION_FLAG_DEFAULT) == track.isDefault },
+			),
+		) ?: return false
 
 		exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
 			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
@@ -420,24 +455,33 @@ class ExoPlayerBackend(
 	}
 
 	/**
-	 * Whether the tracks of [trackType] in the stream being played line up with the ones the media
-	 * source describes, meaning a track can be picked without resolving the stream again.
+	 * Whether the container being played holds [mediaSourceTrackCount] tracks of [trackType],
+	 * meaning a track can be picked without resolving the stream again.
 	 *
-	 * They line up while both sides describe the same tracks: a transcode collapses them to one,
-	 * and an external subtitle exists in the media source but not in the container. Both show up as
-	 * a differing count, which is the signal to leave the change to the caller instead of guessing.
+	 * A differing count means the stream is not the one the media source describes - a transcode
+	 * collapses the tracks to the single one it baked in - and is the signal to leave the change to
+	 * the caller instead of guessing. The count passed in must only cover tracks that can reach the
+	 * player, which for subtitles excludes the external ones.
 	 */
-	private inline fun <reified T : MediaStreamTrack> containerMatchesMediaSource(trackType: Int): Boolean {
-		val tracks = currentStream?.tracks.orEmpty().filterIsInstance<T>().size
+	private fun containerMatchesMediaSource(trackType: Int, mediaSourceTrackCount: Int): Boolean {
 		val groups = exoPlayer.currentTracks.groups.count { it.type == trackType }
 
-		if (groups != tracks) {
-			Timber.d("Cannot select tracks of type $trackType client side: $tracks in the media source but $groups in the container")
+		if (groups != mediaSourceTrackCount) {
+			Timber.d(
+				"Cannot select tracks of type $trackType client side: $mediaSourceTrackCount in the " +
+					"media source but $groups in the container"
+			)
 			return false
 		}
 
 		return true
 	}
+
+	/**
+	 * Whether this format carries one of the container's selection flags, such as
+	 * [C.SELECTION_FLAG_FORCED].
+	 */
+	private fun Format.hasSelectionFlag(flag: Int) = (selectionFlags and flag) != 0
 
 	/**
 	 * Whether the media source and the container describe the same track, matched on what both
@@ -463,16 +507,15 @@ class ExoPlayerBackend(
 	 * between them, and anything still ambiguous returns null so the caller resolves the stream
 	 * again rather than playing a track nobody asked for.
 	 */
-	private inline fun <reified T : MediaStreamTrack> findTrackGroup(
+	private fun <T : MediaStreamTrack> findTrackGroup(
 		trackType: Int,
 		index: Int,
-		matchesFormat: (track: T, format: Format) -> Boolean,
+		mediaSourceTracks: List<T>,
+		discriminators: List<(track: T, format: Format) -> Boolean>,
 	): TrackGroup? {
-		if (!containerMatchesMediaSource<T>(trackType)) return null
+		if (!containerMatchesMediaSource(trackType, mediaSourceTracks.size)) return null
 
-		val track = currentStream?.tracks.orEmpty()
-			.filterIsInstance<T>()
-			.firstOrNull { it.index == index }
+		val track = mediaSourceTracks.firstOrNull { it.index == index }
 
 		if (track == null) {
 			Timber.d("Cannot select track $index client side: the media source does not list it")
@@ -480,15 +523,26 @@ class ExoPlayerBackend(
 		}
 
 		val groups = exoPlayer.currentTracks.groups.filter { it.type == trackType }
-		val sharingLanguage = groups.filter { sameLanguage(track.language, it.getTrackFormat(0).language) }
 
-		val group = sharingLanguage.singleOrNull()
-			?: sharingLanguage.singleOrNull { matchesFormat(track, it.getTrackFormat(0)) }
+		// Language first, then each discriminator in turn for as long as more than one candidate
+		// is left. A discriminator that rules every candidate out has failed to tell them apart
+		// rather than proved the track absent, so it leaves the candidates as they were.
+		var candidates = groups.filter { sameLanguage(track.language, it.getTrackFormat(0).language) }
+
+		for (discriminator in discriminators) {
+			if (candidates.size <= 1) break
+			candidates = candidates
+				.filter { discriminator(track, it.getTrackFormat(0)) }
+				.ifEmpty { candidates }
+		}
+
+		val group = candidates.singleOrNull()
 
 		if (group == null) {
 			Timber.d(
-				"Cannot select track $index client side: ${sharingLanguage.size} of ${groups.size} " +
-					"groups in the container match language ${track.language} and codec ${track.codec}"
+				"Cannot select track $index client side: ${candidates.size} of ${groups.size} " +
+					"groups in the container are still a match for language ${track.language} " +
+					"and codec ${track.codec}"
 			)
 			return null
 		}
