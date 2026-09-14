@@ -2,6 +2,7 @@ package org.jellyfin.androidtv.preference.store
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jellyfin.androidtv.BuildConfig
 import org.jellyfin.preference.Preference
 import org.jellyfin.preference.PreferenceEnum
 import org.jellyfin.preference.migration.MigrationContext
@@ -17,9 +18,22 @@ import timber.log.Timber
 @Suppress("TooManyFunctions")
 abstract class DisplayPreferencesStore(
 	protected var displayPreferencesId: String,
-	protected var app: String = "jellyfin-androidtv",
+	protected var app: String = defaultApp,
 	private val api: ApiClient,
 ) : AsyncPreferenceStore<Unit, Unit>() {
+	companion object {
+		/**
+		 * The server stores display preferences per (user, client, id), and this is the client half.
+		 * A build that is not the one the user runs must not write into the rows that one reads: two
+		 * installs sharing a row also hold their own in-memory copy of it, so whichever commits last
+		 * silently restores its own stale filters, sort and grid geometry in the other app.
+		 */
+		private val defaultApp = buildString {
+			append("jellyfin-androidtv")
+			if (BuildConfig.VARIANT_TAG.isNotEmpty()) append("-${BuildConfig.VARIANT_TAG}")
+		}
+	}
+
 	private var displayPreferencesDto: DisplayPreferencesDto? = null
 	private var cachedPreferences: MutableMap<String, String?> = mutableMapOf()
 	override val shouldUpdate: Boolean

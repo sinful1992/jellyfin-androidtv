@@ -65,6 +65,11 @@ android {
 			// Set flavored application name
 			resValue("string", "app_name", "@string/app_name_release")
 
+			// Empty for the build people actually use, so its client name and its server-side
+			// display-preferences key are exactly upstream's. Every other build type sets this and
+			// is thereby a separate client to the server. See AppModule and DisplayPreferencesStore.
+			buildConfigField("String", "VARIANT_TAG", "\"\"")
+
 			// False for anything that leaves this machine. The flag draws development-only UI, and
 			// SettingsPlaybackPlayerScreen gates the "New video player" option on it, so hardcoded
 			// it made a signed release the one build that cannot reach the rewrite player — which
@@ -88,6 +93,8 @@ android {
 
 			// Set flavored application name
 			resValue("string", "app_name", "@string/app_name_debug")
+
+			buildConfigField("String", "VARIANT_TAG", "\"debug\"")
 
 			buildConfigField("boolean", "DEVELOPMENT", (defaultConfig.versionCode!! < 100).toString())
 		}
@@ -113,6 +120,11 @@ android {
 			// Its own name on the launcher, or the one thing it exists for — opening the two side
 			// by side — comes down to guessing which identical tile is which.
 			resValue("string", "app_name", "@string/app_name_minified")
+
+			// initWith(release) copies release's empty tag, which would leave this build sharing the
+			// real app's display preferences on the server — the whole reason the A/B it exists for
+			// could not be trusted. Overridden here so it is its own client.
+			buildConfigField("String", "VARIANT_TAG", "\"minified\"")
 
 			// Not false, unlike release, and this is the whole reason the build type can be used
 			// for player work at all. SettingsPlaybackPlayerScreen gates the "New video player"

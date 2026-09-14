@@ -84,7 +84,10 @@ val appModule = module {
 			// Add client info
 			val clientName = buildString {
 				append("Jellyfin for Android TV")
-				if (BuildConfig.DEBUG) append(" (debug)")
+				// Not BuildConfig.DEBUG: that is false for every build type except debug, so the
+				// minified diagnostic build introduced itself to the server under the real app's
+				// name and was indistinguishable from it in sessions and playback reporting.
+				if (BuildConfig.VARIANT_TAG.isNotEmpty()) append(" (${BuildConfig.VARIANT_TAG})")
 			}
 			clientInfo = ClientInfo(clientName, BuildConfig.VERSION_NAME)
 			deviceInfo = get(defaultDeviceInfo)
