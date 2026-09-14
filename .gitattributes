@@ -3,6 +3,12 @@
 *.java text eol=lf
 *.xml text eol=lf
 
+# Run through sh and awk, which treat a trailing carriage return as part of the
+# command. Without this a checkout on Windows writes CRLF and they stop working.
+*.sh text eol=lf
+*.awk text eol=lf
+*.py text eol=lf
+
 CONTRIBUTORS.md merge=union
 app/src/main/res/values*/strings.xml merge=union
 
