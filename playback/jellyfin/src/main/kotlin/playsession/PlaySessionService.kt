@@ -1,6 +1,9 @@
 package org.jellyfin.playback.jellyfin.playsession
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -24,11 +27,20 @@ import org.jellyfin.sdk.model.extensions.inWholeTicks
 import timber.log.Timber
 import java.util.UUID
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.seconds
 import org.jellyfin.sdk.model.api.RepeatMode as SdkRepeatMode
 
 class PlaySessionService(
 	private val api: ApiClient,
 ) : PlayerService() {
+	private companion object {
+		/**
+		 * How often playback progress is reported while playing. Matches what the web client sends,
+		 * and bounds how much of an interrupted item has to be watched again.
+		 */
+		private val PROGRESS_REPORT_INTERVAL = 10.seconds
+	}
+
 	/**
 	 * The play session a start was reported for, remembered so the stop can name the same one.
 	 *
@@ -52,15 +64,62 @@ class PlaySessionService(
 		val playlistItemId: String?,
 	)
 
+	/**
+	 * The job reporting progress while playback runs, so it can be stopped before a stop is sent.
+	 */
+	private var progressReports: Job? = null
+
 	override suspend fun onInitialize() {
 		state.playState.onEach { playState ->
 			when (playState) {
-				PlayState.PLAYING -> sendStreamStart()
+				PlayState.PLAYING -> {
+					sendStreamStart()
+					startProgressReports()
+				}
+
+				PlayState.PAUSED -> {
+					stopProgressReports()
+					sendStreamUpdate()
+				}
+
 				PlayState.STOPPED -> sendStreamStop()
-				PlayState.PAUSED -> sendStreamUpdate()
 				PlayState.ERROR -> sendStreamStop()
 			}
 		}.launchIn(coroutineScope)
+	}
+
+	/**
+	 * Report progress at a fixed interval for as long as playback runs.
+	 *
+	 * Without this the server is only told a position when playback pauses and when it stops, and
+	 * neither happens when the app is killed, the television is switched off at the wall or the
+	 * stream dies. What it kept was whatever the last pause said, or the position the item started
+	 * at when there was never a pause — so an item watched straight through and then interrupted
+	 * resumed from its beginning.
+	 */
+	private fun startProgressReports() {
+		if (progressReports?.isActive == true) return
+
+		progressReports = coroutineScope.launch {
+			while (true) {
+				delay(PROGRESS_REPORT_INTERVAL)
+
+				// Nothing to report against once the stop has been sent, and a report naming a
+				// finished session opens it again on the server.
+				if (reportedSession == null) break
+
+				sendStreamUpdate()
+			}
+		}
+	}
+
+	/**
+	 * Stop reporting progress, waiting for a report already in flight, so nothing can reach the
+	 * server after the stop and leave the session open behind it.
+	 */
+	private suspend fun stopProgressReports() {
+		progressReports?.cancelAndJoin()
+		progressReports = null
 	}
 
 	private val MediaConversionMethod.playMethod
@@ -162,6 +221,9 @@ class PlaySessionService(
 	}
 
 	private suspend fun sendStreamStop() {
+		// Before the session is read, so a progress report cannot land after the stop.
+		stopProgressReports()
+
 		// Deliberately not read from the queue: see [reportedSession]. Null means nothing was ever
 		// started, or the stop for it has already been sent.
 		val session = reportedSession ?: return
