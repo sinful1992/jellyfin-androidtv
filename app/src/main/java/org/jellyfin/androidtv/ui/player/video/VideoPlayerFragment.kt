@@ -4,20 +4,26 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.BaseScreen
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.DisplayLinkMonitor
+import org.jellyfin.playback.core.PlaybackEvent
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.queue.queue
+import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.sdk.api.client.ApiClient
 import org.koin.android.ext.android.inject
 import timber.log.Timber
@@ -56,9 +62,37 @@ class VideoPlayerFragment : Fragment() {
 		playbackManager.queue.addSupplier(queueSupplier)
 
 		awaitPlaybackStart()
+		reportPlaybackEvents()
 
 		// Pause player until the initial resume
 		playbackManager.state.pause()
+	}
+
+	/**
+	 * Tell the user about the things playback passes over in silence.
+	 *
+	 * An entry with no resolvable stream is skipped, and without this the queue simply jumped an
+	 * episode with nothing said - indistinguishable from the episode not being there.
+	 *
+	 * Collected while started, so a message cannot arrive over whatever replaced the player.
+	 */
+	private fun reportPlaybackEvents() {
+		lifecycleScope.launch {
+			lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+				playbackManager.events.collect { event ->
+					when (event) {
+						is PlaybackEvent.EntryUnplayable -> {
+							val name = event.entry.baseItem?.name
+							val message = when (name) {
+								null -> getString(R.string.msg_cannot_play)
+								else -> getString(R.string.msg_skipped_unplayable_item, name)
+							}
+							Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/**

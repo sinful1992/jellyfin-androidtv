@@ -74,6 +74,7 @@
     <string name="lbl_never">Never</string>
     <string name="msg_cannot_play_time">Cannot play this item at this time</string>
     <string name="msg_cannot_play">This item cannot be played</string>
+    <string name="msg_skipped_unplayable_item">Skipped %1$s, it cannot be played</string>
     <string name="lbl_no_items">No items</string>
     <string name="lbl_empty">Empty</string>
     <string name="lbl_tv_queuing">Play next episode automatically</string>

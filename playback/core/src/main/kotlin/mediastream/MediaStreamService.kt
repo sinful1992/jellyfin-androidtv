@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
+import org.jellyfin.playback.core.PlaybackEvent
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.plugin.PlayerService
 import org.jellyfin.playback.core.queue.QueueEntry
@@ -159,8 +160,8 @@ class MediaStreamService internal constructor(
 			backend.playItem(entry, startPosition)
 		} else {
 			Timber.e("Unable to resolve stream for entry $entry")
+			manager.emitEvent(PlaybackEvent.EntryUnplayable(entry))
 
-			// TODO: Somehow notify the user that we skipped an unplayable entry
 			if (manager.queue.peekNext() != null) {
 				manager.queue.next(usePlaybackOrder = true, useRepeatMode = false)
 			} else {
