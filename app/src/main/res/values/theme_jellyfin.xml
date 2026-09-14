@@ -7,7 +7,25 @@
         <item name="android:colorPrimaryDark">@color/grey</item>
         <item name="android:colorAccent">@color/jellyfin_blue</item>
         <!-- Background resource or color -->
-        <item name="android:windowBackground">@android:color/transparent</item>
+        <!--
+        Opaque, so the window declares PixelFormat.OPAQUE rather than TRANSPARENT.
+
+        Upstream made this transparent so the legacy player could call
+        BackgroundService.disable() and let the video surface show through the
+        window. That player is gone from this fork, disable() has no callers, and
+        the rewrite player calls clearBackgrounds() instead, which re-enables the
+        background and paints defaultBackground behind the video. So the window
+        was declaring a transparency nothing here uses.
+
+        This is NOT a performance fix and must not be presented as one. The theory
+        it came from — that a transparent bottom-most layer is refused by the
+        hardware composer, forcing SurfaceFlinger to composite on the GPU — was
+        tested on the Chromecast with the package held constant and the theme
+        varied. Opaque and transparent are indistinguishable: scanout eligibility
+        there is decided per buffer and varies 0-100% between launches of an
+        unchanged binary. Keep this for what it is, a dead declaration removed.
+        -->
+        <item name="android:windowBackground">@color/not_quite_black</item>
         <item name="defaultBackground">@color/not_quite_black</item>
         <!-- Background color for CardViews -->
         <item name="cardImageBackground">@color/grey</item>
