@@ -524,10 +524,17 @@ class ExoPlayerBackend(
 	override fun stop() {
 		stallHandler.removeCallbacks(reportStalled)
 
-		// Read before stopping. The player's reported position falls back when it is stopped -
-		// measured at 34 seconds behind where playback actually was - and everything that asks
-		// where the viewer got to asks after the stop: the media session, and the report that tells
-		// the server where to resume from.
+		// Read before stopping, so a stop cannot be what loses it. Everything that asks where the
+		// viewer got to asks after the player has stopped: the media session, and the report that
+		// tells the server where to resume from.
+		//
+		// This does NOT close the whole gap. Measured on a Chromecast: 795128 ms sampled a second
+		// before leaving the player, 781371 ms reported afterwards even with this in place, and the
+		// server stored the same 13:01 - so about fourteen seconds are already gone by the time
+		// stop() is called, and the fallback happens earlier, most likely at the pause that
+		// precedes it. Always behind, never ahead, so the cost is re-watching a few seconds rather
+		// than losing them. Settling it needs the position logged at each transition in a debug
+		// build.
 		stoppedPosition = exoPlayer.currentPosition.milliseconds
 
 		exoPlayer.stop()
