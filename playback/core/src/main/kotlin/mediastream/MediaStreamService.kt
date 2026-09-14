@@ -10,6 +10,7 @@ import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.plugin.PlayerService
 import org.jellyfin.playback.core.queue.QueueEntry
 import org.jellyfin.playback.core.queue.queue
+import org.jellyfin.playback.core.queue.startPosition
 import org.jellyfin.playback.core.timedevent.TimedEvent
 import org.jellyfin.playback.core.timedevent.addTimedEvent
 import org.jellyfin.playback.core.timedevent.timedEvents
@@ -151,7 +152,11 @@ class MediaStreamService internal constructor(
 		val hasMediaStream = entry.ensureMediaStream()
 
 		if (hasMediaStream) {
-			backend.playItem(entry)
+			// Taken rather than read, so replaying the same entry later starts at its beginning.
+			val startPosition = entry.startPosition ?: Duration.ZERO
+			entry.startPosition = null
+
+			backend.playItem(entry, startPosition)
 		} else {
 			Timber.e("Unable to resolve stream for entry $entry")
 

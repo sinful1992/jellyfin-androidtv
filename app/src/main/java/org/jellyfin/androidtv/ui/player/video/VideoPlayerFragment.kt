@@ -42,44 +42,45 @@ class VideoPlayerFragment : Fragment() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
-		// Create a queue from the items added to the legacy video queue
-		val queueSupplier = RewriteMediaManager.BaseItemQueueSupplier(api, videoQueueManager.getCurrentVideoQueue(), false)
-		Timber.i("Created a queue with ${queueSupplier.items.size} items")
+		// Create a queue from the items added to the legacy video queue. The start position travels
+		// with the queue so the backend can apply it as it prepares the item.
+		val startPosition = arguments?.getInt(EXTRA_POSITION)?.milliseconds ?: Duration.ZERO
+		val queueSupplier = RewriteMediaManager.BaseItemQueueSupplier(
+			api,
+			videoQueueManager.getCurrentVideoQueue(),
+			false,
+			startPosition,
+		)
+		Timber.i("Created a queue with ${queueSupplier.items.size} items, starting at $startPosition")
 		playbackManager.queue.clear()
 		playbackManager.queue.addSupplier(queueSupplier)
 
-		// Set position
-		val startPosition = arguments?.getInt(EXTRA_POSITION)?.milliseconds ?: Duration.ZERO
-		awaitPlaybackStart(startPosition)
+		awaitPlaybackStart()
 
 		// Pause player until the initial resume
 		playbackManager.state.pause()
 	}
 
 	/**
-	 * Wait for playback to start, then seek to the requested start position.
+	 * Wait for playback to start, and for the queue to run out afterwards.
 	 *
-	 * Seeks are forwarded straight to the backend, which discards them while the media item is not
-	 * prepared and seekable, and nothing queues commands issued before that point. The media stream
-	 * is resolved asynchronously after the queue is populated, so a seek issued during [onCreate] is
-	 * always dropped. Waiting for the first PLAYING state guarantees a prepared, seekable timeline,
-	 * at the cost of briefly showing the start of the item before the seek lands.
+	 * The resume position is no longer applied here. It travels with the queue entry and the
+	 * backend applies it as it prepares the item, which is what removed a seek that could be
+	 * dropped: this waited for the first PLAYING state on a conflated [kotlinx.coroutines.flow
+	 * .StateFlow], buffering reports as PAUSED, and a stream that stalls the instant it starts can
+	 * pass through PLAYING before this collector is scheduled — leaving the seek unapplied and the
+	 * item playing from its beginning.
 	 *
-	 * That first PLAYING state is also what tells [onPause] whether a paused player was paused by
-	 * the user or has simply not started yet, so it is awaited even with no position to apply.
+	 * The first PLAYING state is still awaited because it is what tells [onPause] whether a paused
+	 * player was paused by the user or has simply not started yet.
 	 *
-	 * Once playback has started this also waits for the queue to run out, because nothing else
-	 * leaves the player when it does and it would otherwise sit on a black screen.
+	 * Waiting for the queue to run out is here because nothing else leaves the player when it does
+	 * and it would otherwise sit on a black screen.
 	 */
-	private fun awaitPlaybackStart(position: Duration) {
+	private fun awaitPlaybackStart() {
 		lifecycleScope.launch {
 			playbackManager.state.playState.first { it == PlayState.PLAYING }
 			playbackStarted = true
-
-			if (position > Duration.ZERO) {
-				Timber.i("Applying start position of $position")
-				playbackManager.state.seek(position)
-			}
 
 			// The queue clears its entry when the last one finishes. Stopping the player clears it
 			// too, so only act while the player is still the screen being shown.

@@ -30,7 +30,13 @@ interface PlayerBackend {
 	// Mutation
 
 	fun prepareItem(item: QueueEntry)
-	fun playItem(item: QueueEntry)
+
+	/**
+	 * Play [item], beginning at [startPosition] rather than at its start. Applied as the item is
+	 * prepared, so nothing of the opening is shown and no seek can be dropped for arriving before
+	 * the timeline is seekable.
+	 */
+	fun playItem(item: QueueEntry, startPosition: Duration = Duration.ZERO)
 
 	/**
 	 * Play the audio track with the given media source [index] from the stream that is already

@@ -309,7 +309,7 @@ class ExoPlayerBackend(
 		exoPlayer.prepare()
 	}
 
-	override fun playItem(item: QueueEntry) {
+	override fun playItem(item: QueueEntry, startPosition: Duration) {
 		val stream = requireNotNull(item.mediaStream)
 		if (currentStream == stream) return
 
@@ -334,8 +334,12 @@ class ExoPlayerBackend(
 			preparedItemIndex = exoPlayer.mediaItemCount - 1
 		}
 
-		// Seek to prepared media item
-		when (preparedItemIndex) {
+		// Seek to prepared media item. A start position is applied here, in the same seek that
+		// selects the item, so playback begins there instead of at zero. The adjacent-item shorthand
+		// is skipped in that case because it cannot carry a position.
+		if (startPosition > Duration.ZERO) {
+			exoPlayer.seekTo(preparedItemIndex, startPosition.inWholeMilliseconds)
+		} else when (preparedItemIndex) {
 			exoPlayer.currentMediaItemIndex - 1 -> exoPlayer.seekToPreviousMediaItem()
 			exoPlayer.currentMediaItemIndex + 1 -> exoPlayer.seekToNextMediaItem()
 			exoPlayer.currentMediaItemIndex -> Unit
