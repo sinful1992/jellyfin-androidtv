@@ -8,43 +8,53 @@ import org.jellyfin.playback.core.ui.PlayerSurfaceView
 
 /**
  * Service keeping track of the current playback backend and its related surface view.
+ *
+ * A backend is required to build one and switching replaces it, so there is always exactly one.
+ * It used to be null until the manager's initialiser switched the first one in, which left every
+ * caller writing a null check for a window no caller could observe.
  */
-class BackendService {
-	private var _backend: PlayerBackend? = null
-	val backend get() = _backend
+class BackendService(initialBackend: PlayerBackend) {
+	private var _backend: PlayerBackend = initialBackend
+	val backend: PlayerBackend get() = _backend
 
 	private var listeners = mutableListOf<PlayerBackendEventListener>()
 	private var _surfaceView: PlayerSurfaceView? = null
 	private var _subtitleView: PlayerSubtitleView? = null
 
-	fun switchBackend(backend: PlayerBackend) {
-		_backend?.stop()
-		_backend?.setListener(null)
-		_backend?.setSurfaceView(null)
-		_backend?.setSubtitleView(null)
+	init {
+		attach(initialBackend)
+	}
 
-		_backend = backend.apply {
-			_surfaceView?.let(::setSurfaceView)
-			_subtitleView?.let(::setSubtitleView)
-			setListener(BackendEventListener())
-		}
+	fun switchBackend(backend: PlayerBackend) {
+		_backend.stop()
+		_backend.setListener(null)
+		_backend.setSurfaceView(null)
+		_backend.setSubtitleView(null)
+
+		_backend = attach(backend)
+	}
+
+	private fun attach(backend: PlayerBackend) = backend.apply {
+		_surfaceView?.let(::setSurfaceView)
+		_subtitleView?.let(::setSubtitleView)
+		setListener(BackendEventListener())
 	}
 
 	fun attachSurfaceView(surfaceView: PlayerSurfaceView) {
 		// Remove existing surface view
 		if (_surfaceView != null) {
-			_backend?.setSurfaceView(null)
+			_backend.setSurfaceView(null)
 		}
 
 		// Apply new surface view
 		_surfaceView = surfaceView.apply {
-			_backend?.setSurfaceView(surfaceView)
+			_backend.setSurfaceView(surfaceView)
 
 			// Automatically detach
 			doOnDetach {
 				if (surfaceView == _surfaceView) {
 					_surfaceView = null
-					_backend?.setSurfaceView(null)
+					_backend.setSurfaceView(null)
 				}
 			}
 		}
@@ -53,18 +63,18 @@ class BackendService {
 	fun attachSubtitleView(subtitleView: PlayerSubtitleView) {
 		// Remove existing surface view
 		if (_subtitleView != null) {
-			_backend?.setSubtitleView(null)
+			_backend.setSubtitleView(null)
 		}
 
 		// Apply new surface view
 		_subtitleView = subtitleView.apply {
-			_backend?.setSubtitleView(subtitleView)
+			_backend.setSubtitleView(subtitleView)
 
 			// Automatically detach
 			doOnDetach {
 				if (subtitleView == _subtitleView) {
 					_subtitleView = null
-					_backend?.setSubtitleView(null)
+					_backend.setSubtitleView(null)
 				}
 			}
 		}

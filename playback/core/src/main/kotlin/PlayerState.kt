@@ -24,7 +24,7 @@ interface PlayerState {
 	val scrubbing: StateFlow<Boolean>
 
 	/**
-	 * The position information for the currently playing item or [PositionInfo.EMPTY]. This
+	 * The position information for the currently playing item, zeroed when nothing is. This
 	 * property is not reactive to avoid performance penalties. Manually read the values every
 	 * second for UI or read when necessary.
 	 */
@@ -81,7 +81,7 @@ class MutablePlayerState(
 	override val scrubbing: StateFlow<Boolean> get() = _scrubbing.asStateFlow()
 
 	override val positionInfo: PositionInfo
-		get() = backendService.backend?.getPositionInfo() ?: PositionInfo.EMPTY
+		get() = backendService.backend.getPositionInfo()
 
 	init {
 		backendService.addListener(object : PlayerBackendEventListener() {
@@ -97,7 +97,7 @@ class MutablePlayerState(
 				// Make sure to start stream again if repeat mode is turned on
 				// Note: the QueueService is responsible for changing REPEAT_ENTRY_ONCE to NONE
 				if (_repeatMode.value != RepeatMode.NONE) {
-					backendService.backend?.play()
+					backendService.backend.play()
 				}
 			}
 		})
@@ -106,30 +106,29 @@ class MutablePlayerState(
 	}
 
 	override fun play() {
-		backendService.backend?.play()
+		backendService.backend.play()
 	}
 
 	override fun pause() {
-		// TODO: enqueue action when backend is not set
-		backendService.backend?.pause()
+		backendService.backend.pause()
 	}
 
 	override fun unpause() {
-		backendService.backend?.play()
+		backendService.backend.play()
 	}
 
 	override fun stop() {
-		backendService.backend?.stop()
+		backendService.backend.stop()
 		queue?.clear()
 	}
 
 	override fun seek(to: Duration) {
-		backendService.backend?.seekTo(to)
+		backendService.backend.seekTo(to)
 	}
 
 	private fun seekRelative(amount: Duration) {
-		val current = backendService.backend?.getPositionInfo()?.active ?: Duration.ZERO
-		backendService.backend?.seekTo(current + amount)
+		val current = backendService.backend.getPositionInfo().active
+		backendService.backend.seekTo(current + amount)
 	}
 
 	override fun fastForward(amount: Duration?) {
@@ -142,12 +141,12 @@ class MutablePlayerState(
 
 	override fun setScrubbing(scrubbing: Boolean) {
 		_scrubbing.value = scrubbing
-		backendService.backend?.setScrubbing(scrubbing)
+		backendService.backend.setScrubbing(scrubbing)
 	}
 
 	override fun setSpeed(speed: Float) {
 		_speed.value = speed
-		backendService.backend?.setSpeed(speed)
+		backendService.backend.setSpeed(speed)
 	}
 
 	override fun setPlaybackOrder(order: PlaybackOrder) {
