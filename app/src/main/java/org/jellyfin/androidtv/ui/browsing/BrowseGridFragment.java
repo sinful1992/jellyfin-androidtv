@@ -45,6 +45,7 @@ import org.jellyfin.androidtv.databinding.HorizontalGridBrowseBinding;
 import org.jellyfin.androidtv.databinding.PopupEmptyBinding;
 import org.jellyfin.androidtv.preference.LibraryPreferences;
 import org.jellyfin.androidtv.preference.PreferencesRepository;
+import org.jellyfin.androidtv.preference.UserPreferences;
 import org.jellyfin.androidtv.ui.AlphaPickerView;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher;
@@ -119,6 +120,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private final Lazy<ItemLauncher> itemLauncher = inject(ItemLauncher.class);
     private final Lazy<KeyProcessor> keyProcessor = inject(KeyProcessor.class);
     private final Lazy<ApiClient> api = inject(ApiClient.class);
+    private final Lazy<UserPreferences> userPreferences = inject(UserPreferences.class);
 
     private int mCardsScreenEst = 0;
     private int mCardsScreenStride = 0;
@@ -256,8 +258,16 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
      * The cache is a line, so stepping onto a line and back off it rebinds nothing. The pool is
      * {@link #POOLED_LINES_OF_CARDS} lines, which is headroom over the one line a single scroll
      * needs — views in it are unbound and hold no artwork, so the cost of the spare is small.
+     *
+     * Behind {@link UserPreferences#cardRecyclingEnabled}, off by default, because whether this
+     * helps is still an open question and the only measurement of it so far was void. Read here
+     * rather than cached, so a pass with it on and a pass with it off are one library exit and
+     * re-entry apart — which is the only way to compare them without a second install and the cold
+     * image cache that comes with one.
      */
     private void setUpCardRecycling() {
+        if (!userPreferences.getValue().get(UserPreferences.Companion.getCardRecyclingEnabled())) return;
+
         int cardsPerLine;
         if (mGridPresenter instanceof VerticalGridPresenter) {
             cardsPerLine = ((VerticalGridPresenter) mGridPresenter).getNumberOfColumns();

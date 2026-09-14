@@ -51,6 +51,19 @@ fun SettingsDeveloperScreen() {
 			)
 		}
 
+		item {
+			// Card recycling on library grids. Here rather than in a constant so the two arms can
+			// be compared in one install, without the cold image cache a second install brings.
+			var cardRecyclingEnabled by rememberPreference(userPreferences, UserPreferences.cardRecyclingEnabled)
+			ListButton(
+				headingContent = { Text(stringResource(R.string.lbl_enable_card_recycling)) },
+				trailingContent = { Checkbox(checked = cardRecyclingEnabled) },
+				captionContent = { Text(stringResource(R.string.desc_card_recycling)) },
+				onClick = { cardRecyclingEnabled = !cardRecyclingEnabled },
+				modifier = Modifier.focusKey("card_recycling_enabled")
+			)
+		}
+
 		// UI Mode toggle
 		if (!isTvDevice) item {
 			var disableUiModeWarning by rememberPreference(systemPreferences, SystemPreferences.disableUiModeWarning)

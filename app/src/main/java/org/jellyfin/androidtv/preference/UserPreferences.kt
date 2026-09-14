@@ -159,6 +159,16 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		var debuggingEnabled = booleanPreference("pref_enable_debug", false)
 
 		/**
+		 * Keep a library grid's card views for re-use instead of letting RecyclerView's defaults
+		 * rebuild most of a line on every scroll. Off by default: the change it enables is
+		 * unproven, and the one measurement of it so far compared two installs and could not be
+		 * trusted. It is a preference rather than a constant so both arms can be measured in one
+		 * install, with one image cache, one set of display preferences and no reinstall between
+		 * them — leaving the library and coming back is enough to apply it.
+		 */
+		var cardRecyclingEnabled = booleanPreference("card_recycling_enabled", false)
+
+		/**
 		 * When to show the clock.
 		 */
 		var clockBehavior = enumPreference("pref_clock_behavior", ClockBehavior.ALWAYS)
