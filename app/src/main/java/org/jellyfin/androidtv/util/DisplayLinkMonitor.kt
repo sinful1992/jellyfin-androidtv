@@ -23,11 +23,11 @@ class DisplayLinkMonitor(
 ) {
 	private val fired = AtomicBoolean(false)
 
-	private val hdmiPlugMonitor = HdmiPlugMonitor(context, ::reportLinkLost)
+	private val hdmiPlugMonitor = HdmiPlugMonitor(context, onDisconnected = ::reportLinkLost)
 	private val hdcpMonitor = HdcpMonitor(onHdcpLost = ::reportLinkLost)
 
 	fun start(scope: CoroutineScope) {
-		hdmiPlugMonitor.start()
+		hdmiPlugMonitor.start(scope)
 		hdcpMonitor.start(scope)
 	}
 
