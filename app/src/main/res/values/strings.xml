@@ -98,7 +98,7 @@
     <string name="lbl_enable_debug">Debug options</string>
     <string name="desc_debug">Provide extra information for debugging</string>
     <string name="lbl_enable_card_recycling">Re-use library grid cards</string>
-    <string name="desc_card_recycling">Keep a grid\'s card views for re-use instead of rebuilding most of a line on every scroll. Applies when a library is opened. Unproven — leave off unless measuring.</string>
+    <string name="desc_card_recycling">Keep a grid\'s card views for re-use instead of rebuilding most of a line on every scroll. Applies when a library is opened. Turn off to compare.</string>
     <string name="lbl_showing">Showing</string>
     <string name="lbl_all_items">All items</string>
     <string name="lbl_sorted_by">sorted by</string>

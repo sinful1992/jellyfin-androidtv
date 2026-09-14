@@ -160,13 +160,13 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 
 		/**
 		 * Keep a library grid's card views for re-use instead of letting RecyclerView's defaults
-		 * rebuild most of a line on every scroll. Off by default: the change it enables is
-		 * unproven, and the one measurement of it so far compared two installs and could not be
-		 * trusted. It is a preference rather than a constant so both arms can be measured in one
-		 * install, with one image cache, one set of display preferences and no reinstall between
-		 * them — leaving the library and coming back is enough to apply it.
+		 * rebuild most of a line on every scroll. On by default since it was measured: one install,
+		 * one warm image cache, arms interleaved, the animation phase where those views are built
+		 * came out 2.4-3.0x lower at p99 with it on, in every pair. It stays a preference so that
+		 * comparison can be repeated without a second install — leaving the library and coming
+		 * back is enough to apply a change.
 		 */
-		var cardRecyclingEnabled = booleanPreference("card_recycling_enabled", false)
+		var cardRecyclingEnabled = booleanPreference("card_recycling_enabled", true)
 
 		/**
 		 * When to show the clock.
