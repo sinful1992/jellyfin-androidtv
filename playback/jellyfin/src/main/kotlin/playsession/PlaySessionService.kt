@@ -22,12 +22,36 @@ import org.jellyfin.sdk.model.api.PlaybackStopInfo
 import org.jellyfin.sdk.model.api.QueueItem
 import org.jellyfin.sdk.model.extensions.inWholeTicks
 import timber.log.Timber
+import java.util.UUID
 import kotlin.math.roundToInt
 import org.jellyfin.sdk.model.api.RepeatMode as SdkRepeatMode
 
 class PlaySessionService(
 	private val api: ApiClient,
 ) : PlayerService() {
+	/**
+	 * The play session a start was reported for, remembered so the stop can name the same one.
+	 *
+	 * Reading it out of the queue when the stop arrives does not work. [PlayerState.stop] asks the
+	 * backend to stop and then clears the queue in the same call, while the backend's STOPPED state
+	 * only arrives a looper message later and is collected on this service's own scope — so by the
+	 * time the stop is handled the entry is always null and the report was dropped at its first
+	 * line. The server was never told playback ended and kept the session open until it expired it
+	 * on its own, which is what an abandoned session in the dashboard is.
+	 *
+	 * It also covers the entry outliving the session: re-resolving a stream (a transcode that has
+	 * to bake in a different audio track, or a device profile change) replaces the entry's stream
+	 * with one carrying a new play session id. Without this, the old session was left open and the
+	 * next PLAYING opened a second one beside it.
+	 */
+	private var reportedSession: ReportedSession? = null
+
+	private data class ReportedSession(
+		val itemId: UUID,
+		val playSessionId: String,
+		val playlistItemId: String?,
+	)
+
 	override suspend fun onInitialize() {
 		state.playState.onEach { playState ->
 			when (playState) {
@@ -70,6 +94,17 @@ class PlaySessionService(
 		val entry = manager.queue.entry.value ?: return
 		val stream = entry.mediaStream ?: return
 		val item = entry.baseItem ?: return
+
+		// A different session than the one still open means the stream was resolved again. Close
+		// the old one rather than leaving the server with two sessions for one playback.
+		val previous = reportedSession
+		if (previous != null && previous.playSessionId != stream.identifier) sendStreamStop()
+
+		reportedSession = ReportedSession(
+			itemId = item.id,
+			playSessionId = stream.identifier,
+			playlistItemId = item.playlistItemId,
+		)
 
 		runCatching {
 			api.playStateApi.reportPlaybackStart(
@@ -127,16 +162,17 @@ class PlaySessionService(
 	}
 
 	private suspend fun sendStreamStop() {
-		val entry = manager.queue.entry.value ?: return
-		val stream = entry.mediaStream ?: return
-		val item = entry.baseItem ?: return
+		// Deliberately not read from the queue: see [reportedSession]. Null means nothing was ever
+		// started, or the stop for it has already been sent.
+		val session = reportedSession ?: return
+		reportedSession = null
 
 		runCatching {
 			api.playStateApi.reportPlaybackStopped(
 				PlaybackStopInfo(
-					itemId = item.id,
-					playSessionId = stream.identifier,
-					playlistItemId = item.playlistItemId,
+					itemId = session.itemId,
+					playSessionId = session.playSessionId,
+					playlistItemId = session.playlistItemId,
 					positionTicks = withContext(Dispatchers.Main) { state.positionInfo.active.inWholeTicks },
 					failed = false,
 					nowPlayingQueue = getQueue(),
