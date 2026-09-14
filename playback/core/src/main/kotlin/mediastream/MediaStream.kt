@@ -85,11 +85,16 @@ data class MediaStreamSubtitleTrack(
 	/**
 	 * Whether the server considers this track forced, meaning it should be shown even when the
 	 * user did not ask for subtitles.
+	 *
+	 * Also what tells a forced track apart from the full one beside it when both carry the same
+	 * language and codec, which is the ordinary shape of a subtitle list.
 	 */
 	val isForced: Boolean = false,
 	/**
-	 * Whether this track lives outside the media container. External tracks cannot be selected by
-	 * the player alone and always require the stream to be resolved again.
+	 * Whether this track lives outside the media container.
+	 *
+	 * An external track is listed here but is not in the stream handed to the player, so it can
+	 * neither be selected nor counted against what the container holds.
 	 */
 	val isExternal: Boolean = false,
 ) : MediaStreamTrack {
