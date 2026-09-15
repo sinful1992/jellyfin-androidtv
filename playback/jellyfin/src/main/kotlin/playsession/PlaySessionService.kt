@@ -4,11 +4,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
+import org.jellyfin.playback.core.mediastream.PlayableMediaStream
 import org.jellyfin.playback.core.mediastream.mediaStream
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.model.RepeatMode
@@ -27,6 +30,7 @@ import org.jellyfin.sdk.model.extensions.inWholeTicks
 import timber.log.Timber
 import java.util.UUID
 import kotlin.math.roundToInt
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.jellyfin.sdk.model.api.RepeatMode as SdkRepeatMode
 
@@ -60,7 +64,7 @@ class PlaySessionService(
 
 	private data class ReportedSession(
 		val itemId: UUID,
-		val playSessionId: String,
+		val stream: PlayableMediaStream,
 		val playlistItemId: String?,
 	)
 
@@ -70,6 +74,27 @@ class PlaySessionService(
 	private var progressReports: Job? = null
 
 	override suspend fun onInitialize() {
+		// The queue moving on ends the session for the entry being left. Nothing in the play state
+		// says that reliably: playback runs straight through a manual skip, and the stop that the
+		// end of an entry does raise is collected here while the queue advances elsewhere, so which
+		// of the two lands first is a race. Taking the boundary from the queue makes it the same
+		// boundary in both cases.
+		manager.queue.entry
+			.map { entry -> entry?.baseItem?.id }
+			.distinctUntilChanged()
+			.onEach { itemId ->
+				val open = reportedSession
+				if (open == null || open.itemId == itemId) return@onEach
+
+				sendStreamStop()
+
+				if (state.playState.value == PlayState.PLAYING) {
+					sendStreamStart()
+					startProgressReports()
+				}
+			}
+			.launchIn(coroutineScope)
+
 		state.playState.onEach { playState ->
 			when (playState) {
 				PlayState.PLAYING -> {
@@ -104,11 +129,11 @@ class PlaySessionService(
 			while (true) {
 				delay(PROGRESS_REPORT_INTERVAL)
 
-				// Nothing to report against once the stop has been sent, and a report naming a
-				// finished session opens it again on the server.
-				if (reportedSession == null) break
+				// Pausing and stopping both cancel this job where they are handled, so this is
+				// only the backstop that keeps it from outliving the playback it reports on.
+				if (state.playState.value != PlayState.PLAYING) break
 
-				sendStreamUpdate()
+				reportCurrentEntry()
 			}
 		}
 	}
@@ -137,8 +162,22 @@ class PlaySessionService(
 		}
 
 	suspend fun sendUpdateIfActive() {
-		coroutineScope.launch { sendStreamUpdate() }
+		coroutineScope.launch { reportCurrentEntry() }
 	}
+
+	/**
+	 * Say where the current entry has reached, opening a session for it when it has none.
+	 *
+	 * An entry the queue moved to while the play state never changed has no session yet, and a
+	 * progress report naming a session the server has not been told about is not one it can do
+	 * anything with.
+	 */
+	private suspend fun reportCurrentEntry() {
+		if (reportedSession == null) sendStreamStart() else sendStreamUpdate()
+	}
+
+	private suspend fun readPosition(): Duration =
+		withContext(Dispatchers.Main) { state.positionInfo.active }
 
 	private suspend fun getQueue(): List<QueueItem> {
 		// The queues are lazy loaded so we only load a small amount of items to set as queue on the
@@ -154,14 +193,22 @@ class PlaySessionService(
 		val stream = entry.mediaStream ?: return
 		val item = entry.baseItem ?: return
 
+		// Already open, so this is playback resuming or a start the progress reports asked for
+		// again, not a new session. Telling the server where it is says that; starting it a second
+		// time only repeats what it already has.
+		val previous = reportedSession
+		if (previous?.stream?.identifier == stream.identifier) {
+			sendStreamUpdate()
+			return
+		}
+
 		// A different session than the one still open means the stream was resolved again. Close
 		// the old one rather than leaving the server with two sessions for one playback.
-		val previous = reportedSession
-		if (previous != null && previous.playSessionId != stream.identifier) sendStreamStop()
+		if (previous != null) sendStreamStop()
 
 		reportedSession = ReportedSession(
 			itemId = item.id,
-			playSessionId = stream.identifier,
+			stream = stream,
 			playlistItemId = item.playlistItemId,
 		)
 
@@ -176,7 +223,7 @@ class PlaySessionService(
 					volumeLevel = (state.volume.volume * 100).roundToInt(),
 					isPaused = state.playState.value != PlayState.PLAYING,
 					aspectRatio = state.videoSize.value.aspectRatio.toString(),
-					positionTicks = withContext(Dispatchers.Main) { state.positionInfo.active.inWholeTicks },
+					positionTicks = readPosition().inWholeTicks,
 					playMethod = stream.conversionMethod.playMethod,
 					repeatMode = state.repeatMode.value.remoteRepeatMode,
 					nowPlayingQueue = getQueue(),
@@ -206,7 +253,7 @@ class PlaySessionService(
 					volumeLevel = (state.volume.volume * 100).roundToInt(),
 					isPaused = state.playState.value != PlayState.PLAYING,
 					aspectRatio = state.videoSize.value.aspectRatio.toString(),
-					positionTicks = withContext(Dispatchers.Main) { state.positionInfo.active.inWholeTicks },
+					positionTicks = readPosition().inWholeTicks,
 					playMethod = stream.conversionMethod.playMethod,
 					repeatMode = state.repeatMode.value.remoteRepeatMode,
 					nowPlayingQueue = getQueue(),
@@ -229,13 +276,18 @@ class PlaySessionService(
 		val session = reportedSession ?: return
 		reportedSession = null
 
+		// Asked for by name, because the player answers for whatever it is playing now and the
+		// queue may already have moved on to the next entry. Falls back to the player for a
+		// session it never left, which is a stream that failed rather than ended.
+		val position = manager.backend.getFinalPosition(session.stream) ?: readPosition()
+
 		runCatching {
 			api.playStateApi.reportPlaybackStopped(
 				PlaybackStopInfo(
 					itemId = session.itemId,
-					playSessionId = session.playSessionId,
+					playSessionId = session.stream.identifier,
 					playlistItemId = session.playlistItemId,
-					positionTicks = withContext(Dispatchers.Main) { state.positionInfo.active.inWholeTicks },
+					positionTicks = position.inWholeTicks,
 					failed = false,
 					nowPlayingQueue = getQueue(),
 				)
