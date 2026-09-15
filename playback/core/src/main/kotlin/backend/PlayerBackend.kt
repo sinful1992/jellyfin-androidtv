@@ -27,6 +27,17 @@ interface PlayerBackend {
 	fun setListener(eventListener: PlayerBackendEventListener?)
 	fun getPositionInfo(): PositionInfo
 
+	/**
+	 * Where [stream] had reached when the player left it, or null when it is not the stream the
+	 * player last left.
+	 *
+	 * [getPositionInfo] answers for whatever is being played now, which stops being an answer about
+	 * a stream the moment the queue moves on: the player seeks into the next entry, and an entry
+	 * watched to its end reads as having stopped at the beginning of the one after it. Anything
+	 * reporting on a stream after playback has left it has to ask for it by name.
+	 */
+	fun getFinalPosition(stream: MediaStream): Duration? = null
+
 	// Mutation
 
 	fun prepareItem(item: QueueEntry)

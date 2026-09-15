@@ -111,6 +111,17 @@ class ExoPlayerBackend(
 	 */
 	private var stoppedPosition: Duration? = null
 
+	/**
+	 * The stream the player last left, by identifier, and where it had reached when it was left.
+	 *
+	 * Taken at every point the player stops answering for a stream: the end of an entry, a stream
+	 * being replaced by another, and a stop. Kept by identifier rather than by stream so nothing
+	 * of the entry that owned it is held on to afterwards.
+	 *
+	 * @see getFinalPosition
+	 */
+	private var endedStream: Pair<String, Duration>? = null
+
 	private val reportStalled = Runnable {
 		Timber.w("Still buffering after $stallTimeout with playback requested, reporting it as paused")
 		listener?.onPlayStateChange(PlayState.PAUSED)
@@ -205,6 +216,12 @@ class ExoPlayerBackend(
 				hasPlayedCurrentStream = true
 				// Playing again, so the player's own position is the truthful one once more.
 				stoppedPosition = null
+
+				// A stream being played again is not one the player has left, and repeating an
+				// entry does exactly that: the end is read as it ends, and playback then carries on
+				// in the same stream. Left in place, the next report about it would say it ended
+				// however long ago rather than where the viewer is now.
+				if (endedStream?.first == currentStream?.identifier) endedStream = null
 			}
 
 			val state = when {
@@ -251,7 +268,14 @@ class ExoPlayerBackend(
 
 		override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
 			if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
-				listener?.onMediaStreamEnd(requireNotNull(currentStream))
+				val stream = requireNotNull(currentStream)
+
+				// Read before anything is told the entry ended, because what they do about it is
+				// advance the queue, and the player's position answers for the next entry from the
+				// moment it does.
+				endedStream = stream.identifier to exoPlayer.currentPosition.milliseconds
+
+				listener?.onMediaStreamEnd(stream)
 			}
 		}
 
@@ -322,6 +346,15 @@ class ExoPlayerBackend(
 	override fun playItem(item: QueueEntry, startPosition: Duration) {
 		val stream = requireNotNull(item.mediaStream)
 		if (currentStream == stream) return
+
+		// The stream being replaced stops being the one the player's position answers for as soon
+		// as the seek below happens, so take where it reached while it still is. Skipped when its
+		// end was already read, which is the more accurate of the two.
+		currentStream?.let { previous ->
+			if (endedStream?.first != previous.identifier) {
+				endedStream = previous.identifier to exoPlayer.currentPosition.milliseconds
+			}
+		}
 
 		currentStream = stream
 		hasPlayedCurrentStream = false
@@ -589,7 +622,9 @@ class ExoPlayerBackend(
 		// precedes it. Always behind, never ahead, so the cost is re-watching a few seconds rather
 		// than losing them. Settling it needs the position logged at each transition in a debug
 		// build.
-		stoppedPosition = exoPlayer.currentPosition.milliseconds
+		val position = exoPlayer.currentPosition.milliseconds
+		stoppedPosition = position
+		currentStream?.let { stream -> endedStream = stream.identifier to position }
 
 		exoPlayer.stop()
 		currentStream = null
@@ -618,6 +653,9 @@ class ExoPlayerBackend(
 
 		exoPlayer.setPlaybackSpeed(speed)
 	}
+
+	override fun getFinalPosition(stream: MediaStream): Duration? =
+		endedStream?.takeIf { (identifier, _) -> identifier == stream.identifier }?.second
 
 	override fun getPositionInfo(): PositionInfo = PositionInfo(
 		active = stoppedPosition ?: exoPlayer.currentPosition.milliseconds,
