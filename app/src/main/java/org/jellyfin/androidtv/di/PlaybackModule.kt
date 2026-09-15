@@ -13,6 +13,7 @@ import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.preference.constant.BufferLength
 import org.jellyfin.androidtv.ui.browsing.MainActivity
+import org.jellyfin.androidtv.ui.playback.DataRefreshPlayerService
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.playback.PlaybackLauncher
 import org.jellyfin.androidtv.ui.playback.VideoQueueManager
@@ -22,6 +23,7 @@ import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepository
 import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.profile.createDeviceProfile
 import org.jellyfin.playback.core.playbackManager
+import org.jellyfin.playback.core.plugin.playbackPlugin
 import org.jellyfin.playback.jellyfin.jellyfinPlugin
 import org.jellyfin.playback.media3.exoplayer.ExoPlayerOptions
 import org.jellyfin.playback.media3.exoplayer.exoPlayerPlugin
@@ -103,6 +105,10 @@ fun Scope.createPlaybackManager() = playbackManager(androidContext()) {
 		.toSet()
 
 	install(jellyfinPlugin(get(), deviceProfileBuilder, mediaSegmentSkipTypes, ProcessLifecycleOwner.get().lifecycle))
+
+	// Installed after the Jellyfin plugin, which owns the reporting this invalidates the app's
+	// caches for.
+	install(playbackPlugin { provide(DataRefreshPlayerService(get())) })
 
 	// Options
 	val userSettingPreferences = get<UserSettingPreferences>()
