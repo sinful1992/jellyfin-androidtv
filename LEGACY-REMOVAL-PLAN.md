@@ -48,7 +48,7 @@ that goes in stage 3, because the `SocketHandler` branch it feeds is only unreac
 legacy player cannot play.
 **Small. No behaviour change.**
 
-### 2. Make the legacy video player unreachable — **done** (`2fe1974c8`)
+### 2. Make the legacy video player unreachable — **done** (`56b965c74`)
 - Drop the "Built-in video player" option from `SettingsPlaybackPlayerScreen`
 - Remove the `playbackRewriteVideoEnabled` preference and the branch in `PlaybackLauncher.launch`
 - Remove `Destinations.videoPlayer` (keep `videoPlayerNew`)
@@ -76,7 +76,7 @@ Rejected alternatives, for the record:
 
 After this stage the legacy player is dead in the literal sense, which it is not today.
 
-### 3. Delete the legacy video player — **done** (`253106202`, 58 files, 7,011 deletions)
+### 3. Delete the legacy video player — **done** (`77a0a23f4`, 58 files, 7,011 deletions)
 `PlaybackController.java` (1,361), `CustomPlaybackOverlayFragment.java` (1,356),
 `VideoManager.java` (677), the whole `ui/playback/overlay` package (1,607), `VideoPlayerAdapter`,
 `PlaybackControllerContainer` plus its wiring in `AppModule.kt:141`, `SocketHandler.kt:57`,
@@ -116,7 +116,7 @@ Two things checked rather than assumed:
 
 **Medium.** Mechanical once stage 2 is in.
 
-### 4. Delete live TV — **done** (`28901cff5`, 69 files, 5,384 deletions)
+### 4. Delete live TV — **done** (`c4129e4e4`, 69 files, 5,384 deletions)
 Forced by stage 3: `CustomPlaybackOverlayFragment implements LiveTvGuide` and owns
 `OverlayTvGuideBinding`, so the in-player guide dies with it and the rest is orphaned.
 `ui/livetv` (6 files, 1,439 lines), `GuideChannelHeader`, `GuidePagingButton`, live TV preferences
@@ -144,7 +144,7 @@ whole-file deletions. `BaseItemInfoRow`, `HomeRowsFragment`, `FullDetailsFragmen
 `FullDetailsFragment` render for every item, not only live TV, so the edits there have to be
 surgical.
 
-### 5. Sweep — **done** (`eb2002365`)
+### 5. Sweep — **done** (`5ec81a34e`)
 110 strings and 15 drawables, scoped to what stages 1-4 orphaned by diffing references at
 `v0.20.0-hero.7` against `HEAD`. 69 strings that were already dead before this work were left
 alone: removing them widens the fork's diff against upstream for no gain.
@@ -203,11 +203,11 @@ Two things worth doing about it, neither urgent:
 
 | stage | commit | files | deletions |
 |---|---|---|---|
-| 1. `PlaybackState` off the legacy controller | `115ea49d4` | 5 | net -6 |
-| 2. Legacy player unreachable | `2fe1974c8` | 7 | -40 |
-| 3. Legacy player deleted | `253106202` | 58 | -7,011 |
-| 4. Live TV deleted | `28901cff5` | 69 | -5,384 |
-| 5. Resource sweep | `eb2002365` | 16 | -266 |
+| 1. `PlaybackState` off the legacy controller | `40de0cf03` | 5 | net -6 |
+| 2. Legacy player unreachable | `56b965c74` | 7 | -40 |
+| 3. Legacy player deleted | `77a0a23f4` | 58 | -7,011 |
+| 4. Live TV deleted | `c4129e4e4` | 69 | -5,384 |
+| 5. Resource sweep | `5ec81a34e` | 16 | -266 |
 
 Green at every stage: `assembleDebug`, 71 tests, detekt. The test count fell from 91 because 20
 tests covered deleted code (`VideoSpeedControllerTests`, `CustomSeekProviderTests`).
