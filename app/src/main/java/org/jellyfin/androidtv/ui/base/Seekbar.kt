@@ -6,12 +6,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -106,6 +108,17 @@ fun Seekbar(
 	val visibleProgress = progressOverride ?: progress
 	val knobAlpha by animateFloatAsState(if (focused) 1f else 0f)
 	var scrubCancelJob by remember { mutableStateOf<Job?>(null) }
+
+	// Scrubbing is only ever ended by the delayed job below, which lives in this composable's own
+	// scope. The player controls sit inside an AnimatedVisibility, so dismissing them takes the
+	// seek bar out of the composition and cancels that job with it, leaving whatever was being
+	// scrubbed scrubbing forever with nothing on screen left to end it. What is being scrubbed
+	// outlives the composition, so ending it is this composable's to do on the way out. Ending a
+	// scrub that never started is harmless, so no attempt is made to remember whether one did.
+	val currentOnScrubbing by rememberUpdatedState(onScrubbing)
+	DisposableEffect(Unit) {
+		onDispose { currentOnScrubbing?.invoke(false) }
+	}
 
 	Box(
 		modifier = modifier

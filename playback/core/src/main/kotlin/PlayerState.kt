@@ -106,6 +106,7 @@ class MutablePlayerState(
 	}
 
 	override fun play() {
+		endScrubbing()
 		backendService.backend.play()
 	}
 
@@ -114,7 +115,24 @@ class MutablePlayerState(
 	}
 
 	override fun unpause() {
+		endScrubbing()
 		backendService.backend.play()
+	}
+
+	/**
+	 * End a scrub that is still running, because an explicit play is the end of one.
+	 *
+	 * A backend is free to suppress playback entirely while scrubbing rather than merely pause it,
+	 * and the media3 one does: playback does not run for as long as the flag is set, whatever it is
+	 * asked to do. That makes asking to play do nothing at all, so a scrub left running is a
+	 * stopped picture the play button cannot start — the one control a viewer will reach for.
+	 *
+	 * Ending it here rather than in the backend keeps [scrubbing] saying what the backend is doing.
+	 * Anything watching the flow to decide it is scrubbing, such as a preview over the picture,
+	 * would otherwise be left showing a scrub that had already ended.
+	 */
+	private fun endScrubbing() {
+		if (_scrubbing.value) setScrubbing(false)
 	}
 
 	override fun stop() {
