@@ -4,6 +4,7 @@ import static org.koin.java.KoinJavaComponent.inject;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -97,6 +98,14 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
     protected BaseRowItem mCurrentItem;
     protected ListRow mCurrentRow;
 
+    // Leanback fires onItemSelected for every cell a held direction key passes over. Everything
+    // that follows a selection here is expensive: a backdrop is a full-screen decode, the summary
+    // is a Markdown render and the info row inflates views, and the last two run on the UI thread.
+    // BrowseGridFragment has throttled exactly this since it was written; these screens never did,
+    // so walking a row of a library started one of each per cell.
+    private static final int VIEW_SELECT_UPDATE_DELAY = 250;
+    private final Handler mSelectionHandler = new Handler(Looper.getMainLooper());
+
     private Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
     private Lazy<MarkdownRenderer> markdownRenderer = inject(MarkdownRenderer.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
@@ -151,9 +160,30 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        mSelectionHandler.removeCallbacks(mDelayedSetSelection);
         mClickedListener.removeListeners();
         mSelectedListener.removeListeners();
     }
+
+    /**
+     * The part of a selection worth paying for only once the viewer has stopped moving.
+     */
+    private final Runnable mDelayedSetSelection = new Runnable() {
+        @Override
+        public void run() {
+            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
+            if (mCurrentItem == null) return;
+
+            String summary = mCurrentItem.getSummary(requireContext());
+            if (summary != null)
+                mSummary.setText(markdownRenderer.getValue().toMarkdownSpanned(summary));
+            else mSummary.setText(null);
+
+            InfoLayoutHelper.addInfoRow(requireContext(), mCurrentItem.getBaseItem(), mInfoRow, true);
+
+            backgroundService.getValue().setBackground(mCurrentItem.getBaseItem());
+        }
+    };
 
     protected void setupQueries(RowLoader rowLoader) {
         rowLoader.loadRows(mRows);
@@ -429,6 +459,10 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
         @Override
         public void onItemSelected(Presenter.ViewHolder itemViewHolder, Object item,
                                    RowPresenter.ViewHolder rowViewHolder, Row row) {
+            // Always first, on both branches, so a pending update never lands on top of a newer
+            // selection.
+            mSelectionHandler.removeCallbacks(mDelayedSetSelection);
+
             if (!(item instanceof BaseRowItem)) {
                 mTitle.setText(mFolder != null ? mFolder.getName() : "");
                 mInfoRow.removeAllViews();
@@ -446,19 +480,14 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
             mCurrentRow = (ListRow) row;
             mInfoRow.removeAllViews();
 
+            // The title is what makes the screen feel responsive, so it stays immediate. Paging
+            // does too — a delayed fetch would stall a fast scroll at the end of a loaded page.
             mTitle.setText(rowItem.getName(requireContext()));
-
-            String summary = rowItem.getSummary(requireContext());
-            if (summary != null)
-                mSummary.setText(markdownRenderer.getValue().toMarkdownSpanned(summary));
-            else mSummary.setText(null);
-
-            InfoLayoutHelper.addInfoRow(requireContext(), rowItem.getBaseItem(), mInfoRow, true);
 
             ItemRowAdapter adapter = (ItemRowAdapter) ((ListRow) row).getAdapter();
             adapter.loadMoreItemsIfNeeded(adapter.indexOf(rowItem));
 
-            backgroundService.getValue().setBackground(rowItem.getBaseItem());
+            mSelectionHandler.postDelayed(mDelayedSetSelection, VIEW_SELECT_UPDATE_DELAY);
         }
     }
 }
