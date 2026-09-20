@@ -233,6 +233,21 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		// Update audio queue
 		Timber.i("Updating audio queue in HomeFragment (onResume)")
 		nowPlaying.update(requireContext(), adapter as MutableObjectAdapter<Row>)
+
+		// The rows list can come up never measured when the activity is rebuilt from saved state,
+		// which is what leaves the home screen showing its toolbar over nothing at all. The grid is
+		// added to its container after that container has already been laid out, and the layout
+		// pass that should follow never arrives: a dumpsys of the broken screen shows this view at
+		// 0x0, still flagged invalidated, inside a container correctly sized to 1920x890 and with
+		// the fragment resumed. Nothing frees it afterwards - d-pad input does not - so ask for the
+		// pass here. Posted rather than called directly so it lands after whatever traversal is
+		// already running instead of inside it, which is where the original request was lost.
+		view?.let { rows ->
+			if (rows.width == 0 || rows.height == 0) {
+				Timber.i("Home rows came up unmeasured, requesting a layout pass")
+				rows.post { rows.requestLayout() }
+			}
+		}
 	}
 
 	override fun onQueueStatusChanged(hasQueue: Boolean) {
