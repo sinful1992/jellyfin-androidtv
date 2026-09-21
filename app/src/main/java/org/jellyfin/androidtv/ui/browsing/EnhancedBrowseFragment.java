@@ -451,8 +451,12 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
         public void onItemClicked(final Presenter.ViewHolder itemViewHolder, Object item, RowPresenter.ViewHolder rowViewHolder, Row row) {
             if (!(item instanceof BaseRowItem)) return;
 
-            itemLauncher.getValue().launch((BaseRowItem) item, (ItemRowAdapter) ((ListRow) row).getAdapter(), requireContext());
+            launchItem((BaseRowItem) item, (ItemRowAdapter) ((ListRow) row).getAdapter());
         }
+    }
+
+    protected void launchItem(BaseRowItem item, ItemRowAdapter adapter) {
+        itemLauncher.getValue().launch(item, adapter, requireContext());
     }
 
     private final class ItemViewSelectedListener implements OnItemViewSelectedListener {

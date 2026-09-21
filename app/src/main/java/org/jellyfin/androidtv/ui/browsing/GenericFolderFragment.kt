@@ -3,13 +3,20 @@ package org.jellyfin.androidtv.ui.browsing
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.querying.GetSpecialsRequest
 import org.jellyfin.androidtv.data.repository.ItemRepository
+import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
+import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter
+import org.jellyfin.androidtv.ui.navigation.Destinations
+import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
+import org.koin.android.ext.android.inject
 
 class GenericFolderFragment : EnhancedBrowseFragment() {
+	private val navigationRepository by inject<NavigationRepository>()
+
 	companion object {
 		private val showSpecialViewTypes = setOf(
 			BaseItemKind.COLLECTION_FOLDER,
@@ -67,24 +74,31 @@ class GenericFolderFragment : EnhancedBrowseFragment() {
 			val specials = GetSpecialsRequest(mFolder.id)
 			mRows.add(BrowseRowDef(getString(R.string.lbl_specials), specials))
 
+			// One request with the card-only field set. A show with a single season comes back
+			// empty and the row removes itself. The series gets no row of its own: moving between
+			// seasons replaces this page (see launchItem), so Back always lands on the series.
 			val seriesId = mFolder.seriesId ?: mFolder.parentId
 			if (seriesId != null) {
 				val otherSeasons = GetItemsRequest(
-					fields = ItemRepository.itemFields,
+					fields = ItemRepository.browseFields,
 					parentId = seriesId,
 					includeItemTypes = setOf(BaseItemKind.SEASON),
 					excludeItemIds = setOf(mFolder.id),
+					sortBy = setOf(ItemSortBy.INDEX_NUMBER),
 				)
 				mRows.add(BrowseRowDef(getString(R.string.lbl_seasons), otherSeasons, 100))
-
-				val series = GetItemsRequest(
-					fields = ItemRepository.itemFields,
-					ids = setOf(seriesId),
-				)
-				mRows.add(BrowseRowDef(getString(R.string.lbl_series), series, 100))
 			}
 		}
 
 		rowLoader.loadRows(mRows)
+	}
+
+	override fun launchItem(item: BaseRowItem, adapter: ItemRowAdapter) {
+		val baseItem = item.baseItem
+		if (mFolder.type == BaseItemKind.SEASON && baseItem?.type == BaseItemKind.SEASON) {
+			navigationRepository.navigate(Destinations.folderBrowser(baseItem), true)
+		} else {
+			super.launchItem(item, adapter)
+		}
 	}
 }
