@@ -264,8 +264,4 @@ class SocketHandler(
 			Toast.makeText(context, toastMessage, Toast.LENGTH_LONG).show()
 		}
 	}
-
-	companion object {
-		const val TICKS_TO_MS = 10000L
-	}
 }
