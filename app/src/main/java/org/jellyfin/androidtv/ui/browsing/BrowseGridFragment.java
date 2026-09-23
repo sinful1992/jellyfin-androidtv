@@ -739,6 +739,12 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private ImageButton mFavoriteButton;
     private ImageButton mLetterButton;
 
+    private void updateUnwatchedButton(boolean unwatchedOnly) {
+        mUnwatchedButton.setImageResource(unwatchedOnly ? R.drawable.ic_eye_off : R.drawable.ic_eye);
+        mUnwatchedButton.setActivated(unwatchedOnly);
+        mUnwatchedButton.setContentDescription(getString(unwatchedOnly ? R.string.lbl_unwatched : R.string.lbl_all_items));
+    }
+
     private void updateDisplayPrefs() {
         CoroutineUtils.runOnLifecycle(getLifecycle(), (coroutineScope, continuation) -> {
             libraryPreferences.set(LibraryPreferences.Companion.getFilterFavoritesOnly(), mAdapter.getFilters().isFavoriteOnly());
@@ -786,8 +792,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
         if (mRowDef.getQueryType() == QueryType.Items) {
             mUnwatchedButton = new ImageButton(requireContext(), null, 0, R.style.Button_Icon);
-            mUnwatchedButton.setImageResource(R.drawable.ic_unwatch);
-            mUnwatchedButton.setActivated(mAdapter.getFilters().isUnwatchedOnly());
+            updateUnwatchedButton(mAdapter.getFilters().isUnwatchedOnly());
             mUnwatchedButton.setMaxHeight(size);
             mUnwatchedButton.setAdjustViewBounds(true);
             mUnwatchedButton.setOnClickListener(new View.OnClickListener() {
@@ -797,13 +802,12 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                     if (filters == null) filters = new FilterOptions();
 
                     filters.setUnwatchedOnly(!filters.isUnwatchedOnly());
-                    mUnwatchedButton.setActivated(filters.isUnwatchedOnly());
+                    updateUnwatchedButton(filters.isUnwatchedOnly());
                     mAdapter.setFilters(filters);
                     mAdapter.Retrieve();
                     updateDisplayPrefs();
                 }
             });
-            mUnwatchedButton.setContentDescription(getString(R.string.lbl_unwatched));
             binding.toolBar.addView(mUnwatchedButton);
         }
 
