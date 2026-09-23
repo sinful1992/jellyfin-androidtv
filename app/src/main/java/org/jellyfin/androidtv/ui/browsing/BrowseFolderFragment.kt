@@ -12,12 +12,9 @@ import androidx.leanback.widget.RowPresenter
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.jellyfin.androidtv.constant.Extras
-import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter
@@ -26,7 +23,6 @@ import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.koin.android.ext.android.inject
-import kotlin.time.Duration.Companion.milliseconds
 
 abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 	protected var folder: BaseItemDto? = null
@@ -34,14 +30,7 @@ abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 
 	protected var rows = mutableListOf<BrowseRowDef>()
 
-	private val backgroundService by inject<BackgroundService>()
 	private val itemLauncher by inject<ItemLauncher>()
-
-	// A backdrop is a full-screen decode, and Leanback fires a selection for every cell a held
-	// direction key passes over — so walking a row used to start one per cell and cancel it on the
-	// next. BrowseGridFragment has waited for the viewer to settle since it was written; this is
-	// the same delay, so the browse screens behave alike.
-	private var backdropJob: Job? = null
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -65,23 +54,10 @@ abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 			}
 		}
 		onItemViewSelectedListener = OnItemViewSelectedListener { _: Presenter.ViewHolder?, item: Any?, _: RowPresenter.ViewHolder?, row: Row ->
-			// Always first, on both branches, so a pending backdrop never lands on top of a newer
-			// selection.
-			backdropJob?.cancel()
+			if (item !is BaseRowItem) return@OnItemViewSelectedListener
 
-			if (item !is BaseRowItem) {
-				backgroundService.clearBackgrounds()
-			} else {
-				// Paging stays immediate — a delayed fetch would stall a fast scroll at the end of
-				// a loaded page.
-				val adapter = (row as? ListRow)?.adapter
-				if (adapter is ItemRowAdapter) adapter.loadMoreItemsIfNeeded(adapter.indexOf(item))
-
-				backdropJob = lifecycleScope.launch {
-					delay(VIEW_SELECT_UPDATE_DELAY)
-					backgroundService.setBackground(item.baseItem)
-				}
-			}
+			val adapter = (row as? ListRow)?.adapter
+			if (adapter is ItemRowAdapter) adapter.loadMoreItemsIfNeeded(adapter.indexOf(item))
 		}
 
 		// Initialize
@@ -119,10 +95,5 @@ abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 				mutableAdapter.add(row)
 			}
 		}
-	}
-
-	private companion object {
-		/** How long the viewer must stay on a cell before its backdrop is loaded. */
-		val VIEW_SELECT_UPDATE_DELAY = 250.milliseconds
 	}
 }

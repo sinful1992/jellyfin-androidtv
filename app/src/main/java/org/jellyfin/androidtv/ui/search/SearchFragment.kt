@@ -134,7 +134,6 @@ class SearchFragment : Fragment() {
 					rowsSupportFragment = fragment
 					fragment.adapter = searchFragmentDelegate.rowsAdapter
 					fragment.onItemViewClickedListener = searchFragmentDelegate.onItemViewClickedListener
-					fragment.onItemViewSelectedListener = searchFragmentDelegate.onItemViewSelectedListener
 				}
 			)
 		}

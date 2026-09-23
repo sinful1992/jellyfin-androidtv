@@ -67,17 +67,6 @@ fun SettingsCustomizationScreen() {
 		}
 
 		item {
-			var backdropBehavior by rememberPreference(userPreferences, UserPreferences.backdropBehavior)
-
-			ListButton(
-				headingContent = { Text(stringResource(R.string.lbl_show_backdrop)) },
-				captionContent = { Text(stringResource(backdropBehavior.nameRes)) },
-				onClick = { router.push(Routes.CUSTOMIZATION_BACKDROP) },
-				modifier = Modifier.focusKey(Routes.CUSTOMIZATION_BACKDROP)
-			)
-		}
-
-		item {
 			var seriesThumbnailsEnabled by rememberPreference(userPreferences, UserPreferences.seriesThumbnailsEnabled)
 
 			ListButton(

@@ -25,7 +25,6 @@ import androidx.lifecycle.Lifecycle;
 
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.data.model.DataRefreshService;
-import org.jellyfin.androidtv.data.service.BackgroundService;
 import org.jellyfin.androidtv.databinding.FragmentItemListBinding;
 import org.jellyfin.androidtv.databinding.ViewRowDetailsBinding;
 import org.jellyfin.androidtv.ui.AsyncImageView;
@@ -54,7 +53,6 @@ import org.koin.java.KoinJavaComponent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 
 import kotlin.Lazy;
@@ -87,7 +85,6 @@ public class ItemListFragment extends Fragment implements View.OnKeyListener {
     private Instant lastUpdated = Instant.now();
 
     private final Lazy<DataRefreshService> dataRefreshService = inject(DataRefreshService.class);
-    private final Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
     private final Lazy<MediaManager> mediaManager = inject(MediaManager.class);
     private final Lazy<NavigationRepository> navigationRepository = inject(NavigationRepository.class);
     private final Lazy<ItemLauncher> itemLauncher = inject(ItemLauncher.class);
@@ -335,7 +332,6 @@ public class ItemListFragment extends Fragment implements View.OnKeyListener {
                 mAudioEventListener.onPlaybackStateChange(PlayState.PLAYING, mediaManager.getValue().getCurrentAudioItem());
             }
 
-            updateBackdrop();
         }
         return null;
     };
@@ -467,14 +463,5 @@ public class ItemListFragment extends Fragment implements View.OnKeyListener {
             });
         }
 
-    }
-
-    private void updateBackdrop() {
-        BaseItemDto item = mBaseItem;
-
-        if (item.getBackdropImageTags() == null || item.getBackdropImageTags().isEmpty() && mItems != null && !mItems.isEmpty())
-            item = mItems.get(new Random().nextInt(mItems.size()));
-
-        backgroundService.getValue().setBackground(item);
     }
 }

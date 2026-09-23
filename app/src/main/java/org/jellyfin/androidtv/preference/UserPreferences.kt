@@ -6,7 +6,6 @@ import org.jellyfin.androidtv.preference.UserPreferences.Companion.screensaverIn
 import org.jellyfin.androidtv.preference.constant.AVCLevel
 import org.jellyfin.androidtv.preference.constant.AppTheme
 import org.jellyfin.androidtv.preference.constant.AudioBehavior
-import org.jellyfin.androidtv.preference.constant.BackdropBehavior
 import org.jellyfin.androidtv.preference.constant.BitstreamAudioMode
 import org.jellyfin.androidtv.preference.constant.BufferLength
 import org.jellyfin.androidtv.preference.constant.ClockBehavior
@@ -43,11 +42,6 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		 * Select the app theme
 		 */
 		var appTheme = enumPreference("app_theme", AppTheme.DARK)
-
-		/**
-		 * Behavior of app background while browsing
-		 */
-		var backdropBehavior = enumPreference("backdrop_behavior", BackdropBehavior.BACKDROP_WITH_BLUR)
 
 		/* Playback - General*/
 		/**
@@ -322,13 +316,6 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 			migration(toVersion = 9) {
 				// Reset subtitle text size as we changed from fractional sizing to absolute sizing
 				remove("subtitles_text_size")
-
-				// Set the BackdropBehavior if it was enabled in a previous version
-				val backdropEnabled = it.getBoolean("pref_show_backdrop", true)
-				putString(
-					"backdrop_behavior",
-					if (backdropEnabled) BackdropBehavior.BACKDROP_WITH_BLUR.name else BackdropBehavior.DISABLED.name
-				)
 			}
 		}
 	}

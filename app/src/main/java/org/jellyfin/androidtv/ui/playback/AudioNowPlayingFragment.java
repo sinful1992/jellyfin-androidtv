@@ -29,7 +29,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwnerKt;
 
 import org.jellyfin.androidtv.R;
-import org.jellyfin.androidtv.data.service.BackgroundService;
 import org.jellyfin.androidtv.databinding.FragmentAudioNowPlayingBinding;
 import org.jellyfin.androidtv.ui.itemhandling.AudioQueueBaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
@@ -75,7 +74,6 @@ public class AudioNowPlayingFragment extends Fragment {
 
     private boolean queueRowHasFocus = false;
 
-    private final Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
     private final Lazy<MediaManager> mediaManager = inject(MediaManager.class);
     private final Lazy<PlaybackManager> playbackManager = inject(PlaybackManager.class);
     private final Lazy<NavigationRepository> navigationRepository = inject(NavigationRepository.class);
@@ -355,7 +353,6 @@ public class AudioNowPlayingFragment extends Fragment {
             }
             mCurrentNdx.setText(getString(R.string.lbl_now_playing_track, mediaManager.getValue().getCurrentAudioQueueDisplayPosition(), mediaManager.getValue().getCurrentAudioQueueDisplaySize()));
             addGenres(mGenreRow);
-            backgroundService.getValue().setBackground(item);
         }
     }
 

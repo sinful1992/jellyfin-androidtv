@@ -35,7 +35,6 @@ import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.androidtv.data.repository.CustomMessageRepository
 import org.jellyfin.androidtv.data.repository.NotificationsRepository
 import org.jellyfin.androidtv.data.repository.UserViewsRepository
-import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.ui.GridButton
 import org.jellyfin.androidtv.ui.browsing.CompositeClickedListener
@@ -71,7 +70,6 @@ private const val HOME_CARD_HEIGHT = 104
 
 class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyListener {
 	private val api by inject<ApiClient>()
-	private val backgroundService by inject<BackgroundService>()
 	private val playbackManager by inject<PlaybackManager>()
 	private val mediaManager by inject<MediaManager>()
 	private val notificationsRepository by inject<NotificationsRepository>()
@@ -390,13 +388,6 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				val itemRowAdapter = row.adapter as? ItemRowAdapter
 				itemRowAdapter?.loadMoreItemsIfNeeded(itemRowAdapter.indexOf(item))
 			}
-
-			// Nothing on this screen puts a picture behind the app, the hero included: it draws its
-			// own artwork inside its own card, on the same ground every row below it sits on. A
-			// backdrop following the card under the pointer turned a walk along a row into a
-			// slideshow, and a backdrop that only the top row set turned one press down into the
-			// screen going black.
-			backgroundService.clearBackgrounds()
 		}
 	}
 }

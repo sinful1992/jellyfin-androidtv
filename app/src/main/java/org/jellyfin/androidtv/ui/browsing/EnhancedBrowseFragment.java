@@ -36,7 +36,6 @@ import org.jellyfin.androidtv.constant.QueryType;
 import org.jellyfin.androidtv.data.model.DataRefreshService;
 import org.jellyfin.androidtv.data.querying.GetUserViewsRequest;
 import org.jellyfin.androidtv.data.repository.CustomMessageRepository;
-import org.jellyfin.androidtv.data.service.BackgroundService;
 import org.jellyfin.androidtv.databinding.EnhancedDetailBrowseBinding;
 import org.jellyfin.androidtv.ui.GridButton;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
@@ -99,14 +98,13 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
     protected ListRow mCurrentRow;
 
     // Leanback fires onItemSelected for every cell a held direction key passes over. Everything
-    // that follows a selection here is expensive: a backdrop is a full-screen decode, the summary
-    // is a Markdown render and the info row inflates views, and the last two run on the UI thread.
+    // that follows a selection here is expensive: the summary is a Markdown render and the info row
+    // inflates views, both on the UI thread.
     // BrowseGridFragment has throttled exactly this since it was written; these screens never did,
     // so walking a row of a library started one of each per cell.
     private static final int VIEW_SELECT_UPDATE_DELAY = 250;
     private final Handler mSelectionHandler = new Handler(Looper.getMainLooper());
 
-    private Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
     private Lazy<MarkdownRenderer> markdownRenderer = inject(MarkdownRenderer.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
     private final Lazy<NavigationRepository> navigationRepository = inject(NavigationRepository.class);
@@ -180,8 +178,6 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
             else mSummary.setText(null);
 
             InfoLayoutHelper.addInfoRow(requireContext(), mCurrentItem.getBaseItem(), mInfoRow, true);
-
-            backgroundService.getValue().setBackground(mCurrentItem.getBaseItem());
         }
     };
 
@@ -473,8 +469,6 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
                 mSummary.setText("");
                 mCurrentItem = null;
                 mCurrentRow = null;
-                // Fill in default background
-                backgroundService.getValue().clearBackgrounds();
                 return;
             }
 

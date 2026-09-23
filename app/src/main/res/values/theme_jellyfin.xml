@@ -10,11 +10,10 @@
         <!--
         Opaque, so the window declares PixelFormat.OPAQUE rather than TRANSPARENT.
 
-        Upstream made this transparent so the legacy player could call
-        BackgroundService.disable() and let the video surface show through the
-        window. That player is gone from this fork, disable() has no callers, and
-        the rewrite player calls clearBackgrounds() instead, which re-enables the
-        background and paints defaultBackground behind the video. So the window
+        Upstream made this transparent so the legacy player could switch the app
+        background off and let the video surface show through the window. That
+        player and the backdrop service are both gone from this fork; the app
+        background always paints defaultBackground, video included. So the window
         was declaring a transparency nothing here uses.
 
         This is NOT a performance fix and must not be presented as one. The theory

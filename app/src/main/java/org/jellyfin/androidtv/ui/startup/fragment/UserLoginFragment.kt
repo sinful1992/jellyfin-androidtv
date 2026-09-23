@@ -17,11 +17,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.auth.model.UnavailableQuickConnectState
-import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.databinding.FragmentUserLoginBinding
 import org.jellyfin.androidtv.ui.startup.UserLoginViewModel
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
-import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 
 class UserLoginFragment : Fragment() {
@@ -33,7 +31,6 @@ class UserLoginFragment : Fragment() {
 	}
 
 	private val userLoginViewModel: UserLoginViewModel by activityViewModel()
-	private val backgroundService: BackgroundService by inject()
 	private var _binding: FragmentUserLoginBinding? = null
 	private val binding get() = _binding!!
 
@@ -73,13 +70,10 @@ class UserLoginFragment : Fragment() {
 
 		lifecycleScope.launch {
 			viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-				// Update "connecting to ..." text and background
+				// Update "connecting to ..." text
 				userLoginViewModel.server.onEach { server ->
 					val name = server?.name ?: "Jellyfin"
 					binding.subtitle.text = getString(R.string.login_connect_to, name)
-
-					if (server != null) backgroundService.setBackground(server)
-					else backgroundService.clearBackgrounds()
 				}.launchIn(this)
 
 				// Disable QuickConnect when unavailable
