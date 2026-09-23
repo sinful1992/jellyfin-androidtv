@@ -251,6 +251,7 @@ object BrowsingUtils {
 				CollectionType.MOVIES -> baseRequest.copy(
 					includeItemTypes = setOf(BaseItemKind.MOVIE),
 					recursive = true,
+					collapseBoxSetItems = false,
 				)
 
 				CollectionType.TVSHOWS -> baseRequest.copy(
