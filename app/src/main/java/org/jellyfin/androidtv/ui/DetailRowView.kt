@@ -53,14 +53,15 @@ class DetailRowView @JvmOverloads constructor(
 
 		// Transparent until a fifth of the way in and solid from about three fifths: the
 		// description stops (details_main_end_with_art) just past where the picture starts. The
-		// bottom half fades out before the rows below, and the top starts at a third so the clock
-		// and the home button over it stay readable on a bright picture.
+		// bottom half fades out before the rows below, and the top is held down to about a third
+		// where the clock and the home button sit over it (neither reads on a bright picture at
+		// half strength; the home button has no shadow at all).
 		binding.fdBackdrop.transformation = EdgeFadeTransformation(
 			leftClear = 0.18f,
 			leftSolid = 0.62f,
 			bottomSolid = 0.55f,
-			topAlpha = 0.35f,
-			topSolid = 0.3f,
+			topAlpha = 0.15f,
+			topSolid = 0.35f,
 		)
 	}
 }

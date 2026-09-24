@@ -93,6 +93,9 @@ class MyDetailsOverviewRowPresenter(
 			else binding.fdLogo.setImageDrawable(null)
 
 			binding.fdTitle.isVisible = logo == null || episode
+			// Under the series logo an episode title gets one line: two would push the logo up
+			// against the top of the screen. The full name is still on the episode's card.
+			binding.fdTitle.maxLines = if (logo != null && episode) 1 else 2
 		}
 
 		fun setTitle(title: String?) {
