@@ -2,7 +2,9 @@ package org.jellyfin.androidtv.ui.presentation
 
 import android.view.ViewGroup
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.leanback.widget.RowPresenter
+import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.DetailRowView
 import org.jellyfin.androidtv.ui.itemdetail.MyDetailsOverviewRow
 import org.jellyfin.androidtv.util.InfoLayoutHelper
@@ -33,7 +35,7 @@ class MyDetailsOverviewRowPresenter(
 			binding.infoTitle3.text = row.infoItem3?.label
 			binding.infoValue3.text = row.infoItem3?.value
 
-			binding.mainImage.load(row.imageDrawable, null, null, 1.0, 0)
+			setArtwork(row)
 
 			setSummary(row.summary)
 
@@ -49,6 +51,48 @@ class MyDetailsOverviewRowPresenter(
 
 				binding.fdButtonRow.addView(button)
 			}
+		}
+
+		/**
+		 * With a picture, it fills the top right, the logo moves into the title's place and the
+		 * text column narrows to stop where the picture fades in. Without one the page is laid out
+		 * as it always was, the logo or primary image in the right-hand column. Every view is set
+		 * both ways on every bind: the row is bound again when the page refreshes.
+		 */
+		private fun setArtwork(row: MyDetailsOverviewRow) {
+			val resources = view.resources
+			val backdrop = row.backdropUrl
+			val logo = row.logoUrl.takeIf { backdrop != null }
+			val episode = row.item.type == BaseItemKind.EPISODE
+
+			binding.fdBackdrop.isVisible = backdrop != null
+			if (backdrop != null) binding.fdBackdrop.load(backdrop)
+			else binding.fdBackdrop.setImageDrawable(null)
+
+			binding.mainImage.isVisible = backdrop == null
+			if (backdrop == null) binding.mainImage.load(row.imageDrawable, null, null, 1.0, 0)
+			else binding.mainImage.setImageDrawable(null)
+
+			val mainEndWithArt = resources.getDimensionPixelSize(R.dimen.details_main_end_with_art)
+			binding.guideMainEnd.setGuidelineEnd(
+				if (backdrop != null) mainEndWithArt else resources.getDimensionPixelSize(R.dimen.details_main_end)
+			)
+			binding.guideTitleEnd.setGuidelineEnd(
+				if (backdrop != null) mainEndWithArt else resources.getDimensionPixelSize(R.dimen.details_title_end)
+			)
+
+			// An episode keeps its own name under the series logo; anything else is named by it.
+			binding.fdLogo.isVisible = logo != null
+			binding.fdLogo.contentDescription = row.item.seriesName.takeIf { episode } ?: row.item.name
+			binding.fdLogo.updateLayoutParams {
+				height = resources.getDimensionPixelSize(
+					if (episode) R.dimen.details_logo_height_above_title else R.dimen.details_logo_height
+				)
+			}
+			if (logo != null) binding.fdLogo.load(logo)
+			else binding.fdLogo.setImageDrawable(null)
+
+			binding.fdTitle.isVisible = logo == null || episode
 		}
 
 		fun setTitle(title: String?) {

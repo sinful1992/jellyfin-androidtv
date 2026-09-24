@@ -379,6 +379,14 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
             mDetailsOverviewRow.setImageDrawable(primaryImageUrl);
 
+            if (item.getType() != BaseItemKind.PERSON && item.getType() != BaseItemKind.MUSIC_ARTIST) {
+                mDetailsOverviewRow.setBackdropUrl(imageHelper.getValue().getDetailsBackdropUrl(
+                        item,
+                        getResources().getDimensionPixelSize(R.dimen.details_backdrop_width),
+                        getResources().getDimensionPixelSize(R.dimen.details_backdrop_height)));
+                mDetailsOverviewRow.setLogoUrl(imageHelper.getValue().getLogoImageUrl(item, 600));
+            }
+
             return mDetailsOverviewRow;
         }
 

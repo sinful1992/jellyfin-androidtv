@@ -35,7 +35,17 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_end="240dp" />
+            app:layout_constraintGuide_end="@dimen/details_main_end" />
+
+        <!-- Where the title, the info row and the genres stop. The right-hand edge normally; with a
+             picture behind the page it moves in to guide_main_end's position, because those lines
+             would otherwise run across the picture. -->
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guide_title_end"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_end="@dimen/details_title_end" />
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guide_right_start"
@@ -51,7 +61,33 @@
             android:orientation="vertical"
             app:layout_constraintGuide_end="50dp" />
 
+        <!-- The item's own picture, behind everything else in the row and scrolling away with it.
+             Anchored to the top and end edges and sized to reach the bottom of the button row;
+             its left, bottom and top edges are faded into the picture itself when it loads
+             (EdgeFadeTransformation), so the text column keeps plain ground under it. -->
+        <org.jellyfin.androidtv.ui.AsyncImageView
+            android:id="@+id/fdBackdrop"
+            android:layout_width="@dimen/details_backdrop_width"
+            android:layout_height="@dimen/details_backdrop_height"
+            android:importantForAccessibility="no"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <!-- Top -->
+        <org.jellyfin.androidtv.ui.AsyncImageView
+            android:id="@+id/fdLogo"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/details_logo_height"
+            android:layout_marginBottom="4dp"
+            android:scaleType="fitStart"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/fdTitle"
+            app:layout_constraintEnd_toEndOf="@id/guide_main_end"
+            app:layout_constraintStart_toStartOf="@id/guide_main_start"
+            app:layout_goneMarginBottom="10dp" />
+
         <TextView
             android:id="@+id/fdTitle"
             android:layout_width="0dp"
@@ -61,7 +97,7 @@
             android:maxLines="2"
             android:textSize="30sp"
             app:layout_constraintBottom_toTopOf="@id/fdMainInfoRow"
-            app:layout_constraintEnd_toEndOf="@id/guide_right_end"
+            app:layout_constraintEnd_toEndOf="@id/guide_title_end"
             app:layout_constraintStart_toStartOf="@id/guide_main_start"
             tools:text="fdTitle" />
 
@@ -72,7 +108,7 @@
             android:dividerPadding="4sp"
             android:orientation="horizontal"
             app:layout_constraintBottom_toTopOf="@id/fdGenreRow"
-            app:layout_constraintEnd_toEndOf="@id/guide_right_end"
+            app:layout_constraintEnd_toEndOf="@id/guide_title_end"
             app:layout_constraintStart_toStartOf="@id/guide_main_start" />
 
         <TextView
@@ -80,7 +116,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintBottom_toTopOf="@id/guide_top"
-            app:layout_constraintEnd_toEndOf="@id/guide_right_end"
+            app:layout_constraintEnd_toEndOf="@id/guide_title_end"
             app:layout_constraintStart_toStartOf="@id/guide_main_start"
             tools:text="fdGenreRow" />
 
@@ -186,7 +222,7 @@
             android:divider="@drawable/blank10x10"
             android:orientation="horizontal"
             android:showDividers="none"
-            app:layout_constraintEnd_toEndOf="@id/guide_main_end"
+            app:layout_constraintEnd_toEndOf="@id/guide_right_end"
             app:layout_constraintStart_toStartOf="@id/guide_main_start"
             app:layout_constraintTop_toBottomOf="@id/fdSummaryText" />
 

@@ -37,4 +37,17 @@
     <fraction name="lb_focus_zoom_factor_xsmall">@fraction/card_scale_default</fraction>
     <fraction name="lb_focus_zoom_factor_medium">@fraction/card_scale_default</fraction>
     <fraction name="lb_focus_zoom_factor_large">@fraction/card_scale_default</fraction>
+
+    <!-- Details page picture: the top-right box it fills, reaching the bottom of the button row.
+         While it is shown the description ends at details_main_end_with_art from the end edge
+         instead of 240dp, so its lines stop where the picture starts to fade in. -->
+    <dimen name="details_backdrop_width">560dp</dimen>
+    <dimen name="details_backdrop_height">400dp</dimen>
+    <dimen name="details_main_end_with_art">380dp</dimen>
+    <dimen name="details_main_end">240dp</dimen>
+    <dimen name="details_title_end">50dp</dimen>
+    <!-- The logo standing in for a title matches the home hero's; above an episode's own title it
+         is the series' and steps down so the stack stays clear of the top of the screen. -->
+    <dimen name="details_logo_height">76dp</dimen>
+    <dimen name="details_logo_height_above_title">48dp</dimen>
 </resources>

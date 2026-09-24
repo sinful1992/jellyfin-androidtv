@@ -7,6 +7,7 @@ import android.view.View
 import android.view.View.OnFocusChangeListener
 import android.widget.FrameLayout
 import org.jellyfin.androidtv.databinding.ViewRowDetailsBinding
+import org.jellyfin.androidtv.util.coil.EdgeFadeTransformation
 
 class DetailRowView @JvmOverloads constructor(
 	context: Context,
@@ -49,5 +50,17 @@ class DetailRowView @JvmOverloads constructor(
 	init {
 		binding.fdButtonRow.setOnHierarchyChangeListener(buttonsHierarchyChangeListener)
 		binding.mainImage.clipToOutline = true
+
+		// Transparent until a fifth of the way in and solid from about three fifths: the
+		// description stops (details_main_end_with_art) just past where the picture starts. The
+		// bottom half fades out before the rows below, and the top starts at a third so the clock
+		// and the home button over it stay readable on a bright picture.
+		binding.fdBackdrop.transformation = EdgeFadeTransformation(
+			leftClear = 0.18f,
+			leftSolid = 0.62f,
+			bottomSolid = 0.55f,
+			topAlpha = 0.35f,
+			topSolid = 0.3f,
+		)
 	}
 }

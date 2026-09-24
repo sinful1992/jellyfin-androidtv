@@ -18,6 +18,7 @@ import coil3.request.crossfade
 import coil3.request.target
 import coil3.request.transformations
 import coil3.transform.CircleCropTransformation
+import coil3.transform.Transformation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -55,6 +56,11 @@ class AsyncImageView @JvmOverloads constructor(
 	 * Shape the image to a circle and remove all corners.
 	 */
 	var circleCrop = styledAttributes.getBoolean(R.styleable.AsyncImageView_circleCrop, false)
+
+	/**
+	 * Applied to the loaded image, after [circleCrop]. Not to the placeholder or the blurhash.
+	 */
+	var transformation: Transformation? = null
 
 	/**
 	 * Load an image from the network using [url]. When the [url] is null or returns a bad response
@@ -101,7 +107,8 @@ class AsyncImageView @JvmOverloads constructor(
 					target(this@AsyncImageView)
 					data(url)
 					placeholder(placeholderOrBlurHash?.asImage())
-					if (circleCrop) transformations(CircleCropTransformation())
+					val transformations = listOfNotNull(if (circleCrop) CircleCropTransformation() else null, transformation)
+					if (transformations.isNotEmpty()) transformations(transformations)
 					error(placeholder?.asImage())
 				}.build()
 			}

@@ -6,7 +6,9 @@ import android.net.Uri
 import androidx.annotation.AnyRes
 import org.jellyfin.androidtv.util.apiclient.albumPrimaryImage
 import org.jellyfin.androidtv.util.apiclient.getUrl
+import org.jellyfin.androidtv.util.apiclient.itemBackdropImages
 import org.jellyfin.androidtv.util.apiclient.itemImages
+import org.jellyfin.androidtv.util.apiclient.parentBackdropImages
 import org.jellyfin.androidtv.util.apiclient.parentImages
 import org.jellyfin.androidtv.util.apiclient.seriesPrimaryImage
 import org.jellyfin.androidtv.util.apiclient.seriesThumbImage
@@ -67,6 +69,25 @@ class ImageHelper(
 			fillWidth = fillWidth,
 			fillHeight = fillHeight,
 		)
+	}
+
+	/**
+	 * The wide picture behind the top of an item's details page, filled to the box it is shown in.
+	 *
+	 * An episode takes its series' backdrop before its own frame: the backdrop is made to be shown
+	 * this large and stays the same on every episode, and the frame is already on the episode's card.
+	 */
+	fun getDetailsBackdropUrl(
+		item: BaseItemDto,
+		fillWidth: Int,
+		fillHeight: Int,
+	): String? {
+		val image = when (item.type) {
+			BaseItemKind.EPISODE -> item.parentBackdropImages.firstOrNull() ?: item.itemImages[ImageType.PRIMARY]
+			else -> item.itemBackdropImages.firstOrNull() ?: item.parentBackdropImages.firstOrNull()
+		}
+
+		return image?.getUrl(api, fillWidth = fillWidth, fillHeight = fillHeight)
 	}
 
 	fun getLogoImageUrl(

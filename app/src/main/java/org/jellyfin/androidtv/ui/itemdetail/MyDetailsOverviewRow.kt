@@ -15,6 +15,10 @@ class MyDetailsOverviewRow @JvmOverloads constructor(
 	var infoItem3: InfoItem? = null,
 	var selectedMediaSourceIndex: Int = 0,
 ) : Row() {
+	/** The wide picture behind the top of the page; when set, [logoUrl] stands in for the title. */
+	var backdropUrl: String? = null
+	var logoUrl: String? = null
+
 	private val _actions = mutableListOf<TextUnderButton>()
 	val actions get() = _actions.toList()
 	val visibleActions get() = _actions.count { it.isVisible }
