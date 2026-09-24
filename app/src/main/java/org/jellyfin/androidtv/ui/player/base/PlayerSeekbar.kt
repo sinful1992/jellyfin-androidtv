@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import org.jellyfin.androidtv.ui.base.Seekbar
 import org.jellyfin.androidtv.ui.base.SeekbarColors
 import org.jellyfin.androidtv.ui.base.SeekbarDefaults
-import org.jellyfin.androidtv.ui.composable.rememberPlayerProgress
+import org.jellyfin.androidtv.ui.composable.rememberSteppedPlayerProgress
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
 import org.koin.compose.koinInject
@@ -25,14 +25,12 @@ fun PlayerSeekbar(
 	onSeek: ((position: Duration) -> Unit)? = null,
 ) {
 	val playState by playbackManager.state.playState.collectAsState()
-	// Bumped on every seek so the position below is re-read and the progress animation restarts
-	// from where playback actually is, instead of briefly running on from the old position.
+	// Bumped on every seek so the position is re-read at once instead of on the next step.
 	var seekGeneration by remember { mutableIntStateOf(0) }
 	val positionInfo = playbackManager.state.positionInfo
-	val progress by rememberPlayerProgress(
+	val progress by rememberSteppedPlayerProgress(
+		playbackManager = playbackManager,
 		playing = playState == PlayState.PLAYING,
-		active = positionInfo.active,
-		duration = positionInfo.duration,
 		resyncKey = seekGeneration,
 	)
 	val seekForwardAmount = remember { playbackManager.options.defaultFastForwardAmount() }

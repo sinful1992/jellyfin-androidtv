@@ -9,6 +9,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.delay
@@ -20,6 +21,7 @@ import org.jellyfin.playback.core.queue.queue
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
@@ -72,18 +74,10 @@ fun rememberPlayerProgress(
 	playing: Boolean,
 	active: Duration,
 	duration: Duration,
-	/**
-	 * Changing this resyncs the animation to [active].
-	 *
-	 * Progress is animated locally rather than polled, so a jump the animation does not know about
-	 * - a seek - keeps running from the old position until something else happens to restart it.
-	 * Callers that cause such a jump pass a value that changes with it.
-	 */
-	resyncKey: Any? = null,
 ): State<Float> {
 	val animatable = remember { Animatable(0f, 0f) }
 
-	LaunchedEffect(playing, duration, resyncKey) {
+	LaunchedEffect(playing, duration) {
 		val activeMs = active.inWholeMilliseconds.toFloat()
 		val durationMs = duration.inWholeMilliseconds.toFloat()
 
@@ -102,4 +96,43 @@ fun rememberPlayerProgress(
 	}
 
 	return animatable.asState()
+}
+
+/** How many steps a stepped progress bar is split into; about one per pixel of a full-width bar. */
+private const val ProgressSteps = 1000
+private val MinProgressStep = 50.milliseconds
+private val MaxProgressStep = 1.seconds
+
+/**
+ * Progress for a bar that only has to move when the move can be seen.
+ *
+ * [rememberPlayerProgress] animates, which draws a new frame on every vsync for as long as it runs.
+ * On a long video a full-width bar moves less than a pixel a second, so this re-reads the position
+ * once per step instead: a thousandth of the duration, held between [MinProgressStep] and
+ * [MaxProgressStep]. Reading the position rather than extrapolating it also means a seek or a stall
+ * shows up on the next step on its own. Changing [resyncKey] re-reads it at once.
+ */
+@Composable
+fun rememberSteppedPlayerProgress(
+	playbackManager: PlaybackManager,
+	playing: Boolean,
+	resyncKey: Any? = null,
+): State<Float> {
+	val progress = remember { mutableFloatStateOf(0f) }
+
+	LaunchedEffect(playbackManager, playing, resyncKey) {
+		while (true) {
+			val positionInfo = playbackManager.state.positionInfo
+			val durationMs = positionInfo.duration.inWholeMilliseconds
+			progress.floatValue = when {
+				durationMs <= 0 -> 0f
+				else -> (positionInfo.active.inWholeMilliseconds.toFloat() / durationMs).coerceIn(0f, 1f)
+			}
+
+			if (!playing) break
+			delay((positionInfo.duration / ProgressSteps).coerceIn(MinProgressStep, MaxProgressStep))
+		}
+	}
+
+	return progress
 }
