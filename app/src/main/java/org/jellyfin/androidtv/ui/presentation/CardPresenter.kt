@@ -164,9 +164,12 @@ private const val TitleMarqueeDelayMillis = 1200
  * [basicMarquee] only moves text that overflows, so this does nothing to the titles that fit. The
  * delay is the difference between a row that scrolls at you the instant focus lands on it and one
  * that shows you the beginning of the name first.
+ *
+ * One pass, then it stops. A marquee that keeps going redraws the screen on every frame for as
+ * long as the card holds focus, which on a TV sitting on a page is indefinitely.
  */
 private fun Modifier.titleMarquee() = basicMarquee(
-	iterations = Int.MAX_VALUE,
+	iterations = 1,
 	initialDelayMillis = TitleMarqueeDelayMillis,
 )
 
