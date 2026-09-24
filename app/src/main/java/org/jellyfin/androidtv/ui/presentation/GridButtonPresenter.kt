@@ -5,6 +5,7 @@ import android.widget.FrameLayout
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -96,10 +97,14 @@ class GridButtonPresenter @JvmOverloads constructor(
 		private fun Content(value: GridButton, focused: Boolean, selected: Boolean) {
 			val shape = RoundedCornerShape(4.dp)
 
+			// The tile is held to the image height even when it has no image. Otherwise its height
+			// is whatever its tallest child comes to, and the scrim below is that child only while it
+			// is shown: a strip of text tiles shrank on the focused and the selected tile.
 			Box(
 				modifier = Modifier
 					.cardFocusGrowthRoom(rememberCardFocusScale())
 					.width(width.dp)
+					.heightIn(min = imageHeight.dp)
 					.cardFocusScale(focused)
 					.clip(shape)
 					.background(colorResource(if (selected) R.color.button_default_highlight_background else R.color.button_default_normal_background))
@@ -116,8 +121,8 @@ class GridButtonPresenter @JvmOverloads constructor(
 
 				// Over the image, under the label: the tile is mostly its label, and dimming that
 				// would take the word away rather than push the picture back. Sized to the image
-				// rather than to the tile, because the tile's own height is whatever its content
-				// comes to and there is nothing here to ask for it. The selected tile is left
+				// rather than to the tile, because matchParentSize does not survive the way leanback
+				// measures these rows. The selected tile is left
 				// undimmed: it has to stand out most when focus is on one of its neighbours.
 				if (!selected) {
 					ItemCardUnfocusedScrim(
@@ -136,7 +141,7 @@ class GridButtonPresenter @JvmOverloads constructor(
 					overflow = TextOverflow.Ellipsis,
 					modifier = Modifier
 						.padding(15.dp, 10.dp)
-						.align(Alignment.BottomStart)
+						.align(if (value.imageRes == null) Alignment.CenterStart else Alignment.BottomStart)
 				)
 			}
 		}
