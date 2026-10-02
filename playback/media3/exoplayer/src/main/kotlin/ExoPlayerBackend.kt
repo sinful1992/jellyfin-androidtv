@@ -36,6 +36,7 @@ import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
 import io.github.peerless2012.ass.media.type.AssRenderType
 import io.github.peerless2012.ass.media.widget.AssSubtitleView
 import org.jellyfin.playback.core.backend.BasePlayerBackend
+import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStream
 import org.jellyfin.playback.core.mediastream.MediaStreamAudioTrack
 import org.jellyfin.playback.core.mediastream.MediaStreamSubtitleTrack
@@ -440,8 +441,7 @@ class ExoPlayerBackend(
 			.filterNot { it.isExternal }
 
 		if (index == MediaStreamSubtitleTrack.INDEX_NONE) {
-			// Subtitles burned into a transcode cannot be turned off by selecting tracks, and that
-			// shows up the same way any other rewritten stream does.
+			if (!isDirectPlay()) return false
 			if (!containerMatchesMediaSource(C.TRACK_TYPE_TEXT, embedded.size)) return false
 
 			exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
@@ -511,6 +511,22 @@ class ExoPlayerBackend(
 	}
 
 	/**
+	 * Only a direct-played file carries the tracks its media source lists. A remux or transcode
+	 * holds what the server chose to put in it, which can include an external subtitle delivered
+	 * in the HLS manifest, so a matching count there is a coincidence and not proof the groups
+	 * line up. Those streams switch tracks by resolving again.
+	 */
+	private fun isDirectPlay(): Boolean {
+		val method = currentStream?.conversionMethod
+		if (method != MediaConversionMethod.None) {
+			Timber.d("Cannot select tracks client side on a $method stream")
+			return false
+		}
+
+		return true
+	}
+
+	/**
 	 * Whether this format carries one of the container's selection flags, such as
 	 * [C.SELECTION_FLAG_FORCED].
 	 */
@@ -546,6 +562,7 @@ class ExoPlayerBackend(
 		mediaSourceTracks: List<T>,
 		discriminators: List<(track: T, format: Format) -> Boolean>,
 	): TrackGroup? {
+		if (!isDirectPlay()) return null
 		if (!containerMatchesMediaSource(trackType, mediaSourceTracks.size)) return null
 
 		val track = mediaSourceTracks.firstOrNull { it.index == index }
