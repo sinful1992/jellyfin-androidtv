@@ -65,24 +65,30 @@ class AsyncImageView @JvmOverloads constructor(
 	/**
 	 * Load an image from the network using [url]. When the [url] is null or returns a bad response
 	 * the [placeholder] is shown. A [blurHash] is shown while loading the image. An aspect ratio is
-	 * required when using a BlurHash or the sizing will be incorrect.
+	 * required when using a BlurHash or the sizing will be incorrect. With [keepCurrentImage] the
+	 * image already shown stays up while the new one loads, in place of the blurhash.
 	 */
+	@JvmOverloads
 	fun load(
 		url: String? = null,
 		blurHash: String? = null,
 		placeholder: Drawable? = null,
 		aspectRatio: Double = 1.0,
 		blurHashResolution: Int = 32,
+		keepCurrentImage: Boolean = false,
 	) = doOnAttach {
 		// Cancel the previous load if still running
 		loadJob?.cancel()
 
+		// Read on the main thread, before the load below replaces it.
+		val currentImage = if (keepCurrentImage) drawable else null
+
 		loadJob = lifeCycleOwner?.lifecycleScope?.launch(Dispatchers.IO) {
-			var placeholderOrBlurHash = placeholder
+			var placeholderOrBlurHash = currentImage ?: placeholder
 
 			// Only show blurhash if an image is going to be loaded from the network
 			val isLowRamDevice = context.getSystemService<ActivityManager>()?.isLowRamDevice == true
-			if (url != null && blurHash != null && !isLowRamDevice && aspectRatio > 0) withContext(Dispatchers.IO) {
+			if (currentImage == null && url != null && blurHash != null && !isLowRamDevice && aspectRatio > 0) withContext(Dispatchers.IO) {
 				val blurHashBitmap = BlurHashDecoder.decode(
 					blurHash,
 					if (aspectRatio > 1) round(blurHashResolution * aspectRatio).toInt() else blurHashResolution,
@@ -109,7 +115,7 @@ class AsyncImageView @JvmOverloads constructor(
 					placeholder(placeholderOrBlurHash?.asImage())
 					val transformations = listOfNotNull(if (circleCrop) CircleCropTransformation() else null, transformation)
 					if (transformations.isNotEmpty()) transformations(transformations)
-					error(placeholder?.asImage())
+					error((currentImage ?: placeholder)?.asImage())
 				}.build()
 			}
 

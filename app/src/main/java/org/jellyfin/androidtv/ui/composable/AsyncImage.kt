@@ -45,6 +45,9 @@ fun AsyncImage(
 		update = { view ->
 			val compositionState = AsyncImageState(url, blurHash)
 			if (state != compositionState) {
+				// The same image at another quality: show the one on screen until the new one is in,
+				// rather than dropping back to the blurhash in between.
+				val upgrade = state?.url?.let { isSameImage(it, compositionState.url) } == true
 				state = compositionState
 
 				view.load(
@@ -53,10 +56,20 @@ fun AsyncImage(
 					placeholder = placeholder,
 					aspectRatio = aspectRatio.toDouble(),
 					blurHashResolution = blurHashResolution,
+					keepCurrentImage = upgrade,
 				)
 			}
 		},
 	)
+}
+
+private val qualityParameter = Regex("""([?&])quality=\d+&?""")
+
+/** Two image URLs that differ only in the quality asked for. */
+internal fun isSameImage(a: String, b: String?): Boolean {
+	if (b == null || a == b) return false
+	fun strip(url: String) = url.replace(qualityParameter, "$1").trimEnd('&', '?')
+	return strip(a) == strip(b)
 }
 
 @Composable

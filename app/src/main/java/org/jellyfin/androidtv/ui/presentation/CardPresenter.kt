@@ -14,8 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -32,6 +35,7 @@ import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.findViewTreeSavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.constant.ImageType
@@ -47,6 +51,7 @@ import org.jellyfin.androidtv.ui.itemhandling.BaseRowType
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.apiclient.JellyfinImage
+import org.jellyfin.androidtv.util.apiclient.ImageQuality
 import org.jellyfin.androidtv.util.apiclient.getUrl
 import org.jellyfin.androidtv.util.apiclient.itemBackdropImages
 import org.jellyfin.androidtv.util.apiclient.itemImages
@@ -59,6 +64,7 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType as SdkImageType
 import org.koin.compose.koinInject
+import kotlin.time.Duration.Companion.milliseconds
 
 // JvmOverloads keeps the four-argument form the Java callers construct this with, now that there is
 // a fifth parameter with a default behind it.
@@ -319,6 +325,9 @@ private fun BaseRowItem.getArtworkDisplayConfig(imageType: ImageType, uniformAsp
 	)
 }
 
+/** How long the focus rests on a card before its image is loaded again at full quality. */
+private val FullQualityFocusDelay = 300.milliseconds
+
 @Composable
 @Stable
 private fun CardViewHolderContent(
@@ -354,6 +363,16 @@ private fun CardViewHolderContent(
 
 	val usePreview = displayConfig.overrideShowInfo ?: showInfo
 
+	// Cards load at preview quality. One the focus rests on for a moment is loaded again at full
+	// quality, over the preview, and keeps it: going back to the preview would only fetch again.
+	var fullQuality by remember(item) { mutableStateOf(false) }
+	LaunchedEffect(item, focused) {
+		if (focused && !fullQuality) {
+			delay(FullQualityFocusDelay)
+			fullQuality = true
+		}
+	}
+
 	val card = @Composable {
 		ItemCard(
 			image = {
@@ -364,6 +383,7 @@ private fun CardViewHolderContent(
 							api,
 							maxWidth = with(localDensity) { size.width.roundToPx() },
 							maxHeight = with(localDensity) { size.height.roundToPx() },
+							quality = if (fullQuality) ImageQuality.FULL else ImageQuality.PREVIEW,
 						),
 						blurHash = image.blurHash,
 						aspectRatio = aspectRatio,
