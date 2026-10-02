@@ -299,7 +299,7 @@ class LeanbackChannelWorker(
 		withContext(Dispatchers.IO) {
 			val resume = async {
 				api.itemsApi.getResumeItems(
-					fields = ItemRepository.itemFields,
+					fields = ItemRepository.browseFields,
 					imageTypeLimit = 1,
 					limit = 10,
 					mediaTypes = listOf(MediaType.VIDEO),
@@ -313,7 +313,7 @@ class LeanbackChannelWorker(
 					imageTypeLimit = 1,
 					limit = 10,
 					enableResumable = false,
-					fields = ItemRepository.itemFields,
+					fields = ItemRepository.browseFields,
 				).content.items
 			}
 
@@ -325,7 +325,7 @@ class LeanbackChannelWorker(
 		withContext(Dispatchers.IO) {
 			val latestEpisodes = async {
 				api.userLibraryApi.getLatestMedia(
-					fields = ItemRepository.itemFields,
+					fields = ItemRepository.browseFields,
 					limit = 50,
 					includeItemTypes = listOf(BaseItemKind.EPISODE),
 					isPlayed = false
@@ -334,7 +334,7 @@ class LeanbackChannelWorker(
 
 			val latestMovies = async {
 				api.userLibraryApi.getLatestMedia(
-					fields = ItemRepository.itemFields,
+					fields = ItemRepository.browseFields,
 					limit = 50,
 					includeItemTypes = listOf(BaseItemKind.MOVIE),
 					isPlayed = false
@@ -343,7 +343,7 @@ class LeanbackChannelWorker(
 
 			val latestMedia = async {
 				api.userLibraryApi.getLatestMedia(
-					fields = ItemRepository.itemFields,
+					fields = ItemRepository.browseFields,
 					limit = 50,
 					includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
 					isPlayed = false
