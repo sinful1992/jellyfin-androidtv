@@ -22,6 +22,7 @@ import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideLocalInteractionTracker
 import org.jellyfin.androidtv.ui.composable.compat.AppNavigationHost
+import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.screensaver.InAppScreensaver
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
@@ -50,7 +51,12 @@ class MainActivity : FragmentActivity() {
 				else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 			}.launchIn(lifecycleScope)
 
+		// A fresh process resumed straight into this activity (the task outlived its process, so
+		// StartupActivity never ran) has nothing in the replay buffer: the nav host would wait
+		// forever and show a black screen. A trailing GoBack is no better for a host that is empty.
+		val pendingAction = navigationRepository.currentAction.replayCache.lastOrNull()
 		if (savedInstanceState == null && navigationRepository.canGoBack) navigationRepository.reset(clearHistory = true)
+		else if (pendingAction !is NavigationAction.NavigateFragment) navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
 
 		navigationRepository.currentAction
 			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
