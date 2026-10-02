@@ -477,6 +477,7 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
             mCurrentItem = rowItem;
             mCurrentRow = (ListRow) row;
             mInfoRow.removeAllViews();
+            mSummary.setText("");
 
             // The title is what makes the screen feel responsive, so it stays immediate. Paging
             // does too — a delayed fetch would stall a fast scroll at the end of a loaded page.
