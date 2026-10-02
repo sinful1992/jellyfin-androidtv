@@ -16,7 +16,6 @@
     <string name="desc_premieres">İzlediğiniz herhangi bir seri için, bir sıra yeni bölüm pilot bölümleri göster</string>
     <string name="lbl_show_premieres">Sezon prömiyerlerini göster</string>
     <string name="lbl_refresh_switching">Yenileme hızı değiştirme</string>
-    <string name="lbl_show_backdrop">Arka planı göster</string>
     <string name="lbl_open">Aç</string>
     <string name="lbl_play_next_up">Sıradakini oynat</string>
     <string name="lbl_clear_queue">Kuyruğu temizle</string>
@@ -616,8 +615,6 @@
     <string name="color_presets">Ön ayarlar</string>
     <string name="color_custom">Rengi özelleştir</string>
     <string name="filters">Filtreler</string>
-    <string name="backdrop_behavior_with_blur">Bulanık arka plan</string>
-    <string name="backdrop_behavior_without_blur">Bulanık olmayan arka plan</string>
     <string name="user_avc_level">H.264 (AVC) düzeyi</string>
     <string name="user_hevc_level">H.265 (HEVC) düzeyi</string>
     <string name="codec_level_warning">Cihazınız seçilen düzey desteklemiyorsa, otomatik ayarı değiştirmek oynatma sorunlarına neden olabilir.</string>

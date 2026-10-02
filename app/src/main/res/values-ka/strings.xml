@@ -261,7 +261,6 @@
     <string name="lbl_quality_profile">ხარისხის პროფილი</string>
     <string name="btn_got_it">გავიგე</string>
     <string name="lbl_clear_queue">რიგის გასუფთავება</string>
-    <string name="lbl_show_backdrop">უკანა ნაწილების ჩვენება</string>
     <string name="lbl_select_date">თარიღის არჩევა</string>
     <string name="lbl_recent_recordings">უახლესი ჩანაწერები</string>
     <string name="lbl_series_settings">სერიალის პარამეტრები</string>
@@ -509,8 +508,6 @@
     <string name="pref_prerolls_enabled">კინოს რეჟიმის ჩართვა</string>
     <string name="pref_media_queueing">ყველა ეპიზოდის რიგში ჩასმა</string>
     <string name="video_player_internal">ჩაშენებული ვიდეოდამკვრელი</string>
-    <string name="backdrop_behavior_with_blur">ფონი დაბინდვით</string>
-    <string name="backdrop_behavior_without_blur">ფონი დაბინდვის გარეშე</string>
     <string name="user_avc_level">H.264-ის (AVC) დონე</string>
     <string name="user_hevc_level">H.265-ის (HEVC) დონე</string>
     <string name="pref_software_codecs_enabled">პროგრამული კოდეკების გამოყენება</string>

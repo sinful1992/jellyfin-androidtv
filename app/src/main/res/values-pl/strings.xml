@@ -156,7 +156,6 @@
     <string name="desc_premieres">Pokaż rząd nowych pilotów odcinków dowolnego oglądanego serialu</string>
     <string name="lbl_show_premieres">Pokaż premiery sezonu</string>
     <string name="lbl_refresh_switching">Przełączanie częstotliwości odświeżania</string>
-    <string name="lbl_show_backdrop">Pokaż tło</string>
     <string name="lbl_open">Otwórz</string>
     <string name="btn_got_it">Rozumiem</string>
     <string name="lbl_zoom">Powiększenie</string>
@@ -636,8 +635,6 @@
     <string name="video_player_external">Zewnętrzna aplikacja</string>
     <string name="playback_video_player_external_empty">Na tym urządzeniu nie ma zainstalowanej żadnej aplikacji do odtwarzania wideo, która mogłaby otwierać pliki wideo Jellyfin.</string>
     <string name="filters">Filtry</string>
-    <string name="backdrop_behavior_with_blur">Tło z rozmyciem</string>
-    <string name="backdrop_behavior_without_blur">Tło bez rozmycia</string>
     <string name="user_avc_level">Poziom H.264 (AVC)</string>
     <string name="user_hevc_level">Poziom H.265 (HEVC)</string>
     <string name="codec_level_warning">Zmiana z trybu automatycznego może spowodować problemy z odtwarzaniem, jeśli Twoje urządzenie nie obsługuje wybranego poziomu.</string>

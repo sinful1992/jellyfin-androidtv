@@ -165,7 +165,6 @@
     <string name="lbl_in_x_days">En %d días</string>
     <string name="desc_premieres">Muestre una fila de nuevos episodios piloto para cualquier serie que vea</string>
     <string name="lbl_show_premieres">Mostrar estrenos de temporada</string>
-    <string name="lbl_show_backdrop">Mostrar fondos de pantalla</string>
     <string name="lbl_open">Abrir</string>
     <string name="lbl_play_next_up">Reproducir siguiente</string>
     <string name="lbl_clear_queue">Limpiar cola</string>
@@ -626,8 +625,6 @@
     <string name="pref_playback_prerolls">Intros</string>
     <string name="playback_video_player_external_empty">No tiene instalada ninguna aplicación de reproducción de vídeo en su dispositivo que pueda abrir vídeos de Jellyfin.</string>
     <string name="filters">Filtros</string>
-    <string name="backdrop_behavior_with_blur">Fondo con desenfoque</string>
-    <string name="backdrop_behavior_without_blur">Fondo sin desenfoque</string>
     <string name="codec_level_warning">Cambiar el nivel de auto puede causar problemas de reproducción si tu dispositivo no soporta el nivel seleccionado.</string>
     <string name="codec_level_manual">Sobreescritura manual</string>
     <string name="user_avc_level">Nivel H.264 (AVC)</string>

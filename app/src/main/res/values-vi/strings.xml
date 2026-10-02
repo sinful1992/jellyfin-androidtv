@@ -176,7 +176,6 @@
     <string name="desc_premieres">Hiển thị một loạt các thử nghiệm tập mới cho bất kỳ bộ phim nào bạn xem</string>
     <string name="lbl_show_premieres">Hiển thị các mùa công chiếu</string>
     <string name="lbl_refresh_switching">Chuyển đổi tốc độ làm mới</string>
-    <string name="lbl_show_backdrop">Hiển thị phông nền</string>
     <string name="lbl_open">Mở</string>
     <string name="lbl_play_next_up">Phát kế tiếp</string>
     <string name="lbl_clear_queue">Xóa hàng đợi</string>
@@ -626,8 +625,6 @@
     <string name="playback_buffer_extra_large">Cực lớn</string>
     <string name="pref_burn_subtitles_when_transcoding">Ghi phụ đề khi chuyển mã</string>
     <string name="pref_burn_subtitles_when_transcoding_description">Luôn ghi phụ đề vào video trong quá trình chuyển mã. Điều này có thể khắc phục sự cố đồng bộ hóa phụ đề nhưng vô hiệu hóa tùy chỉnh phụ đề.</string>
-    <string name="backdrop_behavior_with_blur">Phông nền mờ</string>
-    <string name="backdrop_behavior_without_blur">Phông nền không mờ</string>
     <string name="user_avc_level">Mức H.264 (AVC)</string>
     <string name="user_hevc_level">Mức H.265 (HEVC)</string>
     <string name="codec_level_warning">Việc thay đổi từ tự động có thể gây ra sự cố phát lại nếu thiết bị của bạn thực sự không hỗ trợ mức đã chọn.</string>

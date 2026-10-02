@@ -162,7 +162,6 @@
     <string name="desc_premieres">Mostrar una fila de nuevos episodios pilotos para cualquier serie que veas</string>
     <string name="lbl_show_premieres">Mostrar estrenos de temporada</string>
     <string name="lbl_refresh_switching">Cambio de tasa de refresco</string>
-    <string name="lbl_show_backdrop">Mostrar imágenes de fondo</string>
     <string name="lbl_open">Abrir</string>
     <string name="lbl_play_next_up">Reproducir siguiente</string>
     <string name="lbl_clear_queue">Vaciar cola</string>
@@ -626,8 +625,6 @@
     <string name="video_player_external">Aplicación externa</string>
     <string name="playback_video_player_external_empty">No tenés ninguna aplicación para reproducir video instalada en tu dispositivo que pueda abrir videos de Jellyfin.</string>
     <string name="filters">Filtros</string>
-    <string name="backdrop_behavior_with_blur">Fondo con desenfoque</string>
-    <string name="backdrop_behavior_without_blur">Fondo sin desenfoque</string>
     <string name="playback_info">Información de reproducción</string>
     <string name="pref_software_codecs_enabled_description">Algunas implementaciones basadas en software pueden degradar el rendimiento, deshabilitar esta opción hace que la transcodificación sea más probable.</string>
 </resources>

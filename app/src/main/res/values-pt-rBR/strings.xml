@@ -162,7 +162,6 @@
     <string name="lbl_clear_queue">Limpar fila</string>
     <string name="lbl_play_next_up">Reproduzir a seguir</string>
     <string name="lbl_open">Abrir</string>
-    <string name="lbl_show_backdrop">Exibir imagem de fundo</string>
     <string name="lbl_refresh_switching">Alteração da taxa de atualização</string>
     <string name="lbl_show_premieres">Mostrar estreias da temporada</string>
     <string name="desc_premieres">Exibir uma fila de novos episódios pilotos para as séries que você está assistindo</string>
@@ -625,8 +624,6 @@
     <string name="pref_playback_prerolls">Vídeos de introdução</string>
     <string name="video_player_internal">Reprodutor nativo</string>
     <string name="pref_playback_inactivity_prompt">Aviso de inatividade</string>
-    <string name="backdrop_behavior_with_blur">Fundo com desfoque</string>
-    <string name="backdrop_behavior_without_blur">Fundo sem desfoque</string>
     <string name="playback_buffer_auto">Auto</string>
     <string name="playback_buffer_large">Grande</string>
     <string name="playback_info_video_title">Vídeo</string>

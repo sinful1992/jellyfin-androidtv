@@ -59,7 +59,6 @@
     <string name="desc_premieres">Visa en rad med nya avsnitt för serier du tittar på</string>
     <string name="lbl_show_premieres">Visa säsongspremiärer</string>
     <string name="lbl_refresh_switching">Uppdateringsfrekvensväxling</string>
-    <string name="lbl_show_backdrop">Visa bakgrunder</string>
     <string name="lbl_open">Öppna</string>
     <string name="lbl_play_next_up">Spela upp</string>
     <string name="lbl_clear_queue">Rensa kö</string>
@@ -622,8 +621,6 @@
     <string name="playback_buffer_auto">Auto</string>
     <string name="playback_buffer_large">Stor</string>
     <string name="playback_buffer_extra_large">Extra stor</string>
-    <string name="backdrop_behavior_with_blur">Bakgrund med suddighet</string>
-    <string name="backdrop_behavior_without_blur">Bakgrund utan suddighet</string>
     <string name="user_avc_level">H.264 (AVC) nivå</string>
     <string name="user_hevc_level">H.265 (HEVC) nivå</string>
     <string name="codec_level_warning">Ändrar man detta från auto kan det orsaka problem med uppspelningen om din enhet inte stödjer den valda nivån.</string>

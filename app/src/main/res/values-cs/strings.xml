@@ -153,7 +153,6 @@
     <string name="desc_premieres">Zobrazit řadu nových úvodních epizod pro každý seriál, který sledujete</string>
     <string name="lbl_show_premieres">Zobrazit premiéry sezóny</string>
     <string name="lbl_refresh_switching">Přepínání obnovovací frekvence</string>
-    <string name="lbl_show_backdrop">Zobrazovat pozadí</string>
     <string name="lbl_open">Otevřít</string>
     <string name="lbl_play_next_up">Přehrát další na řadě</string>
     <string name="lbl_clear_queue">Vymazat frontu</string>
@@ -626,8 +625,6 @@
     <string name="video_player_external">Externí aplikace</string>
     <string name="playback_video_player_external_empty">Na vašem zařízení nemáte nainstalované žádné videopřehrávače, které dokáží otevřít videa Jellyfin.</string>
     <string name="filters">Filtry</string>
-    <string name="backdrop_behavior_with_blur">Pozadí s rozostřením</string>
-    <string name="backdrop_behavior_without_blur">Pozadí bez rozostření</string>
     <string name="user_avc_level">Úroveň H.264 (AVC)</string>
     <string name="user_hevc_level">Úroveň H.265 (HEVC)</string>
     <string name="codec_level_warning">Změna z automatického kodeku může způsobit problémy s přehráváním, pokud vaše zařízení nepodporuje zvolenou úroveň.</string>

@@ -195,7 +195,6 @@
     <string name="lbl_zoom">ซูม</string>
     <string name="lbl_audio_track">เลือกแทร็กเสียง</string>
     <string name="btn_got_it">เข้าใจแล้ว</string>
-    <string name="lbl_show_backdrop">แสดง Backdrops</string>
     <string name="desc_premieres">แสดงซีรีส์นำร่องตอนใหม่สำหรับซีรีส์ที่คุณดู</string>
     <string name="lbl_in_x_days">ใน %d วัน</string>
     <string name="lbl_episode_not_record">รายการดังกล่าวไม่ถูกบันทึก</string>
@@ -582,8 +581,6 @@
     <string name="video_player_external">แอปภายนอก</string>
     <string name="playback_video_player_external_empty">ไม่พบแอปเครื่องเล่นวิดีโอในอุปกรณ์ที่สามารถเปิดวิดีโอ Jellyfin ได้</string>
     <string name="filters">ตัวกรอง</string>
-    <string name="backdrop_behavior_with_blur">ภาพพื้นหลังแบบเบลอ</string>
-    <string name="backdrop_behavior_without_blur">ภาพพื้นหลังแบบไม่เบลอ</string>
     <string name="user_avc_level">ระดับ H.264 (AVC)</string>
     <string name="user_hevc_level">ระดับ H.265 (HEVC)</string>
     <string name="codec_level_warning">การเปลี่ยนจากค่าอัตโนมัติอาจทำให้มีปัญหาในการเล่น หากอุปกรณ์ไม่รองรับระดับที่เลือกจริง</string>

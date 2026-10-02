@@ -190,7 +190,6 @@
     <string name="desc_premieres">Vis en rad med nye pilotepisoder for alle serier du ser på</string>
     <string name="lbl_show_premieres">Vis sesongpremierer</string>
     <string name="lbl_refresh_switching">Bytte av oppdateringfrekvens</string>
-    <string name="lbl_show_backdrop">Vis bakgrunnsgrafikk mens jeg blar</string>
     <string name="lbl_open">Åpne</string>
     <string name="lbl_play_next_up">Spill neste</string>
     <string name="lbl_clear_queue">Tøm køen</string>
@@ -616,6 +615,4 @@
     <string name="video_player_external">Ekstern app</string>
     <string name="playback_video_player_external_empty">Du har ingen videospillere installert på enheten din som kan åpne videoer fra Jellyfin.</string>
     <string name="filters">Filtere</string>
-    <string name="backdrop_behavior_with_blur">Bakgrunn med uskarphet</string>
-    <string name="backdrop_behavior_without_blur">Bakgrunn uten uskarphet</string>
 </resources>

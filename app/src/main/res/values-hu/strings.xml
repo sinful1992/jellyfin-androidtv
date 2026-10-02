@@ -119,7 +119,6 @@
     <string name="lbl_on">Ekkor</string>
     <string name="lbl_resume_preroll">Késleltetett lejátszás</string>
     <string name="desc_premieres">Minden egyes nézett sorozathoz a sorozatbemutatók megjelenítése</string>
-    <string name="lbl_show_backdrop">Hátterek megjelenítése</string>
     <string name="pref_app_theme">Alkalmazástéma</string>
     <string name="watch_now">Megnézés</string>
     <string name="pref_next_up_timeout_title">A \'Következő\' időzítő időtartama</string>
@@ -634,8 +633,6 @@
     <string name="video_player_external">Külső alkalmazás</string>
     <string name="playback_video_player_external_empty">Nincs olyan videolejátszó alkalmazás telepítve az eszközödre, amely meg tudja nyitni a Jellyfin videókat.</string>
     <string name="filters">Szűrők</string>
-    <string name="backdrop_behavior_with_blur">Elmosódott háttér</string>
-    <string name="backdrop_behavior_without_blur">Elmosódott háttér</string>
     <string name="user_avc_level">H.264 (AVC) szint</string>
     <string name="user_hevc_level">H.265 (HEVC) szint</string>
     <string name="codec_level_warning">Az automatikus beállításról való váltás lejátszási problémákat okozhat, ha az eszköz valójában nem támogatja a kiválasztott szintet.</string>

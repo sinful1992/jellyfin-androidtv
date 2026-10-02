@@ -162,7 +162,6 @@
     <string name="lbl_clear_queue">Warteschlange leeren</string>
     <string name="lbl_play_next_up">Nächste abspielen</string>
     <string name="lbl_open">Öffnen</string>
-    <string name="lbl_show_backdrop">Hintergründe anzeigen</string>
     <string name="lbl_refresh_switching">Umschaltung der Bildwiederholfrequenz</string>
     <string name="lbl_show_premieres">Staffel-Premieren zeigen</string>
     <string name="desc_premieres">Zeige eine Reihe neuer Folgenpiloten für jede Serie, die du siehst</string>
@@ -616,8 +615,6 @@
     <string name="video_player_internal">Eingebauter Videoplayer</string>
     <string name="video_player_external">Externe App</string>
     <string name="filters">Filter</string>
-    <string name="backdrop_behavior_with_blur">Hintergrund mit Unschärfe</string>
-    <string name="backdrop_behavior_without_blur">Hintergrund ohne Unschärfe</string>
     <string name="user_avc_level">H.264 (AVC) Level</string>
     <string name="user_hevc_level">H.265 (HEVC) Level</string>
     <string name="codec_level_warning">Andere Werte als Automatisch könnten Wiedergabeprobleme verursachen, wenn dein Gerät den ausgewählten Level nicht unterstützt.</string>

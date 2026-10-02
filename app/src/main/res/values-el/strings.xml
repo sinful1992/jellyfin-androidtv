@@ -242,7 +242,6 @@
     <string name="pref_device_model">Μοντέλο Συσκευής</string>
     <string name="pref_next_up_behavior_title">Εμφάνιση πληροφοριών επόμενου βίντεο</string>
     <string name="lbl_repeat_episodes">Επανάληψη επεισοδίων</string>
-    <string name="lbl_show_backdrop">Εμφάνιση Φόντου</string>
     <string name="lbl_community_rating">Βαθμολογία κοινού</string>
     <string name="lbl_hide_unwatched_count">Όταν το μέσο έχει ήδη προβληθεί</string>
     <string name="lbl_user_server">%1$s από %2$s</string>
@@ -596,8 +595,6 @@
     <string name="speech_error_unavailable">Η αναγνώριση ομιλίας δεν είναι διαθέσιμη στη συσκευή σας.</string>
     <string name="speech_error_unknown">Παρουσιάστηκε απρόσμενο σφάλμα κατά την αναγνώριση ομιλίας.</string>
     <string name="still_watching_label">Συνεχίζετε να παρακολουθείτε;</string>
-    <string name="backdrop_behavior_with_blur">Φόντο με θόλωμα</string>
-    <string name="backdrop_behavior_without_blur">Φόντο χωρίς θόλωση</string>
     <string name="user_avc_level">Επίπεδο H.264 (AVC)</string>
     <string name="codec_level_warning">Η αλλαγή από το αυτόματο ενδέχεται να προκαλέσει προβλήματα αναπαραγωγής εάν η συσκευή σας δεν υποστηρίζει πραγματικά το επιλεγμένο επίπεδο.</string>
     <string name="preference_codecs">Κωδικοποιητές μέσων</string>

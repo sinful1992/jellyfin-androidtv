@@ -163,7 +163,6 @@
     <string name="lbl_clear_queue">Очистить очередь</string>
     <string name="lbl_play_next_up">Воспроизвести следующее</string>
     <string name="lbl_open">Открыть</string>
-    <string name="lbl_show_backdrop">Показывать задники</string>
     <string name="lbl_refresh_switching">Переключение частоты обновления</string>
     <string name="lbl_show_premieres">Показывать премьеры сезона</string>
     <string name="desc_premieres">Показывать ряд пилотных эпизодов для любого просматривемого сериала</string>
@@ -636,8 +635,6 @@
     <string name="video_player_internal">Встроенный видео проигрыватель</string>
     <string name="video_player_external">Внешнее приложение</string>
     <string name="playback_video_player_external_empty">У вас нет ни одного приложения для воспроизведения видео, которое может открывать видео из Jellyfin.</string>
-    <string name="backdrop_behavior_with_blur">Фон с размытием</string>
-    <string name="backdrop_behavior_without_blur">Фон без размытия</string>
     <string name="hlg">HLG</string>
     <string name="hdr10">HDR10</string>
     <string name="sdr">SDR</string>

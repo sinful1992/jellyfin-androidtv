@@ -240,7 +240,6 @@
     <string name="desc_automatic_fav_songs">Avtomatski seznam predvajanja priljubljenih glasb</string>
     <string name="lbl_pause">Pavza</string>
     <string name="lbl_refresh_switching">Spremeni hitrost osveževanja</string>
-    <string name="lbl_show_backdrop">Prikaži ozadje</string>
     <string name="lbl_clear_queue">Počisti čakalno vrsto</string>
     <string name="lbl_show_indicators">Prikaži indikatorje za</string>
     <string name="no_program_data">Podatki o programu niso na voljo</string>
@@ -636,6 +635,4 @@
     <string name="video_player_external">Zunanja aplikacija</string>
     <string name="playback_video_player_external_empty">Na vaši napravi nimate nameščenega nobenega video predvajalnika, ki lahko odpre Jellyfin videje.</string>
     <string name="filters">Filtri</string>
-    <string name="backdrop_behavior_with_blur">Ozadje z zameglitvijo</string>
-    <string name="backdrop_behavior_without_blur">Ozadje brez zameglitve</string>
 </resources>

@@ -417,7 +417,6 @@
     <string name="license_author">Autorius</string>
     <string name="lbl_tune_to_channel">Įjungti kanalą</string>
     <string name="lbl_tv_queuing">Automatiškai paleisti sekantį epizodą</string>
-    <string name="lbl_show_backdrop">Rodyti fonus</string>
     <string name="lbl_program_ended">Programa pasibaigė</string>
     <string name="lbl_instant_mix">Maišyti</string>
     <string name="msg_no_items">Nėra elementų, kuriuos būtų galima paleisti</string>
@@ -640,8 +639,6 @@
     <string name="video_player_external">Išorinė programėlė</string>
     <string name="playback_video_player_external_empty">Jūsų įrenginyje nėra įdiegtos jokios vaizdo grotuvo programėlės, kuri galėtų atidaryti Jellyfin vaizdo įrašus.</string>
     <string name="filters">Filtrai</string>
-    <string name="backdrop_behavior_with_blur">Fonas su suliejimu</string>
-    <string name="backdrop_behavior_without_blur">Fonas be suliejimo</string>
     <string name="user_avc_level">H.264 (AVC) lygis</string>
     <string name="user_hevc_level">H.265 (HEVC) lygis</string>
     <string name="codec_level_warning">Perjungimas iš automatinio režimo gali sukelti atkūrimo problemų, jei jūsų įrenginys nepalaiko pasirinkto lygio.</string>

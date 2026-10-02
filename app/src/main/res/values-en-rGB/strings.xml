@@ -33,7 +33,6 @@
     <string name="lbl_sports">Sports</string>
     <string name="no_program_data">No program data available</string>
     <string name="msg_record_entire_series">Record entire programme\?</string>
-    <string name="lbl_show_backdrop">Show backdrops</string>
     <string name="lbl_open">Open</string>
     <string name="lbl_play_next_up">Play next up</string>
     <string name="lbl_clear_queue">Clear queue</string>
@@ -616,8 +615,6 @@
     <string name="video_player_external">External app</string>
     <string name="playback_video_player_external_empty">You don\'t have any video player apps installed on your device that can open Jellyfin videos.</string>
     <string name="filters">Filters</string>
-    <string name="backdrop_behavior_with_blur">Backdrop with blur</string>
-    <string name="backdrop_behavior_without_blur">Backdrop without blur</string>
     <string name="pref_burn_subtitles_when_transcoding">Burn in subtitles when transcoding</string>
     <string name="pref_burn_subtitles_when_transcoding_description">Always burn subtitles into the video during transcoding. This can fix subtitle sync issues but disables subtitle customisation.</string>
     <string name="user_avc_level">H.264 (AVC) level</string>

@@ -170,7 +170,6 @@
     <string name="video_error_unknown_error">טעינת וידאו נכשלה</string>
     <string name="lbl_show_premieres">הצג בכורות עונתיות</string>
     <string name="lbl_refresh_switching">התאמת קצב ריענון</string>
-    <string name="lbl_show_backdrop">הצג תמונות רקע</string>
     <string name="lbl_open">פתח</string>
     <string name="lbl_play_next_up">נגן את הבא בתור</string>
     <string name="lbl_clear_queue">נקה תור</string>
@@ -634,8 +633,6 @@
     <string name="playback_buffer_extra_large">גדול במיוחד</string>
     <string name="pref_burn_subtitles_when_transcoding">צרוב כתוביות במהלך קידוד מחדש</string>
     <string name="pref_burn_subtitles_when_transcoding_description">צרוב תמיד כתוביות לתוך הוידאו בזמן קידוד מחדש. זה יכול לתקן בעיות סנכרון בכתוביות אך הדבר מבטל עיצוב בהתאמה אישית.</string>
-    <string name="backdrop_behavior_with_blur">תמונת רקע מטושטשת</string>
-    <string name="backdrop_behavior_without_blur">תמונת רקע ללא טשטוש</string>
     <string name="user_avc_level">רמת קידוד H.264 (AVC)</string>
     <string name="user_hevc_level">רמת קידוד H.265 (HEVC)</string>
     <string name="codec_level_warning">בחירה אחרת מ-אוטומטי עשויה לגרום לבעיות בניגון אם מכשירך אינו תומך ברמת הקידוד שנבחרה.</string>

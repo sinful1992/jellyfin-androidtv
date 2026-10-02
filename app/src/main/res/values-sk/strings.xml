@@ -163,7 +163,6 @@
     <string name="desc_premieres">Zobraziť riadok nových pilotných epizód pre každý seriál, ktorý pozeráte</string>
     <string name="lbl_show_premieres">Zobraziť premiéry sérií seriálov</string>
     <string name="lbl_refresh_switching">Prepínanie obnovovacej frekvencie</string>
-    <string name="lbl_show_backdrop">Zobraziť pozadia</string>
     <string name="lbl_open">Otvoriť</string>
     <string name="lbl_play_next_up">Prehrať nasledujúcu</string>
     <string name="lbl_clear_queue">Vymazať frontu</string>
@@ -648,8 +647,6 @@
     <string name="playback_buffer_extra_large">Extra veľká</string>
     <string name="pref_burn_subtitles_when_transcoding">Vypaľovať titulky pri prekódovaní</string>
     <string name="pref_burn_subtitles_when_transcoding_description">Pri prekódovaní vždy vypáliť titulky do videa. Môže to vyriešiť problémy so synchronizáciou titulkov, ale znemožní prispôsobenie titulkov.</string>
-    <string name="backdrop_behavior_with_blur">Pozadie s rozmazaním</string>
-    <string name="backdrop_behavior_without_blur">Pozadie bez rozmazania</string>
     <string name="user_avc_level">Úroveň H.264 (AVC)</string>
     <string name="user_hevc_level">Úroveň H.265 (HEVC)</string>
     <string name="codec_level_warning">Zmena z možnosti Automaticky môže spôsobiť problémy s prehrávaním, ak vaše zariadenie v skutočnosti nepodporuje zvolenú úroveň.</string>

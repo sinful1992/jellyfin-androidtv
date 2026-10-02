@@ -136,7 +136,6 @@
     <string name="desc_premieres">Afișează un rând de episoade pilot noi pentru orice serie vizionată</string>
     <string name="lbl_show_premieres">Afișează premierele sezonului</string>
     <string name="lbl_refresh_switching">Schimbare rată de reîmprospătare</string>
-    <string name="lbl_show_backdrop">Afișează fundaluri</string>
     <string name="lbl_open">Deschide</string>
     <string name="lbl_play_next_up">Redă următorul</string>
     <string name="lbl_clear_queue">Golește lista de redare</string>
@@ -625,8 +624,6 @@
     <string name="video_player_internal">Playyer de Video inclus</string>
     <string name="video_player_external">Aplicatie Externa</string>
     <string name="playback_video_player_external_empty">Nu ai o aplicatie de redare de video care poate sa deschida videouri din Jellyfin.</string>
-    <string name="backdrop_behavior_with_blur">Fundal cu blur</string>
-    <string name="backdrop_behavior_without_blur">Fundal fără blur</string>
     <string name="playback_info">Informații redare</string>
     <string name="playback_info_play_method">Metoda redare: %1$s</string>
     <string name="playback_info_transcoding">Transcodare</string>

@@ -177,7 +177,6 @@
     <string name="desc_audio_night_mode">Nivelon automatikisht volumin e zërit</string>
     <string name="lbl_stretch">Shtrije</string>
     <string name="lbl_audio_track">Zgjidh audio</string>
-    <string name="lbl_show_backdrop">Shfaq sfondet</string>
     <string name="msg_burn_sub_warning">Duke integruar titrat. Kjo mund të zgjasë disa sekonda…</string>
     <string name="lbl_recorded_tv">TV i rregjistruar</string>
     <string name="lbl_open_artist">Hap të dhënat e artistit</string>

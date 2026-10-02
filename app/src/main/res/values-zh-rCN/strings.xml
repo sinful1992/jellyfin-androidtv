@@ -133,7 +133,6 @@
     <string name="desc_premieres">为你所观看的任何电视节目展示一排新的试播集</string>
     <string name="lbl_show_premieres">剧季首映</string>
     <string name="lbl_refresh_switching">帧率切换</string>
-    <string name="lbl_show_backdrop">浏览时显示背景</string>
     <string name="lbl_open">打开</string>
     <string name="lbl_play_next_up">播放下一个</string>
     <string name="lbl_clear_queue">清除队列</string>
@@ -606,8 +605,6 @@
     <string name="video_player_external">外部应用程序</string>
     <string name="playback_video_player_external_empty">您的设备上没有安装任何可以播放 Jellyfin 视频的播放器应用程序。</string>
     <string name="filters">筛选器</string>
-    <string name="backdrop_behavior_with_blur">模糊背景</string>
-    <string name="backdrop_behavior_without_blur">无模糊背景</string>
     <string name="playback_buffer_length">播放缓存大小</string>
     <string name="playback_buffer_auto">自动</string>
     <string name="playback_buffer_large">大</string>

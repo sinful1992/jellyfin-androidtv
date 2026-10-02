@@ -157,7 +157,6 @@
     <string name="desc_premieres">Покажите ред нових пилота епизода за било коју серију коју гледате</string>
     <string name="lbl_show_premieres">Прикажите премијере сезоне</string>
     <string name="lbl_refresh_switching">Пребацивање брзине освежавања</string>
-    <string name="lbl_show_backdrop">Приказуј позадине</string>
     <string name="lbl_open">Отвори</string>
     <string name="lbl_play_next_up">Репродукуј следеће</string>
     <string name="lbl_clear_queue">Испразни ред</string>
@@ -625,8 +624,6 @@
     <string name="video_player_external">Спољна апликација</string>
     <string name="playback_video_player_external_empty">На вашем уређају нема ниједне апликације која може да отвори видео снимке из Jellyfin-а.</string>
     <string name="filters">Филтери</string>
-    <string name="backdrop_behavior_with_blur">Замућена позадина</string>
-    <string name="backdrop_behavior_without_blur">Незамућена позадина</string>
     <string name="playback_buffer_length">Величина бафера за репродукцију</string>
     <string name="playback_buffer_auto">Аутоматски</string>
     <string name="playback_buffer_large">Велики</string>

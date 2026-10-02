@@ -334,7 +334,6 @@
     <string name="lbl_start_favorites">Metu Favoratojn ĉe Komenco</string>
     <string name="lbl_tv_filter_status">dum venontaj %1$d horoj</string>
     <string name="no_program_data">Neniu \"Program Data\" Disponeblaj</string>
-    <string name="lbl_show_backdrop">Montri dorsbildojn</string>
     <string name="lbl_bitstream_ac3">Bitfluo de Dolby Digital aŭdio</string>
     <string name="licenses_link_description">Rigardi la permesilojn de la kodotekoj uzataj de la Jellyfin-apo</string>
     <string name="always_authenticate_description">Ebligi ĉi tiun funkcion malebligas aŭtomatan ensaluton</string>

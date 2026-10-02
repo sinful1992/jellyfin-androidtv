@@ -203,7 +203,6 @@
     <string name="lbl_auto_crop">ऑटो क्रॉप</string>
     <string name="lbl_quality_profile">क्वालिटी प्रोफाइल</string>
     <string name="lbl_subtitle_track">सबटाइटल चुनें</string>
-    <string name="lbl_show_backdrop">बैकड्रॉप दिखाएं</string>
     <string name="lbl_in_x_days">%d दिनों में</string>
     <string name="msg_settings_updated">प्राथमिकताएं अपडेटेड</string>
     <string name="lbl_save">सेव</string>
@@ -649,8 +648,6 @@
     <string name="codec_level_6_2">Level 6.2</string>
     <string name="lbl_date_show_added">शो जोड़े जाने की तिथि</string>
     <string name="lbl_date_episode_added">एपिसोड जोड़े जाने की तिथि</string>
-    <string name="backdrop_behavior_with_blur">ब्लर (धुंधलेपन) के साथ बैकड्रॉप</string>
-    <string name="backdrop_behavior_without_blur">बिना ब्लर के बैकड्रॉप</string>
     <string name="preference_codecs">मीडिया कोडेक्स</string>
     <string name="codec_level_6_0">Level 6.0</string>
     <string name="codec_level_5_2">Level 5.2</string>

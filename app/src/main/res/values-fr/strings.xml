@@ -165,7 +165,6 @@
     <string name="lbl_play_next_up">Lire la prochaine vidéo</string>
     <string name="lbl_refresh_switching">Fréquence de rafraîchissement automatique</string>
     <string name="lbl_series">Séries</string>
-    <string name="lbl_show_backdrop">Afficher les fonds</string>
     <string name="lbl_show_premieres">Afficher les épisodes de début de saison</string>
     <string name="lbl_zoom">Zoom</string>
     <string name="loading">Chargement …</string>
@@ -626,8 +625,6 @@
     <string name="video_player_external">Lecteur vidéo externe</string>
     <string name="playback_video_player_external_empty">Vous n\'avez aucune application de lecture vidéo installée sur votre appareil qui peut lire les vidéos de Jellyfin.</string>
     <string name="filters">Filtres</string>
-    <string name="backdrop_behavior_with_blur">Arrière-plan avec flou</string>
-    <string name="backdrop_behavior_without_blur">Arrière-plan sans flou</string>
     <string name="hlg">HLG</string>
     <string name="user_avc_level">H.264 (AVC) niveaux</string>
     <string name="user_hevc_level">H.265 (HEVC) niveau</string>

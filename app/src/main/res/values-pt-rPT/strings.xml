@@ -235,7 +235,6 @@
     <string name="lbl_episode_not_record">Esta série NÃO gravará</string>
     <string name="desc_premieres">Mostrar uma lista de novos episódios piloto para as séries a que assiste</string>
     <string name="lbl_refresh_switching">Altera taxa de atualização</string>
-    <string name="lbl_show_backdrop">Mostrar Pano de Fundo Enquanto Navega</string>
     <string name="no_player_message">Não parece que tenhas uma aplicação compatível com vídeo instalada. Esta opção necessita que instales uma aplicação de terceiros para reproduzir conteúdos de vídeo.</string>
     <string name="just_one">Apenas este</string>
     <string name="turn_off">Desative esta opção</string>
@@ -626,8 +625,6 @@
     <string name="playback_video_player_external_empty">Não tem nenhum reprodutor de vídeo instalado no seu dispositivo que possa abrir vídeos do Jellyfin.</string>
     <string name="filters">Filtros</string>
     <string name="pref_burn_subtitles_when_transcoding_description">Queimar sempre as legendas no vídeo durante a transcodificação. Isto pode corrigir problemas de sincronização das legendas, mas desativa a personalização das mesmas.</string>
-    <string name="backdrop_behavior_with_blur">Fundo com efeito desfocado</string>
-    <string name="backdrop_behavior_without_blur">Fundo sem efeito desfocado</string>
     <string name="user_avc_level">Nível H.264 (AVC)</string>
     <string name="user_hevc_level">Nível H.265 (HEVC)</string>
     <string name="codec_level_warning">Alterar do modo automático pode causar problemas na reprodução se o seu dispositivo não suportar o nível seleccionado.</string>

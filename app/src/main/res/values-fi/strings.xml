@@ -28,7 +28,6 @@
     <string name="msg_record_entire_series">Tallennetaanko koko sarja\?</string>
     <string name="lbl_just_this_once">Vain tämän kerran</string>
     <string name="lbl_select_date">Valitse päivä</string>
-    <string name="lbl_show_backdrop">Näytä taustat</string>
     <string name="lbl_open">Avaa</string>
     <string name="lbl_play_next_up">Toista seuraava</string>
     <string name="lbl_clear_queue">Tyhjennä jono</string>
@@ -615,6 +614,4 @@
     <string name="pref_prerolls_enabled">Käytä teatteritilaa</string>
     <string name="pref_playback_media_segments">Mediaosiot</string>
     <string name="pref_playback_prerolls">Videospotit</string>
-    <string name="backdrop_behavior_with_blur">Tausta sumennuksella</string>
-    <string name="backdrop_behavior_without_blur">Tausta ilman sumennusta</string>
 </resources>

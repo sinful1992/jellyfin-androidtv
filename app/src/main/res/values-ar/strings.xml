@@ -212,7 +212,6 @@
     <string name="lbl_in_x_days">خلال %d أيام</string>
     <string name="lbl_show_premieres">عرض العروض الأولى للمواسم</string>
     <string name="lbl_refresh_switching">تبديل معدل التحديث</string>
-    <string name="lbl_show_backdrop">إظهار الخلفيات</string>
     <string name="lbl_open">فتح</string>
     <string name="lbl_play_next_up">تشغيل التالي</string>
     <string name="lbl_clear_queue">مسح قائمة الانتظار</string>
@@ -654,8 +653,6 @@
     <string name="video_player_external">تطبيق خارجي</string>
     <string name="playback_video_player_external_empty">ليس لديك أي تطبيقات تشغيل فيديو مثبتة على جهازك يمكنها فتح فيديوهات Jellyfin.</string>
     <string name="filters">فلاتر</string>
-    <string name="backdrop_behavior_with_blur">خلفية مع ضبابية</string>
-    <string name="backdrop_behavior_without_blur">خلفية بدون ضبابية</string>
     <string name="user_avc_level">مستوى H.264 (AVC)</string>
     <string name="user_hevc_level">مستوى H.265 (HEVC)</string>
     <string name="hlg">HLG</string>

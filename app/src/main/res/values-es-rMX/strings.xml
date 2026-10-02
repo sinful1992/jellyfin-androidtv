@@ -162,7 +162,6 @@
     <string name="lbl_clear_queue">Limpiar cola</string>
     <string name="lbl_play_next_up">Reproducir siguiente</string>
     <string name="lbl_open">Abrir</string>
-    <string name="lbl_show_backdrop">Mostrar imágenes de fondo</string>
     <string name="lbl_refresh_switching">Cambio de la tasa de actualización</string>
     <string name="lbl_show_premieres">Mostrar estrenos de temporada</string>
     <string name="desc_premieres">Mostrar una fila de nuevos episodios pilotos para cualquier serie que veas</string>

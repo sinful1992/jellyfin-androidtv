@@ -163,7 +163,6 @@
     <string name="pref_authentication_cat">Autenticazione</string>
     <string name="lbl_show_premieres">Mostra le anteprime di stagione</string>
     <string name="lbl_refresh_switching">Cambio frequenza di aggiornamento</string>
-    <string name="lbl_show_backdrop">Mostra gli sfondi</string>
     <string name="lbl_open">Aperto</string>
     <string name="lbl_play_next_up">Riproduci la prossima</string>
     <string name="lbl_clear_queue">Svuota coda</string>
@@ -626,8 +625,6 @@
     <string name="video_player_external">App esterna</string>
     <string name="playback_video_player_external_empty">Non hai installato sul tuo dispositivo nessun lettore video che possa aprire i video di Jellyfin.</string>
     <string name="filters">Filtri</string>
-    <string name="backdrop_behavior_with_blur">Sfondo con opacità</string>
-    <string name="backdrop_behavior_without_blur">Sfondo senza opacità</string>
     <string name="playback_info_play_method">Metodo di riproduzione:%1$s</string>
     <string name="playback_info_direct_play">Riproduzione diretta</string>
     <string name="playback_info_codec">Codec: %1$s</string>

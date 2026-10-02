@@ -204,7 +204,6 @@
     <string name="lbl_new_premieres">新的首映</string>
     <string name="desc_bitstream_ac3">需要有能力的硬體</string>
     <string name="lbl_play_next_up">播放下一個</string>
-    <string name="lbl_show_backdrop">顯示背景</string>
     <string name="lbl_refresh_switching">切換幀率</string>
     <string name="desc_premieres">為你所觀看的任何系列節目展示一排新的試播集</string>
     <string name="lbl_on_schedule">已排程</string>

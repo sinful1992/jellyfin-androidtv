@@ -158,7 +158,6 @@
     <string name="desc_premieres">നിങ്ങൾ കാണുന്ന ഏത് സീരീസിനും പുതിയ എപ്പിസോഡ് പൈലറ്റുമാരുടെ ഒരു വരി കാണിക്കുക</string>
     <string name="lbl_show_premieres">ബ്രൗസുചെയ്യുമ്പോൾ സീസൺ പ്രീമിയറുകൾ കാണിക്കുക</string>
     <string name="lbl_refresh_switching">നിരക്ക് മാറുന്നത് പുതുക്കുക</string>
-    <string name="lbl_show_backdrop">ബ്രൗസുചെയ്യുമ്പോൾ ബാക്ക്‌ട്രോപ്പ് കാണിക്കുക</string>
     <string name="lbl_open">തുറക്കുക</string>
     <string name="lbl_play_next_up">അടുത്തത് പ്ലേ ചെയ്യുക</string>
     <string name="lbl_clear_queue">ക്യൂ മായ്‌ക്കുക</string>

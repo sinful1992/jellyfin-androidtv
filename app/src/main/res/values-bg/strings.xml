@@ -216,7 +216,6 @@
     <string name="lbl_premiere">Премиера</string>
     <string name="lbl_recent_recordings">Последни записи</string>
     <string name="lbl_fit">Нормално</string>
-    <string name="lbl_show_backdrop">Покажи фонове</string>
     <string name="msg_record_entire_series">Да се запише ли целият сериал?</string>
     <string name="lbl_save">Запис</string>
     <string name="lbl_guide_option_played">Последно просвирено</string>
@@ -580,8 +579,6 @@
     <string name="color_presets">Предварителни настройки</string>
     <string name="video_player_internal">Вграден видео плейър</string>
     <string name="playback_video_player_external_empty">Нямате инсталирани приложения за видео плейър на вашето устройство, които могат да отварят Jellyfin видеоклипове.</string>
-    <string name="backdrop_behavior_with_blur">Фон с размазване (blur)</string>
-    <string name="backdrop_behavior_without_blur">Фон без размазване</string>
     <string name="user_avc_level">Ниво на H.264 (AVC)</string>
     <string name="user_hevc_level">Ниво на H.265 (HEVC)</string>
     <string name="codec_level_warning">Промяната от „Автоматично“ може да причини проблеми с възпроизвеждането, ако устройството ви всъщност не поддържа избраното ниво.</string>

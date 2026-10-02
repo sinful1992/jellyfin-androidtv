@@ -170,7 +170,6 @@
     <string name="desc_premieres">Vis en række med nye pilotafsnit for enhver serie, du ser</string>
     <string name="lbl_show_premieres">Vis sæsonpremierer</string>
     <string name="lbl_refresh_switching">Automatisk opdateringsfrekvens</string>
-    <string name="lbl_show_backdrop">Vis baggrundsgrafik</string>
     <string name="lbl_open">Åbn</string>
     <string name="lbl_play_next_up">Afspil næste</string>
     <string name="lbl_clear_queue">Ryd afspilningskø</string>
