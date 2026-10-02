@@ -56,7 +56,9 @@ class MainActivity : FragmentActivity() {
 		// forever and show a black screen. A trailing GoBack is no better for a host that is empty.
 		val pendingAction = navigationRepository.currentAction.replayCache.lastOrNull()
 		if (savedInstanceState == null && navigationRepository.canGoBack) navigationRepository.reset(clearHistory = true)
-		else if (pendingAction !is NavigationAction.NavigateFragment) navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
+		else if (pendingAction !is NavigationAction.NavigateFragment) {
+			navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
+		}
 
 		navigationRepository.currentAction
 			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)

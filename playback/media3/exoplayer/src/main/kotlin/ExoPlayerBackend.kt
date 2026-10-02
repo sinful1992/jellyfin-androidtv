@@ -142,7 +142,7 @@ class ExoPlayerBackend(
 
 	private fun applyPendingTrackSelection(tracks: Tracks) {
 		val pending = pendingTrackSelection ?: return
-		if (pending.stream !== currentStream) {
+		if (pending.stream !== currentStream || (pending.audioIndex == null && pending.subtitleIndex == null)) {
 			pendingTrackSelection = null
 			return
 		}
@@ -410,11 +410,7 @@ class ExoPlayerBackend(
 		// Clearing the overrides also drops the tracks chosen for this entry when its stream was
 		// resolved again (another track change, a profile change). Put them back once the new
 		// stream's tracks are known.
-		val audioIndex = item.selectedAudioStreamIndex
-		val subtitleIndex = item.selectedSubtitleStreamIndex
-		pendingTrackSelection =
-			if (audioIndex == null && subtitleIndex == null) null
-			else PendingTrackSelection(stream, audioIndex, subtitleIndex)
+		pendingTrackSelection = PendingTrackSelection(stream, item.selectedAudioStreamIndex, item.selectedSubtitleStreamIndex)
 
 		var preparedItemIndex = (0 until exoPlayer.mediaItemCount).firstOrNull { index ->
 			exoPlayer.getMediaItemAt(index).mediaId == stream.hashCode().toString()
