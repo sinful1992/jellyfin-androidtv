@@ -15,6 +15,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
@@ -46,6 +47,9 @@ import org.jellyfin.playback.core.mediastream.mediaStream
 import org.jellyfin.playback.core.mediastream.mediatype.MediaType
 import org.jellyfin.playback.core.mediastream.mediatype.mediaType
 import org.jellyfin.playback.core.mediastream.normalizationGain
+import org.jellyfin.playback.core.mediastream.preferredAudioLanguage
+import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
+import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.model.PositionInfo
 import org.jellyfin.playback.core.queue.QueueEntry
@@ -122,6 +126,36 @@ class ExoPlayerBackend(
 	 * @see getFinalPosition
 	 */
 	private var endedStream: Pair<String, Duration>? = null
+
+	/**
+	 * Tracks the entry had chosen, to apply to [stream] once the player knows its tracks. Applied
+	 * once, through the backend's own selection only: a choice that cannot be made client side
+	 * leaves the default track rather than resolving the stream again, which would come back here.
+	 */
+	private class PendingTrackSelection(
+		val stream: PlayableMediaStream,
+		val audioIndex: Int?,
+		val subtitleIndex: Int?,
+	)
+
+	private var pendingTrackSelection: PendingTrackSelection? = null
+
+	private fun applyPendingTrackSelection(tracks: Tracks) {
+		val pending = pendingTrackSelection ?: return
+		if (pending.stream !== currentStream) {
+			pendingTrackSelection = null
+			return
+		}
+
+		// Also reached during the switch, with the previous item's tracks or none at all.
+		if (exoPlayer.currentMediaItem?.mediaId != pending.stream.hashCode().toString()) return
+		if (tracks.groups.isEmpty()) return
+
+		// Cleared first: applying an override calls back into this.
+		pendingTrackSelection = null
+		pending.audioIndex?.let { selectAudioTrack(it) }
+		pending.subtitleIndex?.let { selectSubtitleTrack(it) }
+	}
 
 	private val reportStalled = Runnable {
 		Timber.w("Still buffering after $stallTimeout with playback requested, reporting it as paused")
@@ -280,6 +314,8 @@ class ExoPlayerBackend(
 			}
 		}
 
+		override fun onTracksChanged(tracks: Tracks) = applyPendingTrackSelection(tracks)
+
 		override fun onAudioSessionIdChanged(audioSessionId: Int) {
 			audioPipeline.setAudioSessionId(audioSessionId)
 		}
@@ -366,7 +402,19 @@ class ExoPlayerBackend(
 			.clearOverridesOfType(C.TRACK_TYPE_AUDIO)
 			.clearOverridesOfType(C.TRACK_TYPE_TEXT)
 			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+			// A direct-play URL carries no audio index, so the language carried over from an earlier
+			// entry only reaches the player this way. Set on every item so a stale one never lingers.
+			.setPreferredAudioLanguage(item.preferredAudioLanguage.takeIf { item.selectedAudioStreamIndex == null })
 			.build()
+
+		// Clearing the overrides also drops the tracks chosen for this entry when its stream was
+		// resolved again (another track change, a profile change). Put them back once the new
+		// stream's tracks are known.
+		val audioIndex = item.selectedAudioStreamIndex
+		val subtitleIndex = item.selectedSubtitleStreamIndex
+		pendingTrackSelection =
+			if (audioIndex == null && subtitleIndex == null) null
+			else PendingTrackSelection(stream, audioIndex, subtitleIndex)
 
 		var preparedItemIndex = (0 until exoPlayer.mediaItemCount).firstOrNull { index ->
 			exoPlayer.getMediaItemAt(index).mediaId == stream.hashCode().toString()
@@ -406,6 +454,9 @@ class ExoPlayerBackend(
 				exoPlayer.setAudioAttributes(audioAttributes, true)
 			}
 		)
+
+		// An item prepared ahead may already have its tracks, and then no change is announced.
+		applyPendingTrackSelection(exoPlayer.currentTracks)
 
 		// Enjoy!
 		Timber.i("Playing ${item.mediaStream?.url}")
