@@ -162,7 +162,7 @@ class PlaySessionService(
 		}
 
 	suspend fun sendUpdateIfActive() {
-		coroutineScope.launch { reportCurrentEntry() }
+		coroutineScope.launch { sendStreamUpdate() }
 	}
 
 	/**
@@ -173,7 +173,8 @@ class PlaySessionService(
 	 * anything with.
 	 */
 	private suspend fun reportCurrentEntry() {
-		if (reportedSession == null) sendStreamStart() else sendStreamUpdate()
+		val current = manager.queue.entry.value?.mediaStream?.identifier
+		if (reportedSession?.stream?.identifier != current) sendStreamStart() else sendStreamUpdate()
 	}
 
 	private suspend fun readPosition(): Duration =
@@ -241,6 +242,11 @@ class PlaySessionService(
 		val entry = manager.queue.entry.value ?: return
 		val stream = entry.mediaStream ?: return
 		val item = entry.baseItem ?: return
+
+		// Only for the session that is open. The player pauses at the end of every entry, after
+		// its stop has gone out, and a progress report for a closed session makes the server open
+		// it again: it then logged a second stop for the same item with no start between them.
+		if (reportedSession?.stream?.identifier != stream.identifier) return
 
 		runCatching {
 			api.playStateApi.reportPlaybackProgress(
