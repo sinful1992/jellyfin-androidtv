@@ -83,6 +83,8 @@ class MediaStreamService internal constructor(
 		reloadCurrentStream()
 	}
 
+	private var reloadGeneration = 0
+
 	/**
 	 * Resolve the stream for the current entry again and resume where playback was, keeping the
 	 * play state it had. Call this after changing something the resolvers read from the entry,
@@ -99,7 +101,15 @@ class MediaStreamService internal constructor(
 		val position = if (keepPosition) state.positionInfo.active else Duration.ZERO
 		val wasPaused = state.playState.value == PlayState.PAUSED
 
+		// Resolves run in parallel and can finish out of order, so two quick track changes on a
+		// transcode could end on the first one. Only the latest reload may replace the stream.
+		val generation = ++reloadGeneration
 		val stream = resolveMediaStream(entry)
+		if (generation != reloadGeneration || manager.queue.entry.value !== entry) {
+			Timber.d("Dropping a stale re-resolve for entry $entry")
+			return@withContext
+		}
+
 		if (stream == null) {
 			Timber.e("Unable to re-resolve stream for entry $entry, keeping the current one")
 			return@withContext
