@@ -26,6 +26,7 @@ import androidx.work.WorkerParameters
 import androidx.work.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ItemRepository
@@ -47,7 +48,6 @@ import org.jellyfin.sdk.api.client.exception.TimeoutException
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
-import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
@@ -268,13 +268,7 @@ class LeanbackChannelWorker(
 	 * Updates the "my media" row with current media libraries.
 	 */
 	@Suppress("RestrictedApi")
-	private suspend fun getMyMedia(): List<BaseItemDto> {
-		val response by api.userViewsApi.getUserViews(includeHidden = false)
-
-		// Add new items
-		return response.items
-			.filter { userViewsRepository.isSupported(it.collectionType) }
-	}
+	private suspend fun getMyMedia(): List<BaseItemDto> = userViewsRepository.views.first().toList()
 
 	/**
 	 * Gets the poster art for an item. Uses the [preferParentThumb] parameter to fetch the series

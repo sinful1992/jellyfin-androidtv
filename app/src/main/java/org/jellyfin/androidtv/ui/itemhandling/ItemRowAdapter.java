@@ -545,7 +545,7 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
                 ItemRowAdapterHelperKt.retrieveSeasons(this, api.getValue(), mSeasonQuery);
                 break;
             case Views:
-                ItemRowAdapterHelperKt.retrieveUserViews(this, api.getValue(), userViewsRepository.getValue());
+                ItemRowAdapterHelperKt.retrieveUserViews(this, userViewsRepository.getValue());
                 break;
             case SimilarSeries:
             case SimilarMovies:
