@@ -7,6 +7,7 @@ import org.jellyfin.sdk.model.api.BaseItemPerson
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.UserDto
 import java.util.UUID
+import kotlin.math.ceil
 
 /**
  * Utility class used to collect information about images in Jellyfin API responses to easily pass around the app.
@@ -21,28 +22,64 @@ data class JellyfinImage(
 	val index: Int?,
 )
 
+/**
+ * JPEG quality asked of the server. Every item image asks for one: left out, the server answers a
+ * resize at its own default, which for a 200x300 poster is 5-6x the bytes of [PREVIEW].
+ */
+object ImageQuality {
+	/** Everything not being looked at: rows, grids and unfocused cards. */
+	const val PREVIEW = 60
+
+	/** What the eye is on: the focused card, the home hero, details and full-screen images. */
+	const val FULL = 85
+}
+
+/**
+ * The heights the app asks for. The server keeps one resized file per exact size it is asked
+ * for, and so does the image disk cache here, so asking for a handful of heights instead of each
+ * card's own makes the same poster one file in both, warm for the next screen that shows it.
+ * The card scales the result down by a few percent.
+ */
+internal val imageHeightBuckets = intArrayOf(200, 300, 450, 1080)
+
+/**
+ * [maxHeight] rounded up to its bucket, and [maxWidth] scaled with it so the shape is kept.
+ * Heights past the largest bucket are left as asked.
+ */
+internal fun bucketImageSize(maxWidth: Int?, maxHeight: Int?): Pair<Int?, Int?> {
+	if (maxHeight == null || maxHeight <= 0) return maxWidth to maxHeight
+	val bucket = imageHeightBuckets.firstOrNull { it >= maxHeight } ?: return maxWidth to maxHeight
+	val width = maxWidth?.let { ceil(it.toDouble() * bucket / maxHeight).toInt() }
+	return width to bucket
+}
+
 fun JellyfinImage.getUrl(
 	api: ApiClient,
 	maxWidth: Int? = null,
 	maxHeight: Int? = null,
 	fillWidth: Int? = null,
 	fillHeight: Int? = null,
+	quality: Int = ImageQuality.FULL,
 ): String = when (source) {
 	JellyfinImageSource.USER -> api.imageApi.getUserImageUrl(
 		userId = item,
 		tag = tag,
 	)
 
-	else -> api.imageApi.getItemImageUrl(
-		itemId = item,
-		imageType = type,
-		tag = tag,
-		imageIndex = index,
-		maxWidth = maxWidth,
-		maxHeight = maxHeight,
-		fillWidth = fillWidth,
-		fillHeight = fillHeight,
-	)
+	else -> {
+		val (width, height) = bucketImageSize(maxWidth, maxHeight)
+		api.imageApi.getItemImageUrl(
+			itemId = item,
+			imageType = type,
+			tag = tag,
+			imageIndex = index,
+			maxWidth = width,
+			maxHeight = height,
+			fillWidth = fillWidth,
+			fillHeight = fillHeight,
+			quality = quality,
+		)
+	}
 }
 
 enum class JellyfinImageSource {
