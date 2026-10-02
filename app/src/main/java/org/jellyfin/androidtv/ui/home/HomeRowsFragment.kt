@@ -261,6 +261,10 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		lifecycleScope.launch(Dispatchers.IO) {
 			if (delayed) delay(1.5.seconds)
 
+			// The delay outlives the visit when something is started from here straight away, and
+			// the refresh then competes with the player for the network. Coming back runs it again.
+			if (delayed && !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
+
 			repeat(adapter.size()) { i ->
 				val rowAdapter = (adapter[i] as? ListRow)?.adapter as? ItemRowAdapter
 				if (force) rowAdapter?.Retrieve()
