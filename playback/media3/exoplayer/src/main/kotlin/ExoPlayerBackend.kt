@@ -701,9 +701,14 @@ class ExoPlayerBackend(
 		// precedes it. Always behind, never ahead, so the cost is re-watching a few seconds rather
 		// than losing them. Settling it needs the position logged at each transition in a debug
 		// build.
-		val position = exoPlayer.currentPosition.milliseconds
-		stoppedPosition = position
-		currentStream?.let { stream -> endedStream = stream.identifier to position }
+		// Only while a stream is current. Stopping is asked twice - the player state stops, then the
+		// queue it clears stops again - and the second time the items are gone and the position
+		// reads 0, which would overwrite the one taken here.
+		currentStream?.let { stream ->
+			val position = exoPlayer.currentPosition.milliseconds
+			stoppedPosition = position
+			endedStream = stream.identifier to position
+		}
 
 		exoPlayer.stop()
 		// The player outlives playback, and stop keeps its media items. The next play then
