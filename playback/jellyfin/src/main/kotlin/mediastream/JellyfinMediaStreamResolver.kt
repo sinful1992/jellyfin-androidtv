@@ -3,6 +3,7 @@ package org.jellyfin.playback.jellyfin.mediastream
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStreamResolver
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
+import org.jellyfin.playback.core.mediastream.directPlayFailed
 import org.jellyfin.playback.core.mediastream.preferredAudioLanguage
 import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
 import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
@@ -44,6 +45,7 @@ class JellyfinMediaStreamResolver(
 			mediaSourceId = queueEntry.mediaSourceId,
 			audioStreamIndex = audioStreamIndex,
 			subtitleStreamIndex = queueEntry.selectedSubtitleStreamIndex,
+			enableDirectPlay = queueEntry.directPlayFailed != true,
 		)
 
 		return when {
@@ -114,6 +116,7 @@ class JellyfinMediaStreamResolver(
 		mediaSourceId: String? = null,
 		audioStreamIndex: Int? = null,
 		subtitleStreamIndex: Int? = null,
+		enableDirectPlay: Boolean = true,
 	): MediaInfo {
 		val profile = deviceProfileBuilder()
 		val response by api.mediaInfoApi.getPostedPlaybackInfo(
@@ -124,7 +127,7 @@ class JellyfinMediaStreamResolver(
 				// Null means no explicit choice was made, letting the server pick its default.
 				audioStreamIndex = audioStreamIndex,
 				subtitleStreamIndex = subtitleStreamIndex,
-				enableDirectPlay = true,
+				enableDirectPlay = enableDirectPlay,
 				enableDirectStream = true,
 				enableTranscoding = true,
 				allowVideoStreamCopy = true,

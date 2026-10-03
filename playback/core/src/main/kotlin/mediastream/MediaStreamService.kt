@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import org.jellyfin.playback.core.PlaybackEvent
+import org.jellyfin.playback.core.backend.PlayerBackendEventListener
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.plugin.PlayerService
 import org.jellyfin.playback.core.queue.QueueEntry
@@ -48,6 +49,27 @@ class MediaStreamService internal constructor(
 				entry.ensurePreloadTimedEvent()
 			}
 		}.launchIn(coroutineScope + Dispatchers.Main)
+
+		manager.backendService.addListener(object : PlayerBackendEventListener() {
+			override fun onMediaStreamUnplayable(mediaStream: PlayableMediaStream) {
+				coroutineScope.launch(Dispatchers.Main) { fallBackFromDirectPlay(mediaStream) }
+			}
+		})
+	}
+
+	/**
+	 * Ask the server to convert a file the player refused to read, resuming where it was meant to
+	 * be. Once per entry: a converted stream that fails too is left to the error it raised.
+	 */
+	private suspend fun fallBackFromDirectPlay(mediaStream: PlayableMediaStream) {
+		val entry = mediaStream.queueEntry
+		if (mediaStream.conversionMethod != MediaConversionMethod.None) return
+		if (entry.directPlayFailed == true || manager.queue.entry.value !== entry) return
+		if (entry.mediaStream !== mediaStream) return
+
+		Timber.w("Direct play of $entry was refused by the player, asking the server to convert it")
+		entry.directPlayFailed = true
+		reloadCurrentStream()
 	}
 
 	/**

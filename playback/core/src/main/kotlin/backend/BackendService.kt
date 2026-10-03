@@ -104,5 +104,9 @@ class BackendService(initialBackend: PlayerBackend) {
 		override fun onMediaStreamEnd(mediaStream: PlayableMediaStream) {
 			callListeners { onMediaStreamEnd(mediaStream) }
 		}
+
+		override fun onMediaStreamUnplayable(mediaStream: PlayableMediaStream) {
+			callListeners { onMediaStreamUnplayable(mediaStream) }
+		}
 	}
 }

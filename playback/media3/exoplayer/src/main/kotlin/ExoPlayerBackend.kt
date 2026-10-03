@@ -75,6 +75,11 @@ class ExoPlayerBackend(
 		const val TS_SEARCH_BYTES_LM = TsExtractor.TS_PACKET_SIZE * 1800
 		const val TS_SEARCH_BYTES_HM = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES
 		const val MEDIA_ITEM_COUNT_MAX = 10
+
+		private val containerRejections = setOf(
+			PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+			PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+		)
 	}
 
 	private var currentStream: PlayableMediaStream? = null
@@ -284,7 +289,15 @@ class ExoPlayerBackend(
 
 		override fun onPlayerError(error: PlaybackException) {
 			stallHandler.removeCallbacks(reportStalled)
+			Timber.w(error, "Playback failed (${error.errorCodeName})")
 			listener?.onPlayStateChange(PlayState.ERROR)
+
+			// A container the extractor will not read is a property of the file, so retrying it as
+			// is cannot help, while the server's own conversion reads it fine. Measured: a film whose
+			// subtitle tracks were zlib compressed, which media3's Matroska extractor rejects outright
+			// whichever tracks are selected, died ~60 ms into every start.
+			val stream = currentStream
+			if (stream != null && error.errorCode in containerRejections) listener?.onMediaStreamUnplayable(stream)
 		}
 
 		override fun onVideoSizeChanged(size: VideoSize) {
