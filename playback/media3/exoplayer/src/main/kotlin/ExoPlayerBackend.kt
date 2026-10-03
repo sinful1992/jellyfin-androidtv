@@ -363,6 +363,13 @@ class ExoPlayerBackend(
 	}
 
 	override fun prepareItem(item: QueueEntry) {
+		addMediaItem(item)
+
+		// Instruct exoplayer to prepare
+		exoPlayer.prepare()
+	}
+
+	private fun addMediaItem(item: QueueEntry) {
 		val stream = requireNotNull(item.mediaStream)
 		val mediaItem = MediaItem.Builder().apply {
 			setTag(item)
@@ -375,9 +382,6 @@ class ExoPlayerBackend(
 
 		// Add new item to the end of the media item list
 		exoPlayer.addMediaItem(mediaItem)
-
-		// Instruct exoplayer to prepare
-		exoPlayer.prepare()
 	}
 
 	override fun playItem(item: QueueEntry, startPosition: Duration) {
@@ -395,6 +399,12 @@ class ExoPlayerBackend(
 
 		currentStream = stream
 		hasPlayedCurrentStream = false
+
+		// Where the previous stream was stopped says nothing about this one. Left in place, the
+		// position reported while this stream opens - its start, and its stop if it fails before a
+		// frame - was the previous item's: every try of a film that would not start was reported
+		// stopped at the minute an unrelated episode had been left at.
+		stoppedPosition = null
 
 		// Track overrides belong to the stream they were chosen for, and the player keeps them
 		// across items, so drop them before playing a different one.
@@ -416,9 +426,10 @@ class ExoPlayerBackend(
 			exoPlayer.getMediaItemAt(index).mediaId == stream.hashCode().toString()
 		}
 
-		// Prepare the item now if it doesn't exist yet
+		// Add the item now if it doesn't exist yet. Prepared only after the seek below: preparing
+		// first loads whichever item is current, which is the one being left, not this one.
 		if (preparedItemIndex == null) {
-			prepareItem(item)
+			addMediaItem(item)
 			preparedItemIndex = exoPlayer.mediaItemCount - 1
 		}
 
@@ -433,6 +444,10 @@ class ExoPlayerBackend(
 			exoPlayer.currentMediaItemIndex -> Unit
 			else -> exoPlayer.seekTo(preparedItemIndex, 0)
 		}
+
+		// Idle after a stop or an error, and only then; an item queued up behind a playing one is
+		// already prepared along with it.
+		if (exoPlayer.playbackState == Player.STATE_IDLE) exoPlayer.prepare()
 
 		// Update audio attributes
 		val contentType = when (item.mediaType) {
@@ -691,6 +706,11 @@ class ExoPlayerBackend(
 		currentStream?.let { stream -> endedStream = stream.identifier to position }
 
 		exoPlayer.stop()
+		// The player outlives playback, and stop keeps its media items. The next play then
+		// prepared with the item stopped here still current, so it fetched that item's stream
+		// again before its own - on every play, and fatally when that request was refused: the
+		// error was taken as the new item's and it never started.
+		exoPlayer.clearMediaItems()
 		currentStream = null
 		hasPlayedCurrentStream = false
 	}
