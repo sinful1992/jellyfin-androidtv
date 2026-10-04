@@ -12,12 +12,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
+import org.jellyfin.playback.core.mediastream.audioStreamIndexPicked
 import org.jellyfin.playback.core.mediastream.mediaStream
 import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
 import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
+import org.jellyfin.playback.core.mediastream.subtitleStreamIndexPicked
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.model.RepeatMode
 import org.jellyfin.playback.core.plugin.PlayerService
+import org.jellyfin.playback.core.queue.QueueEntry
 import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.sdk.api.client.ApiClient
@@ -228,10 +231,11 @@ class PlaySessionService(
 					aspectRatio = state.videoSize.value.aspectRatio.toString(),
 					positionTicks = readPosition().inWholeTicks,
 					playMethod = stream.conversionMethod.playMethod,
-					// Only a choice the user made, here or carried from an earlier entry. Without one
-					// the server default is playing and the server already knows what that is.
-					audioStreamIndex = entry.selectedAudioStreamIndex,
-					subtitleStreamIndex = entry.selectedSubtitleStreamIndex,
+					// Only a choice the user made on this entry. The server keeps a reported track as
+					// the item's default for every client, so a carried one would overwrite it with a
+					// choice made on another item.
+					audioStreamIndex = entry.reportedAudioStreamIndex,
+					subtitleStreamIndex = entry.reportedSubtitleStreamIndex,
 					repeatMode = state.repeatMode.value.remoteRepeatMode,
 					nowPlayingQueue = getQueue(),
 					playbackOrder = when (state.playbackOrder.value) {
@@ -267,8 +271,8 @@ class PlaySessionService(
 					aspectRatio = state.videoSize.value.aspectRatio.toString(),
 					positionTicks = readPosition().inWholeTicks,
 					playMethod = stream.conversionMethod.playMethod,
-					audioStreamIndex = entry.selectedAudioStreamIndex,
-					subtitleStreamIndex = entry.selectedSubtitleStreamIndex,
+					audioStreamIndex = entry.reportedAudioStreamIndex,
+					subtitleStreamIndex = entry.reportedSubtitleStreamIndex,
 					repeatMode = state.repeatMode.value.remoteRepeatMode,
 					nowPlayingQueue = getQueue(),
 					playbackOrder = when (state.playbackOrder.value) {
@@ -309,3 +313,9 @@ class PlaySessionService(
 		}.onFailure { error -> Timber.w("Failed to send playback stop event", error) }
 	}
 }
+
+private val QueueEntry.reportedAudioStreamIndex
+	get() = selectedAudioStreamIndex.takeIf { audioStreamIndexPicked == true }
+
+private val QueueEntry.reportedSubtitleStreamIndex
+	get() = selectedSubtitleStreamIndex.takeIf { subtitleStreamIndexPicked == true }

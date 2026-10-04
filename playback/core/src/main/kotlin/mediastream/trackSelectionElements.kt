@@ -9,6 +9,8 @@ private val selectedAudioStreamIndexKey = ElementKey<Int>("SelectedAudioStreamIn
 private val preferredAudioLanguageKey = ElementKey<String>("PreferredAudioLanguage")
 private val selectedSubtitleStreamIndexKey = ElementKey<Int>("SelectedSubtitleStreamIndex")
 private val trackCarryGroupKey = ElementKey<String>("TrackCarryGroup")
+private val audioStreamIndexPickedKey = ElementKey<Boolean>("AudioStreamIndexPicked")
+private val subtitleStreamIndexPickedKey = ElementKey<Boolean>("SubtitleStreamIndexPicked")
 
 /**
  * Get or set the audio track the user picked for this [QueueEntry], as a media source index. A null
@@ -55,3 +57,16 @@ var QueueEntry.preferredAudioLanguage by element(preferredAudioLanguageKey)
  * to no other. Null for an entry that belongs to no group, whose choices last as long as the queue.
  */
 var QueueEntry.trackCarryGroup by element(trackCarryGroupKey)
+
+/**
+ * Whether [selectedAudioStreamIndex] was picked by the user on this [QueueEntry], as opposed to
+ * carried over from an earlier one. Only a pick made here is reported to the server, which keeps
+ * it as the item's default audio track for every client.
+ */
+var QueueEntry.audioStreamIndexPicked by element(audioStreamIndexPickedKey)
+
+/**
+ * Whether [selectedSubtitleStreamIndex] was picked by the user on this [QueueEntry].
+ * @see audioStreamIndexPicked
+ */
+var QueueEntry.subtitleStreamIndexPicked by element(subtitleStreamIndexPickedKey)
