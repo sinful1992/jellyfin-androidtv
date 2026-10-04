@@ -49,6 +49,13 @@ sealed interface MediaStreamTrack {
 	val index: Int
 	val codec: String
 	val title: String?
+
+	/**
+	 * The title the container gives this track, without the language, codec and flags the server
+	 * adds to [title]. Those differ between the episodes of one series, so this is what tells a
+	 * track apart when matching it across files.
+	 */
+	val name: String?
 	val language: String?
 	val isDefault: Boolean
 }
@@ -57,6 +64,7 @@ data class MediaStreamAudioTrack(
 	override val index: Int,
 	override val codec: String,
 	override val title: String? = null,
+	override val name: String? = null,
 	override val language: String? = null,
 	override val isDefault: Boolean = false,
 	val bitrate: Int,
@@ -68,6 +76,7 @@ data class MediaStreamVideoTrack(
 	override val index: Int,
 	override val codec: String,
 	override val title: String? = null,
+	override val name: String? = null,
 	override val language: String? = null,
 	override val isDefault: Boolean = false,
 	val bitrate: Int,
@@ -80,6 +89,7 @@ data class MediaStreamSubtitleTrack(
 	override val index: Int,
 	override val codec: String,
 	override val title: String? = null,
+	override val name: String? = null,
 	override val language: String? = null,
 	override val isDefault: Boolean = false,
 	/**
