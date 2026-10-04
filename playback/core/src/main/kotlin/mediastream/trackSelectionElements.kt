@@ -8,6 +8,7 @@ import org.jellyfin.playback.core.queue.QueueEntry
 private val selectedAudioStreamIndexKey = ElementKey<Int>("SelectedAudioStreamIndex")
 private val preferredAudioLanguageKey = ElementKey<String>("PreferredAudioLanguage")
 private val selectedSubtitleStreamIndexKey = ElementKey<Int>("SelectedSubtitleStreamIndex")
+private val trackCarryGroupKey = ElementKey<String>("TrackCarryGroup")
 
 /**
  * Get or set the audio track the user picked for this [QueueEntry], as a media source index. A null
@@ -47,3 +48,10 @@ val QueueEntry.selectedSubtitleStreamIndexFlow by elementFlow(selectedSubtitleSt
  * choice for this entry always wins.
  */
 var QueueEntry.preferredAudioLanguage by element(preferredAudioLanguageKey)
+
+/**
+ * The group this [QueueEntry] shares its track choices with, such as the series of an episode. A
+ * choice made in a group carries to every later entry of that group, however it was started, and
+ * to no other. Null for an entry that belongs to no group, whose choices last as long as the queue.
+ */
+var QueueEntry.trackCarryGroup by element(trackCarryGroupKey)

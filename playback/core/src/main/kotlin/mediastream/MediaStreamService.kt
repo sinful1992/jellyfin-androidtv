@@ -29,11 +29,32 @@ class MediaStreamService internal constructor(
 
 	/**
 	 * The audio and subtitle tracks the user last picked, applied to every entry played after them.
-	 * Null until a choice is made, leaving the server default in place, and reset when the queue
-	 * ends so a choice cannot carry into unrelated playback.
+	 * Null until a choice is made, leaving the server default in place.
 	 */
-	var carriedAudioTrack: TrackPreference? = null
-	var carriedSubtitleTrack: TrackPreference? = null
+	class CarriedTracks {
+		var audio: TrackPreference? = null
+		var subtitle: TrackPreference? = null
+	}
+
+	/**
+	 * Choices made in a [trackCarryGroup], kept for as long as the app runs. An episode is usually
+	 * started on its own from its details page, which replaces the queue, so a choice that lived
+	 * only as long as the queue never reached the next episode.
+	 */
+	private val groupCarriedTracks = mutableMapOf<String, CarriedTracks>()
+
+	/**
+	 * Choices made on entries in no group, reset when the queue ends so they cannot carry into
+	 * unrelated playback.
+	 */
+	private var queueCarriedTracks = CarriedTracks()
+
+	/**
+	 * The carried choices that apply to [entry]: those of its group, or of the queue when it has none.
+	 */
+	fun carriedTracks(entry: QueueEntry): CarriedTracks = entry.trackCarryGroup
+		?.let { group -> groupCarriedTracks.getOrPut(group) { CarriedTracks() } }
+		?: queueCarriedTracks
 
 	override suspend fun onInitialize() {
 		manager.queue.entry.onEach { entry ->
@@ -41,8 +62,7 @@ class MediaStreamService internal constructor(
 
 			if (entry == null) {
 				// The queue ended or was cleared, so the choices made within it no longer apply.
-				carriedAudioTrack = null
-				carriedSubtitleTrack = null
+				queueCarriedTracks = CarriedTracks()
 
 				val backend = requireNotNull(manager.backend)
 				backend.stop()
@@ -159,7 +179,7 @@ class MediaStreamService internal constructor(
 
 	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
 		if (mediaStream == null) {
-			this.preferredAudioLanguage = carriedAudioTrack?.language
+			this.preferredAudioLanguage = carriedTracks(this).audio?.language
 			mediaStream = resolveMediaStream(this)
 		}
 
@@ -176,10 +196,11 @@ class MediaStreamService internal constructor(
 	 */
 	private suspend fun QueueEntry.applyCarriedTracks() {
 		val stream = mediaStream ?: return
-		this.preferredAudioLanguage = carriedAudioTrack?.language
+		val carried = carriedTracks(this)
+		this.preferredAudioLanguage = carried.audio?.language
 
-		val audioIndex = carriedAudioTrack?.pick(stream.tracks.filterIsInstance<MediaStreamAudioTrack>())
-		val subtitleIndex = carriedSubtitleTrack?.pick(stream.tracks.filterIsInstance<MediaStreamSubtitleTrack>())
+		val audioIndex = carried.audio?.pick(stream.tracks.filterIsInstance<MediaStreamAudioTrack>())
+		val subtitleIndex = carried.subtitle?.pick(stream.tracks.filterIsInstance<MediaStreamSubtitleTrack>())
 
 		var changed = false
 		if (audioIndex != null && audioIndex != selectedAudioStreamIndex) {

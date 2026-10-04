@@ -2,6 +2,7 @@ package org.jellyfin.playback.jellyfin.queue
 
 import org.jellyfin.playback.core.mediastream.mediatype.mediaType
 import org.jellyfin.playback.core.mediastream.normalizationGain
+import org.jellyfin.playback.core.mediastream.trackCarryGroup
 import org.jellyfin.playback.core.queue.QueueEntry
 import org.jellyfin.playback.core.queue.QueueEntryMetadata
 import org.jellyfin.playback.core.queue.metadata
@@ -49,6 +50,7 @@ fun createBaseItemQueueEntry(api: ApiClient, baseItem: BaseItemDto): QueueEntry 
 	)
 	entry.baseItem = baseItem
 	entry.normalizationGain = baseItem.normalizationGain
+	entry.trackCarryGroup = baseItem.seriesId?.toString()
 	entry.mediaType = when (baseItem.mediaType) {
 		SdkMediaType.VIDEO -> PlayerMediaType.Video
 		SdkMediaType.AUDIO -> PlayerMediaType.Audio

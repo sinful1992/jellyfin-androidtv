@@ -32,7 +32,7 @@ fun PlaybackManager.selectAudioStream(index: Int) {
 	entry.selectedAudioStreamIndex = index
 	// Carry what the track is, not its index, to the entries that follow: indices differ between
 	// files. A track the stream does not list clears the carry-over rather than leaving a stale one.
-	mediaStreamService.carriedAudioTrack = entry.mediaStream?.tracks
+	mediaStreamService.carriedTracks(entry).audio = entry.mediaStream?.tracks
 		.orEmpty()
 		.filterIsInstance<MediaStreamAudioTrack>()
 		.firstOrNull { it.index == index }
@@ -53,7 +53,7 @@ fun PlaybackManager.selectSubtitleStream(index: Int) {
 	if (entry.selectedSubtitleStreamIndex == index) return
 
 	entry.selectedSubtitleStreamIndex = index
-	mediaStreamService.carriedSubtitleTrack = when (index) {
+	mediaStreamService.carriedTracks(entry).subtitle = when (index) {
 		MediaStreamSubtitleTrack.INDEX_NONE -> TrackPreference.OFF
 		else -> entry.mediaStream?.tracks
 			.orEmpty()
