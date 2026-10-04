@@ -15,6 +15,7 @@ import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentTransaction
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
+import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
 import org.jellyfin.androidtv.util.createBundle
 import timber.log.Timber
 import java.util.Stack
@@ -170,8 +171,10 @@ class DestinationFragmentView @JvmOverloads constructor(
 			Timber.w("FragmentManager is already destroyed")
 		} else if (fragmentManager.isStateSaved) {
 			transaction.commitAllowingStateLoss()
+			BlackScreenHeal.schedule(this, "navigate")
 		} else {
 			transaction.commit()
+			BlackScreenHeal.schedule(this, "navigate")
 		}
 	}
 
