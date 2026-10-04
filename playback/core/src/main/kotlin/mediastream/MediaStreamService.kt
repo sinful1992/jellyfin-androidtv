@@ -22,6 +22,7 @@ import kotlin.time.Duration
 class MediaStreamService internal constructor(
 	private val mediaStreamResolvers: Collection<MediaStreamResolver>,
 	private val preloadDuration: Duration,
+	private val trackCarryStore: TrackCarryStore? = null,
 ) : PlayerService() {
 	private companion object {
 		private const val TIMED_EVENT_PRELOAD = "MediaStreamServicePreloadNext"
@@ -31,15 +32,28 @@ class MediaStreamService internal constructor(
 	 * The audio and subtitle tracks the user last picked, applied to every entry played after them.
 	 * Null until a choice is made, leaving the server default in place.
 	 */
-	class CarriedTracks {
-		var audio: TrackPreference? = null
-		var subtitle: TrackPreference? = null
+	class CarriedTracks(
+		audio: TrackPreference? = null,
+		subtitle: TrackPreference? = null,
+		private val onChange: (CarriedTracks) -> Unit = {},
+	) {
+		var audio = audio
+			set(value) {
+				field = value
+				onChange(this)
+			}
+
+		var subtitle = subtitle
+			set(value) {
+				field = value
+				onChange(this)
+			}
 	}
 
 	/**
-	 * Choices made in a [trackCarryGroup], kept for as long as the app runs. An episode is usually
-	 * started on its own from its details page, which replaces the queue, so a choice that lived
-	 * only as long as the queue never reached the next episode.
+	 * Choices made in a [trackCarryGroup], kept in [trackCarryStore] so they outlive the app. An
+	 * episode is usually started on its own from its details page, which replaces the queue, and
+	 * the TV closes an idle app, so a choice kept any shorter never reached the next episode.
 	 */
 	private val groupCarriedTracks = mutableMapOf<String, CarriedTracks>()
 
@@ -53,8 +67,17 @@ class MediaStreamService internal constructor(
 	 * The carried choices that apply to [entry]: those of its group, or of the queue when it has none.
 	 */
 	fun carriedTracks(entry: QueueEntry): CarriedTracks = entry.trackCarryGroup
-		?.let { group -> groupCarriedTracks.getOrPut(group) { CarriedTracks() } }
+		?.let { group -> groupCarriedTracks.getOrPut(group) { loadCarriedTracks(group) } }
 		?: queueCarriedTracks
+
+	private fun loadCarriedTracks(group: String) = CarriedTracks(
+		audio = trackCarryStore?.read(group, TrackCarryStore.Kind.AUDIO),
+		subtitle = trackCarryStore?.read(group, TrackCarryStore.Kind.SUBTITLE),
+		onChange = { tracks ->
+			trackCarryStore?.write(group, TrackCarryStore.Kind.AUDIO, tracks.audio)
+			trackCarryStore?.write(group, TrackCarryStore.Kind.SUBTITLE, tracks.subtitle)
+		},
+	)
 
 	override suspend fun onInitialize() {
 		manager.queue.entry.onEach { entry ->
