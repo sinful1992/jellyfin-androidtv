@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.acra.ACRA
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
@@ -132,6 +133,13 @@ class MainActivity : FragmentActivity() {
 			repairStaleFocus(decorView)?.let { group ->
 				// Release builds plant no Timber tree, so log directly to keep this visible in logcat.
 				Log.w("StaleFocus", "Repaired stale focus in ${group.javaClass.name} before key ${event.keyCode}")
+				// Without the guard this was a crash upload; keep one report per process so the server still sees it.
+				if (!staleFocusReported) {
+					staleFocusReported = true
+					ACRA.errorReporter.handleSilentException(
+						IllegalStateException("Repaired stale focus in ${group.javaClass.name} before key ${event.keyCode}")
+					)
+				}
 			}
 		}
 		return super.dispatchKeyEvent(event)
@@ -156,4 +164,8 @@ class MainActivity : FragmentActivity() {
 
 	override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean =
 		onKeyEvent(keyCode, event) || super.onKeyUp(keyCode, event)
+
+	private companion object {
+		var staleFocusReported = false
+	}
 }
