@@ -503,6 +503,14 @@ class ExoPlayerBackend(
 			.setOverrideForType(TrackSelectionOverride(group, 0))
 			.build()
 
+		// Switching the audio track mid-stream creates a new audio output without a flush. On the
+		// Chromecast's DD+ passthrough the new output reported the old one's played time as its own
+		// ("startup glitch", +22 s at 22 s in), the clock jumped 12 s past the buffered video and
+		// playback stayed stuck until the next seek. Seeking to where playback is gives the new
+		// output the same clean start a seek does.
+		val state = exoPlayer.playbackState
+		if (state == Player.STATE_READY || state == Player.STATE_BUFFERING) exoPlayer.seekTo(exoPlayer.currentPosition)
+
 		Timber.i("Selected audio track $index client side (${group.getFormat(0).language}, ${group.getFormat(0).sampleMimeType})")
 		return true
 	}
