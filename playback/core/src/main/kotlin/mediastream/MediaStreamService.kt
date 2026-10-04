@@ -28,11 +28,12 @@ class MediaStreamService internal constructor(
 	}
 
 	/**
-	 * The audio language the user last picked, applied to every entry resolved after it. Null until
-	 * a choice is made, leaving the server default in place, and reset when the queue ends so a
-	 * choice cannot carry into unrelated playback.
+	 * The audio and subtitle tracks the user last picked, applied to every entry played after them.
+	 * Null until a choice is made, leaving the server default in place, and reset when the queue
+	 * ends so a choice cannot carry into unrelated playback.
 	 */
-	var preferredAudioLanguage: String? = null
+	var carriedAudioTrack: TrackPreference? = null
+	var carriedSubtitleTrack: TrackPreference? = null
 
 	override suspend fun onInitialize() {
 		manager.queue.entry.onEach { entry ->
@@ -40,7 +41,8 @@ class MediaStreamService internal constructor(
 
 			if (entry == null) {
 				// The queue ended or was cleared, so the choices made within it no longer apply.
-				preferredAudioLanguage = null
+				carriedAudioTrack = null
+				carriedSubtitleTrack = null
 
 				val backend = requireNotNull(manager.backend)
 				backend.stop()
@@ -157,11 +159,41 @@ class MediaStreamService internal constructor(
 
 	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
 		if (mediaStream == null) {
-			this.preferredAudioLanguage = this@MediaStreamService.preferredAudioLanguage
+			this.preferredAudioLanguage = carriedAudioTrack?.language
 			mediaStream = resolveMediaStream(this)
 		}
 
 		return mediaStream != null
+	}
+
+	/**
+	 * Select the carried tracks on this entry. Done as it starts playing rather than when its stream
+	 * is resolved: the next entry is resolved ahead of time, and a choice made after that would
+	 * otherwise miss it.
+	 *
+	 * A stream that already holds every track gets the selection applied by the backend. One the
+	 * server converted has the old choice baked in, so it is resolved again with the new one.
+	 */
+	private suspend fun QueueEntry.applyCarriedTracks() {
+		val stream = mediaStream ?: return
+		this.preferredAudioLanguage = carriedAudioTrack?.language
+
+		val audioIndex = carriedAudioTrack?.pick(stream.tracks.filterIsInstance<MediaStreamAudioTrack>())
+		val subtitleIndex = carriedSubtitleTrack?.pick(stream.tracks.filterIsInstance<MediaStreamSubtitleTrack>())
+
+		var changed = false
+		if (audioIndex != null && audioIndex != selectedAudioStreamIndex) {
+			selectedAudioStreamIndex = audioIndex
+			changed = true
+		}
+		if (subtitleIndex != null && subtitleIndex != selectedSubtitleStreamIndex) {
+			selectedSubtitleStreamIndex = subtitleIndex
+			changed = true
+		}
+
+		if (changed && stream.conversionMethod != MediaConversionMethod.None) {
+			resolveMediaStream(this)?.let { mediaStream = it }
+		}
 	}
 
 	private fun QueueEntry.ensurePreloadTimedEvent() {
@@ -185,6 +217,8 @@ class MediaStreamService internal constructor(
 		val hasMediaStream = entry.ensureMediaStream()
 
 		if (hasMediaStream) {
+			entry.applyCarriedTracks()
+
 			// Taken rather than read, so replaying the same entry later starts at its beginning.
 			val startPosition = entry.startPosition ?: Duration.ZERO
 			entry.startPosition = null

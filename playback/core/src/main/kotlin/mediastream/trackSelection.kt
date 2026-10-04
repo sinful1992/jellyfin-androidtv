@@ -18,8 +18,8 @@ val PlaybackManager.currentTracks: Collection<MediaStreamTrack>
 
 /**
  * Play the current entry with a different audio track, keeping the position and play state.
- * Does nothing when that track is already selected. The track's language is remembered for the
- * entries that follow, so a choice made on one episode carries to the next.
+ * Does nothing when that track is already selected. The track is remembered for the entries that
+ * follow, so a choice made on one episode carries to the next.
  *
  * The change is applied in the background: on a stream that already carries every track it takes
  * effect without interrupting playback, and otherwise the stream is resolved again, which on a
@@ -30,21 +30,21 @@ fun PlaybackManager.selectAudioStream(index: Int) {
 	if (entry.selectedAudioStreamIndex == index) return
 
 	entry.selectedAudioStreamIndex = index
-	// Carry the language, not the index, to the entries that follow: indices differ between files
-	// while languages do not. A track without a language clears the carry-over rather than leaving
-	// a stale one behind.
-	mediaStreamService.preferredAudioLanguage = entry.mediaStream?.tracks
+	// Carry what the track is, not its index, to the entries that follow: indices differ between
+	// files. A track the stream does not list clears the carry-over rather than leaving a stale one.
+	mediaStreamService.carriedAudioTrack = entry.mediaStream?.tracks
 		.orEmpty()
 		.filterIsInstance<MediaStreamAudioTrack>()
 		.firstOrNull { it.index == index }
-		?.language
+		?.let(TrackPreference::of)
 	mediaStreamService.applyAudioTrackSelection(index)
 }
 
 /**
  * Play the current entry with a different subtitle track, keeping the position and play state.
  * Pass [MediaStreamSubtitleTrack.INDEX_NONE] to turn subtitles off. Does nothing when that track
- * is already selected.
+ * is already selected. Like the audio track, the choice - off included - carries to the entries
+ * that follow.
  *
  * @see selectAudioStream
  */
@@ -53,5 +53,13 @@ fun PlaybackManager.selectSubtitleStream(index: Int) {
 	if (entry.selectedSubtitleStreamIndex == index) return
 
 	entry.selectedSubtitleStreamIndex = index
+	mediaStreamService.carriedSubtitleTrack = when (index) {
+		MediaStreamSubtitleTrack.INDEX_NONE -> TrackPreference.OFF
+		else -> entry.mediaStream?.tracks
+			.orEmpty()
+			.filterIsInstance<MediaStreamSubtitleTrack>()
+			.firstOrNull { it.index == index }
+			?.let(TrackPreference::of)
+	}
 	mediaStreamService.applySubtitleTrackSelection(index)
 }

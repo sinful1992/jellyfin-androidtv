@@ -425,9 +425,9 @@ class ExoPlayerBackend(
 			.clearOverridesOfType(C.TRACK_TYPE_AUDIO)
 			.clearOverridesOfType(C.TRACK_TYPE_TEXT)
 			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-			// A direct-play URL carries no audio index, so the language carried over from an earlier
-			// entry only reaches the player this way. Set on every item so a stale one never lingers.
-			.setPreferredAudioLanguage(item.preferredAudioLanguage.takeIf { item.selectedAudioStreamIndex == null })
+			// The language carried over from an earlier entry, for when the carried track cannot be
+			// selected by identity below. Set on every item so a stale one never lingers.
+			.setPreferredAudioLanguage(item.preferredAudioLanguage)
 			.build()
 
 		// Clearing the overrides also drops the tracks chosen for this entry when its stream was
