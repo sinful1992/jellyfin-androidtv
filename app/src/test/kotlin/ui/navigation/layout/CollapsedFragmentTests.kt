@@ -115,6 +115,45 @@ class CollapsedFragmentTests : FunSpec({
 		findCollapsedFragmentView(root, isHost).shouldBeNull()
 	}
 
+	// The home screen as the healthy 09-21 capture dumps it, from content down to the rows grid:
+	// content > ComposeView > z6 > tc > lx5 > tw0 > FragmentContainerView app:id/container >
+	// ComposeView (HomeFragment) > z6 > tc > lx5 (0,190) > FragmentContainerView > VerticalGridView
+	// container_list (HomeRowsFragment's own view, no scale frame in between) > row with a 1920x0 header dock.
+	fun homeScreen(pageSize: Pair<Int, Int>, innerSize: Pair<Int, Int>, gridSize: Pair<Int, Int>): ViewGroup {
+		val headerDock = view(1920, 0)
+		val row = group(1920, 576, headerDock)
+		val grid = group(gridSize.first, gridSize.second, row)
+		val inner = group(innerSize.first, innerSize.second, grid).also(hosts::add)
+		val composeInner = group(innerSize.first, innerSize.second, inner)
+		val page = group(pageSize.first, pageSize.second, group(pageSize.first, pageSize.second, group(pageSize.first, pageSize.second, composeInner)))
+		val container = group(1920, 1080, page).also(hosts::add)
+		val host = group(1920, 1080, group(1920, 1080, group(1920, 1080, group(1920, 1080, container))))
+		val stub = view(0, 0, View.GONE)
+		return group(1920, 1080, stub, group(1920, 1080, host))
+	}
+
+	test("healthy home capture has no hit") {
+		findCollapsedFragmentView(homeScreen(1920 to 1080, 1920 to 890, 1920 to 890), isHost).shouldBeNull()
+	}
+
+	test("09-20 dump: rows grid 0x0 in a 1920x890 container is a hit") {
+		val root = homeScreen(1920 to 1080, 1920 to 890, 0 to 0)
+
+		val hit = findCollapsedFragmentView(root, isHost).shouldNotBeNull()
+		hit.isHost shouldBe false
+		hit.parent.width shouldBe 1920
+		hit.parent.height shouldBe 890
+	}
+
+	test("09-21 dump: HomeFragment's ComposeView 0x0 in the 1920x1080 container is the hit") {
+		val root = homeScreen(0 to 0, 0 to 0, 0 to 0)
+
+		val hit = findCollapsedFragmentView(root, isHost).shouldNotBeNull()
+		hit.isHost shouldBe false
+		hit.parent.width shouldBe 1920
+		hit.parent.height shouldBe 1080
+	}
+
 	test("layout is requested on every level up to the window") {
 		val root = group(1920, 1080)
 		val container = group(1920, 1080)

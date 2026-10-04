@@ -1,5 +1,8 @@
 package org.jellyfin.androidtv.ui.navigation.layout
 
+import android.os.Build
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -21,7 +24,19 @@ object BlackScreenHeal {
 	// Past the 400 ms fragment fade, so a page whose first layout simply has not run yet is not a hit.
 	private const val DELAY_MS = 500L
 
+	// A cold start can still be attaching its first page at the first check and heal it on the normal pass,
+	// which would spend the one report on a false cure. The standby case comes in a long-lived process.
+	private const val REPORT_MIN_AGE_S = 60L
+
+	// Fallback for API 23, which has no process start time: the first use, at the first page change.
+	private val firstUse = SystemClock.elapsedRealtime()
+
 	private var reported = false
+
+	private fun processAgeSeconds(): Long {
+		val start = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) Process.getStartElapsedRealtime() else firstUse
+		return (SystemClock.elapsedRealtime() - start) / 1000
+	}
 
 	/** Checks the window [anchor] belongs to after a delay. Main thread only. */
 	fun schedule(anchor: View, trigger: String) {
@@ -36,17 +51,21 @@ object BlackScreenHeal {
 		val view = hit.view
 		val label = "level=${fragmentName(view, hit.isHost)}/${if (hit.isHost) "host" else "root"} " +
 			"id=${idName(view)} parent=${hit.parent.width}x${hit.parent.height} " +
-			"layoutRequested=${view.isLayoutRequested} trigger=$trigger"
+			"layoutRequested=${view.isLayoutRequested} trigger=$trigger age=${processAgeSeconds()}"
 		// Release builds plant no Timber tree, so log directly to keep this visible in logcat.
 		Log.w(TAG, "$TAG $label, requesting layout")
 		requestLayoutToWindow(view)
 
 		// Claimed now, not when sent, so a second trigger inside the delay cannot send a second report.
-		val report = !reported
-		reported = true
+		val report = !reported && processAgeSeconds() >= REPORT_MIN_AGE_S
+		if (report) reported = true
 
-		view.postDelayed({
-			val cured = view.width > 0 && view.height > 0
+		root.postDelayed({
+			// Leaving the page before the re-check (Back on a black screen) tells nothing about the heal.
+			val cured = when {
+				!view.isAttachedToWindow -> "detached"
+				else -> (view.width > 0 && view.height > 0).toString()
+			}
 			val message = "$TAG $label cured=$cured"
 			Log.w(TAG, message)
 			if (report) ACRA.errorReporter.handleSilentException(IllegalStateException(message))
