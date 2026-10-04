@@ -2,8 +2,10 @@ package org.jellyfin.androidtv.ui.browsing
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.fragment.app.Fragment
@@ -24,6 +26,7 @@ import org.jellyfin.androidtv.ui.base.ProvideLocalInteractionTracker
 import org.jellyfin.androidtv.ui.composable.compat.AppNavigationHost
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
+import org.jellyfin.androidtv.ui.navigation.focus.repairStaleFocus
 import org.jellyfin.androidtv.ui.screensaver.InAppScreensaver
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
 import org.jellyfin.androidtv.ui.startup.StartupActivity
@@ -121,6 +124,17 @@ class MainActivity : FragmentActivity() {
 			Timber.i("MainActivity stopped")
 			sessionRepository.restoreSession(destroyOnly = true)
 		}
+	}
+
+	override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+		val decorView = window.decorView as? ViewGroup
+		if (decorView != null) {
+			repairStaleFocus(decorView)?.let { group ->
+				// Release builds plant no Timber tree, so log directly to keep this visible in logcat.
+				Log.w("StaleFocus", "Repaired stale focus in ${group.javaClass.name} before key ${event.keyCode}")
+			}
+		}
+		return super.dispatchKeyEvent(event)
 	}
 
 	// Forward key events to fragments
