@@ -19,7 +19,6 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -43,6 +42,7 @@ import org.jellyfin.playback.core.mediastream.MediaStreamAudioTrack
 import org.jellyfin.playback.core.mediastream.MediaStreamSubtitleTrack
 import org.jellyfin.playback.core.mediastream.MediaStreamTrack
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
+import org.jellyfin.playback.core.mediastream.audioStreamIndexPicked
 import org.jellyfin.playback.core.mediastream.mediaStream
 import org.jellyfin.playback.core.mediastream.mediatype.MediaType
 import org.jellyfin.playback.core.mediastream.mediatype.mediaType
@@ -50,6 +50,7 @@ import org.jellyfin.playback.core.mediastream.normalizationGain
 import org.jellyfin.playback.core.mediastream.preferredAudioLanguage
 import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
 import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
+import org.jellyfin.playback.core.mediastream.subtitleStreamIndexPicked
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.model.PositionInfo
 import org.jellyfin.playback.core.queue.QueueEntry
@@ -158,8 +159,26 @@ class ExoPlayerBackend(
 
 		// Cleared first: applying an override calls back into this.
 		pendingTrackSelection = null
-		pending.audioIndex?.let { selectAudioTrack(it) }
-		pending.subtitleIndex?.let { selectSubtitleTrack(it) }
+		val entry = pending.stream.queueEntry
+		val isDirectPlay = pending.stream.conversionMethod == MediaConversionMethod.None
+
+		// A direct-played file the player could not select the track in keeps playing its default.
+		// Drop the choice from the entry then, so the track menu and the reports to the server show
+		// what is actually playing. A converted stream has the choice baked in and keeps it.
+		pending.audioIndex?.let { index ->
+			if (!selectAudioTrack(index) && isDirectPlay) {
+				Timber.w("Audio track $index could not be selected, keeping the default")
+				entry.selectedAudioStreamIndex = null
+				entry.audioStreamIndexPicked = null
+			}
+		}
+		pending.subtitleIndex?.let { index ->
+			if (!selectSubtitleTrack(index) && isDirectPlay) {
+				Timber.w("Subtitle track $index could not be selected, keeping the default")
+				entry.selectedSubtitleStreamIndex = null
+				entry.subtitleStreamIndexPicked = null
+			}
+		}
 	}
 
 	private val reportStalled = Runnable {
@@ -496,6 +515,7 @@ class ExoPlayerBackend(
 			mediaSourceTracks = tracks,
 			discriminators = listOf(
 				{ track, format -> format.sampleMimeType == getFfmpegAudioMimeType(track.codec) },
+				sameTitle(),
 			),
 		) ?: return false
 
@@ -554,6 +574,7 @@ class ExoPlayerBackend(
 			mediaSourceTracks = embedded,
 			discriminators = listOf(
 				{ track, format -> format.sampleMimeType == getFfmpegSubtitleMimeType(track.codec) },
+				sameTitle(),
 				// Several tracks of one language is the normal case for subtitles - a forced
 				// track beside a full one, or SDH beside plain - so the flags the container
 				// carries are what tells them apart once the codec cannot.
@@ -617,17 +638,6 @@ class ExoPlayerBackend(
 	private fun Format.hasSelectionFlag(flag: Int) = (selectionFlags and flag) != 0
 
 	/**
-	 * Whether the media source and the container describe the same track, matched on what both
-	 * sides actually state rather than on the order they happen to list things in.
-	 *
-	 * The media source spells languages out in three letters where the container has normalised
-	 * them to two, so both sides go through the same normalisation before they are compared. A
-	 * track without a language only matches a group without one.
-	 */
-	private fun sameLanguage(mediaSource: String?, container: String?): Boolean =
-		mediaSource?.let(Util::normalizeLanguageCode) == container?.let(Util::normalizeLanguageCode)
-
-	/**
 	 * Find the track group holding the track the media source lists at [index], or null when the
 	 * two cannot be matched up with certainty.
 	 *
@@ -636,15 +646,13 @@ class ExoPlayerBackend(
 	 * back a differently ordered list, so the same index selected a different language depending on
 	 * what had happened earlier in the session.
 	 *
-	 * Language alone settles most files. Where several tracks share a language the codec decides
-	 * between them, and anything still ambiguous returns null so the caller resolves the stream
-	 * again rather than playing a track nobody asked for.
+	 * @see matchTrackFormat
 	 */
 	private fun <T : MediaStreamTrack> findTrackGroup(
 		trackType: Int,
 		index: Int,
 		mediaSourceTracks: List<T>,
-		discriminators: List<(track: T, format: Format) -> Boolean>,
+		discriminators: List<TrackDiscriminator<T>>,
 	): TrackGroup? {
 		if (!isDirectPlay()) return null
 		if (!containerMatchesMediaSource(trackType, mediaSourceTracks.size)) return null
@@ -657,26 +665,13 @@ class ExoPlayerBackend(
 		}
 
 		val groups = exoPlayer.currentTracks.groups.filter { it.type == trackType }
-
-		// Language first, then each discriminator in turn for as long as more than one candidate
-		// is left. A discriminator that rules every candidate out has failed to tell them apart
-		// rather than proved the track absent, so it leaves the candidates as they were.
-		var candidates = groups.filter { sameLanguage(track.language, it.getTrackFormat(0).language) }
-
-		for (discriminator in discriminators) {
-			if (candidates.size <= 1) break
-			candidates = candidates
-				.filter { discriminator(track, it.getTrackFormat(0)) }
-				.ifEmpty { candidates }
-		}
-
-		val group = candidates.singleOrNull()
+		val group = matchTrackFormat(track, groups.map { it.getTrackFormat(0) }, discriminators)?.let(groups::get)
 
 		if (group == null) {
 			Timber.d(
-				"Cannot select track $index client side: ${candidates.size} of ${groups.size} " +
-					"groups in the container are still a match for language ${track.language} " +
-					"and codec ${track.codec}"
+				"Cannot select track $index client side: no single one of ${groups.size} groups in " +
+					"the container is a match for language ${track.language}, codec ${track.codec} " +
+					"and title ${track.name}"
 			)
 			return null
 		}
