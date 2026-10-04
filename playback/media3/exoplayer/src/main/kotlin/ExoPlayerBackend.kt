@@ -509,7 +509,8 @@ class ExoPlayerBackend(
 		// playback stayed stuck until the next seek. Seeking to where playback is gives the new
 		// output the same clean start a seek does.
 		val state = exoPlayer.playbackState
-		if (state == Player.STATE_READY || state == Player.STATE_BUFFERING) exoPlayer.seekTo(exoPlayer.currentPosition)
+		val started = state == Player.STATE_READY || state == Player.STATE_BUFFERING
+		if (started && exoPlayer.isCurrentMediaItemSeekable) exoPlayer.seekTo(exoPlayer.currentPosition)
 
 		Timber.i("Selected audio track $index client side (${group.getFormat(0).language}, ${group.getFormat(0).sampleMimeType})")
 		return true
