@@ -13,6 +13,8 @@ import kotlinx.coroutines.withContext
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
 import org.jellyfin.playback.core.mediastream.mediaStream
+import org.jellyfin.playback.core.mediastream.selectedAudioStreamIndex
+import org.jellyfin.playback.core.mediastream.selectedSubtitleStreamIndex
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.model.RepeatMode
 import org.jellyfin.playback.core.plugin.PlayerService
@@ -226,6 +228,10 @@ class PlaySessionService(
 					aspectRatio = state.videoSize.value.aspectRatio.toString(),
 					positionTicks = readPosition().inWholeTicks,
 					playMethod = stream.conversionMethod.playMethod,
+					// Only a choice the user made, here or carried from an earlier entry. Without one
+					// the server default is playing and the server already knows what that is.
+					audioStreamIndex = entry.selectedAudioStreamIndex,
+					subtitleStreamIndex = entry.selectedSubtitleStreamIndex,
 					repeatMode = state.repeatMode.value.remoteRepeatMode,
 					nowPlayingQueue = getQueue(),
 					playbackOrder = when (state.playbackOrder.value) {
@@ -261,6 +267,8 @@ class PlaySessionService(
 					aspectRatio = state.videoSize.value.aspectRatio.toString(),
 					positionTicks = readPosition().inWholeTicks,
 					playMethod = stream.conversionMethod.playMethod,
+					audioStreamIndex = entry.selectedAudioStreamIndex,
+					subtitleStreamIndex = entry.selectedSubtitleStreamIndex,
 					repeatMode = state.repeatMode.value.remoteRepeatMode,
 					nowPlayingQueue = getQueue(),
 					playbackOrder = when (state.playbackOrder.value) {
