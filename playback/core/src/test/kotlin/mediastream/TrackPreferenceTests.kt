@@ -14,7 +14,14 @@ private fun audio(index: Int, language: String?, name: String? = null) = MediaSt
 	sampleRate = 48000,
 )
 
-private fun sub(index: Int, language: String?, name: String? = null, forced: Boolean = false, default: Boolean = false) =
+private fun sub(
+	index: Int,
+	language: String?,
+	name: String? = null,
+	forced: Boolean = false,
+	default: Boolean = false,
+	hearingImpaired: Boolean = false,
+) =
 	MediaStreamSubtitleTrack(
 		index = index,
 		codec = "subrip",
@@ -25,6 +32,7 @@ private fun sub(index: Int, language: String?, name: String? = null, forced: Boo
 		language = language,
 		isDefault = default,
 		isForced = forced,
+		isHearingImpaired = hearingImpaired,
 	)
 
 // Tom and Jerry Kids Show S03E49-51 "Stunt Cat" and S03E52-54 "Scrapheap", as the server lists them.
@@ -53,12 +61,12 @@ class TrackPreferenceTests : FunSpec({
 		TrackPreference.of(scrapheapSubs[3]).pick(scrapheapSubs) shouldBe 7
 	}
 
-	test("with only the other kind in that language, the language still wins, non-forced first") {
+	test("forced and full never stand in for each other") {
 		val onlyForced = listOf(sub(3, "eng"), sub(4, "spa", forced = true))
-		TrackPreference.of(scrapheapSubs[3]).pick(onlyForced) shouldBe 4
+		TrackPreference.of(scrapheapSubs[3]).pick(onlyForced) shouldBe null
 
-		val both = listOf(sub(3, "spa", forced = true), sub(4, "spa", "Castilian"))
-		TrackPreference(language = "spa", forced = false, title = "Latin").pick(both) shouldBe 4
+		val onlyFull = listOf(sub(3, "eng"), sub(4, "spa"))
+		TrackPreference.of(scrapheapSubs[0]).pick(onlyFull) shouldBe null
 	}
 
 	test("a language the next file lacks leaves the server default") {
@@ -88,6 +96,13 @@ class TrackPreferenceTests : FunSpec({
 		TrackPreference.of(sub(9, "eng")).pick(next) shouldBe 3
 		TrackPreference.of(sub(9, "eng", "SDH")).pick(next) shouldBe 2
 		TrackPreference.of(sub(9, "eng", "Hearing impaired")).pick(next) shouldBe 2
+	}
+
+	test("the hearing impaired flag tells untitled tracks apart") {
+		val next = listOf(sub(2, "eng", hearingImpaired = true), sub(3, "eng"))
+		TrackPreference.of(sub(9, "eng")).pick(next) shouldBe 3
+		TrackPreference.of(sub(9, "eng", hearingImpaired = true)).pick(next) shouldBe 2
+		TrackPreference.of(sub(9, "eng", "SDH")).pick(next) shouldBe 2
 	}
 
 	test("languages compare without case") {

@@ -62,5 +62,6 @@ private fun getSubtitleTrack(stream: MediaStream) = MediaStreamSubtitleTrack(
 	language = stream.language,
 	isDefault = stream.isDefault,
 	isForced = stream.isForced,
+	isHearingImpaired = stream.isHearingImpaired == true,
 	isExternal = stream.isExternal,
 )

@@ -12,6 +12,8 @@ data class TrackPreference(
 	/** The container title of the track, see [MediaStreamTrack.name]. */
 	val title: String? = null,
 	val forced: Boolean = false,
+	/** Written for the hearing impaired, by the server's flag or the title. */
+	val sdh: Boolean = false,
 	val codec: String? = null,
 ) {
 	companion object {
@@ -21,6 +23,7 @@ data class TrackPreference(
 			language = track.normalizedLanguage,
 			title = track.name?.takeIf { it.isNotBlank() },
 			forced = track.isForced,
+			sdh = track.isSdh,
 			codec = track.codec,
 		)
 	}
@@ -43,25 +46,22 @@ fun TrackPreference.pick(tracks: Collection<MediaStreamTrack>): Int? {
 	}
 
 	val sameLanguage = tracks.filter { it.normalizedLanguage.equals(language, ignoreCase = true) }
+	// A forced track only covers the lines in another language, so it never stands in for a full
+	// one, nor a full one for it: the next file without the same kind falls to the server default.
 	val sameForced = sameLanguage.filter { it.isForced == forced }
 
-	sameForced.firstOrNull { it.name.orEmpty().equals(title.orEmpty(), ignoreCase = true) }
+	sameForced.firstOrNull { it.name.orEmpty().equals(title.orEmpty(), ignoreCase = true) && it.isSdh == sdh }
 		?.let { return it.index }
 
-	if (sameForced.isNotEmpty()) {
-		val wanted = title.titleWords()
-		val wantsSdh = title.isSdh()
-		// maxWithOrNull keeps the first of equal candidates, so the file's own order breaks ties.
-		return sameForced.maxWithOrNull(
-			compareBy<MediaStreamTrack>(
-				{ track -> track.name.titleWords().count { it in wanted } },
-				{ track -> track.name.isSdh() == wantsSdh },
-				{ track -> track.codec.equals(codec, ignoreCase = true) },
-			)
-		)?.index
-	}
-
-	return sameLanguage.sortedBy { it.isForced }.firstOrNull()?.index
+	val wanted = title.titleWords()
+	// maxWithOrNull keeps the first of equal candidates, so the file's own order breaks ties.
+	return sameForced.maxWithOrNull(
+		compareBy<MediaStreamTrack>(
+			{ track -> track.name.titleWords().count { it in wanted } },
+			{ track -> track.isSdh == sdh },
+			{ track -> track.codec.equals(codec, ignoreCase = true) },
+		)
+	)?.index
 }
 
 private val MediaStreamTrack.isForced
@@ -71,10 +71,13 @@ private val MediaStreamTrack.isForced
 private val MediaStreamTrack.normalizedLanguage
 	get() = language?.takeUnless { it.isBlank() || it.equals("und", ignoreCase = true) }
 
+private val MediaStreamTrack.isSdh
+	get() = (this is MediaStreamSubtitleTrack && isHearingImpaired) || name.titleWords().let { words ->
+		"sdh" in words || "cc" in words || "hearing" in words
+	}
+
 private fun String?.titleWords() = orEmpty()
 	.lowercase()
 	.split(Regex("[^\\p{L}\\p{N}]+"))
 	.filter { it.isNotEmpty() }
 	.toSet()
-
-private fun String?.isSdh() = titleWords().let { words -> "sdh" in words || "cc" in words || "hearing" in words }

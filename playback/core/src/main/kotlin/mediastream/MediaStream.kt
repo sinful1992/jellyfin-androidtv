@@ -101,6 +101,11 @@ data class MediaStreamSubtitleTrack(
 	 */
 	val isForced: Boolean = false,
 	/**
+	 * Whether the server flags this track as written for the hearing impaired (SDH). Tracks often
+	 * only say so in their title, so this is not the whole answer on its own.
+	 */
+	val isHearingImpaired: Boolean = false,
+	/**
 	 * Whether this track lives outside the media container.
 	 *
 	 * An external track is listed here but is not in the stream handed to the player, so it can
