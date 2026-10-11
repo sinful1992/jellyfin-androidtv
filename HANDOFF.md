@@ -49,13 +49,18 @@ playback, server, verify, check).
 - **Tracks:** audio and subtitle pickers. A track choice is matched across files by what the track is (language,
   codec, title, forced), never by index. Choices carry per series and survive restarts (`TrackCarryStore`). The
   chosen tracks are reported to the server. Task 39: choices per user, a 60-day expiry, a reset in Settings →
-  Playback, and forced subtitles survive "off".
+  Playback, and forced subtitles survive "off". When the item's tracks are known, the carried **audio** goes into the
+  first PlaybackInfo, so there is one request per start. A carried subtitle is applied afterwards, so a direct-play
+  file is never burnt in. Multi-version items with no version chosen fall back to 2 requests.
 - **Robustness:**
   - The server converts a file media3 refuses (zlib-compressed MKV tracks, hero.35).
   - A stalled renderer can't report PLAYING for more than 15 s after the first picture.
   - Playback stops when the HDMI link drops.
   - The player seeks after an audio switch on seekable items. This works around the DD+ passthrough
     "startup glitch", where the clock jumps +12 s and then stalls.
+  - A player error while nothing is current is logged, not reported. That covers media3's NPE on the track
+    reselection after stop + clear, which the Bravia hits at every stop and power-off. Before task 39 it sent
+    `PlayState.ERROR`, which made a second stream stop.
 - **Navigation:** a stale-focus guard in `MainActivity.dispatchKeyEvent` (hero.41) fixes the FocusFinder
   "descendant of this view" crash after the TV wakes from standby. `BlackScreenHeal` (hero.42) detects a fragment
   view left at 0x0.
@@ -66,9 +71,12 @@ playback, server, verify, check).
 
 - **Unit:** `./gradlew :playback:core:testDebugUnitTest :playback:media3:exoplayer:testDebugUnitTest`. Task 39 adds
   media3 test-utils + Robolectric cases: stop → clear → prepare, carry restore, seek after an audio switch, the
-  per-user/expiry store, forced-after-off, and one resolve per start.
+  per-user/expiry store, forced-after-off, and one stream request per start for carried audio. `StopAndPlayTests`
+  (Robolectric, media3 test-utils) covers stopping and then playing the next item, plus a repro of the NPE.
 - **Device:** `perf-tools/playcheck.sh <adb-serial>` (task 39) runs steps C1–C6 and prints `STEP <id> PASS|FAIL`
-  with UTC times.
+  with UTC times. It needs `perf-tools/playcheck.items` (copy `.items.example`, then fill in item ids). When it
+  prints `WAITING <step>`, the track switches are sent from the server as session commands
+  (`SetAudioStreamIndex` / `SetSubtitleStreamIndex`).
 - **Server oracle:** team repo `jellyfin/check/oracle.md` says what the server must show for each step. linus checks
   it with `tools/playcheck` (PlaybackInfo and stream requests per start) and `tools/trackcheck` (live stream indexes).
 - JDK 21 is required; Gradle rejects 17. Don't pipe gradle through grep and trust the exit code.
@@ -92,8 +100,8 @@ playback, server, verify, check).
    `FullDetailsFragment` root is stuck with `layoutRequested=true`, and `BlackScreenHeal` reports `cured=false`
    every time. hero.43 ships extra diagnostics (the view chain, layout/draw counts, 1000 logcat lines).
 2. **The `ExoPlayerImplInternal` NPE at teardown** (`reselectTracksInternalAndSeek` on an empty playlist after
-   stop + clear) shows up at every stop and every power-off on the Sony. It is benign and not the black-screen
-   cause, so a check must never pass or fail on that line alone.
+   stop + clear) shows up at every stop and every power-off on the Sony. It is not the black-screen cause. Since
+   task 39 it is logged and ignored, so a check must never pass or fail on that line alone.
 3. **The first play after hours idle** holds the first stream GET for 9–13 s. This is client-side; the server
    answers in about 40 ms.
 4. **EAC3 7.1 JOC in an HLS TS container stalls** on the Bravia, while fMP4 is fine.
