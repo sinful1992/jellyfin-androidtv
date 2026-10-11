@@ -29,7 +29,7 @@ OUT=$HERE/playcheck-out/$(echo "$SERIAL" | tr ':/' '__')
 mkdir -p "$OUT"
 
 [ -f "$HERE/playcheck.items" ] || { echo "missing $HERE/playcheck.items"; exit 2; }
-eval "$(tr -d '' < "$HERE/playcheck.items")"
+eval "$(tr -d '\r' < "$HERE/playcheck.items")"
 
 a() { "$ADB" -s "$SERIAL" "$@"; }
 utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
