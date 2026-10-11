@@ -23,7 +23,8 @@ set -u
 SERIAL=${1:?usage: playcheck.sh <adb-serial> [steps]}
 STEPS=${2:-"C1 C2 C3 C4 C5 C6"}
 ADB=${ADB:-/c/Users/barku/AppData/Local/Android/Sdk/platform-tools/adb.exe}
-PKG=org.jellyfin.androidtv
+# org.jellyfin.androidtv.debug for a debug build, which installs beside the release app.
+PKG=${PKG:-org.jellyfin.androidtv}
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT=$HERE/playcheck-out/$(echo "$SERIAL" | tr ':/' '__')
 mkdir -p "$OUT"
@@ -63,7 +64,7 @@ play_state() {
 
 # Open the item's details page and start it from the focused Play/Resume button.
 play_item() {
-	a shell am start -W -n "$PKG/.ui.startup.StartupActivity" -e ItemId "$1" > /dev/null
+	a shell am start -W -n "$PKG/org.jellyfin.androidtv.ui.startup.StartupActivity" -e ItemId "$1" > /dev/null
 	sleep 6
 	key 23
 }
