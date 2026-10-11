@@ -220,6 +220,10 @@ run_C6() {
 
 echo "playcheck $SERIAL $(a shell dumpsys package $PKG | grep -m1 versionName | tr -d ' ') at $(utc)"
 for s in $STEPS; do
+	item_vars=$(declare -f "run_$s" | grep -o '\$C[0-9]_[A-Z_]*' | tr -d '$' | sort -u)
+	missing=""
+	for v in $item_vars; do [ -n "${!v:-}" ] || missing="$missing $v"; done
+	if [ -n "$missing" ]; then echo "STEP $s SKIP no item id for$missing"; continue; fi
 	"run_$s"
 done
 echo "playcheck done $(utc) failed=$FAILED"
