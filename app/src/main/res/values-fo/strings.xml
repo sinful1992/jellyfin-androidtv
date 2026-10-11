@@ -37,7 +37,7 @@
     <string name="runtime_minutes">%1$dm</string>
     <string name="lbl_ends">Liðugur</string>
     <string name="lbl_directed_by">Leikstjórnað hevur</string>
-    <string name="lbl_last_played">"Síðst spældur "</string>
+    <string name="lbl_last_played">"Seinast spældur "</string>
     <string name="lbl_runtime">Spælitíð</string>
     <string name="lbl_other_options">Aðrar stillingar</string>
     <string name="lbl_people">Fólk</string>
@@ -70,7 +70,7 @@
     <string name="lbl_sorted_by">raðað eftir</string>
     <string name="lbl_from">frá</string>
     <string name="lbl_name">Navni</string>
-    <string name="lbl_date_added">Innleggingardagur</string>
+    <string name="lbl_date_added">Innleggingardegi</string>
     <string name="lbl_premier_date">Frumsýningardegi</string>
     <string name="lbl_rating">Meting</string>
     <string name="lbl_ended">LIÐUG</string>
@@ -150,7 +150,7 @@
     <string name="bitrate_kbit">%1$,.0f Kbit/s</string>
     <string name="no_player">Eingin spælari</string>
     <string name="episode_missing">Partur manglar</string>
-    <string name="episode_missing_message">Hesin parturin manglar í savninum. Ynskir tú at leypa hann um og halda áfram til næsta partin?</string>
+    <string name="episode_missing_message">Hesin parturin manglar í savninum. Vilt tú leypa hann um og halda áfram til næsta partin?</string>
     <string name="too_many_errors">Ov nógvir feilir. Heldur uppat</string>
     <string name="subtitle_error">Bar ikki til at velja undirtekst</string>
     <string name="audio_error">Bar ikki til at spæla ljóð %1$s</string>
@@ -340,7 +340,7 @@
     <string name="pref_enable_media_management">Virkja miðlaumsiting</string>
     <string name="pref_enable_media_management_description">Vís kostir at umsita miðlar tá kagað verður</string>
     <string name="item_delete_confirm_title">Strika miðil</string>
-    <string name="item_delete_confirm_message">Ynskir tú at strika hendan miðilin frá ambætaranum? Gerðin kann ikki vendast aftur.</string>
+    <string name="item_delete_confirm_message">Vilt tú strika hendan miðilin frá ambætaranum? Gerðin kann ikki vendast aftur.</string>
     <string name="pref_screensaver">Skáaskíggi</string>
     <string name="pref_screensaver_inapp_enabled">Brúka skáaskíggja apparinnar</string>
     <string name="pref_screensaver_inapp_enabled_description">Vís Jellyfin-skáaskíggjan ímeðan appin er opin</string>
@@ -386,7 +386,7 @@
     <string name="lbl_playback_control_ends">Endar kl. %1$s</string>
     <string name="turn_off">Sløkk hesa stillingina</string>
     <string name="just_one">Einans hendan partin</string>
-    <string name="player_error">Spælivilla kom fyri. Roynir aftur…</string>
+    <string name="player_error">Ein spælivilla kom fyri. Roynir aftur…</string>
     <string name="lbl_hide_unwatched_count">Tá miðilin er sæddur</string>
     <string name="always_authenticate_description">Er hetta virkt verður sjálvvirkandi innritan óvirkt</string>
     <string name="pref_direct_stream_live_off">Um neyðugt verður umkoting framd</string>
@@ -467,9 +467,9 @@
     <string name="pref_screensaver_ageratingmax_zero">Allir aldrar</string>
     <string name="pref_screensaver_ageratingmax_entry">Upp til og við %1$d ár</string>
     <string name="pref_screensaver_ageratingmax">Aldursmark</string>
-    <string name="pref_screensaver_ageratingrequired_enabled">Vísur einans innihald treytað av aldursmarki</string>
+    <string name="pref_screensaver_ageratingrequired_enabled">Vísir einans innihald treytað av aldursmarki</string>
     <string name="pref_screensaver_ageratingmax_unlimited">Onki aldursmark</string>
-    <string name="pref_screensaver_ageratingrequired_disabled">Vísur alt innihald</string>
+    <string name="pref_screensaver_ageratingrequired_disabled">Vísir alt innihald</string>
     <string name="lbl_critic_rating">Ummælarameting</string>
     <string name="lbl_community_rating">Hyggjarameting</string>
     <string name="lbl_subtitle_text_color">Tekstlitur</string>
@@ -489,7 +489,7 @@
     <string name="pref_crash_reports_enabled">Sorúrrit verða send til ambætaran ið seinast var nýttur</string>
     <string name="pref_crash_report_logs_enabled">Gerðalistar verða íroknaðir í sorúrritum</string>
     <string name="pref_crash_report_logs_disabled">Gerðalistar verða ikki við í sorúrritum</string>
-    <string name="crash_report_toast">Ups! Ókend villa fór fram. Eitt sorúrrit var sent tínum Jellyfin-ambætara.</string>
+    <string name="crash_report_toast">Ups! Ein ókend villa fór fram. Eitt sorúrrit var sent tínum Jellyfin-ambætara.</string>
     <string name="clear_image_cache_content">Fyllir: %1$s</string>
     <string name="pref_crash_reports_disabled">Sorúrrit verða ikki send</string>
     <string name="pref_subtitles_position">Frástøða frá botninum</string>
@@ -499,7 +499,7 @@
     <string name="server_issue_ssl_handshake">SSL-sambinding miseydnaðist</string>
     <string name="server_issue_timeout">Sambindingin eydnaðist ikki innan svarfreistina</string>
     <string name="pref_telemetry_category">Sormeldingar</string>
-    <string name="lbl_clear_queue">Reinsa spælirøðina</string>
+    <string name="lbl_clear_queue">Tøm spælirøðina</string>
     <string name="current_queue">Núverandi spælirøð</string>
     <string name="lbl_load_guide_data">Innles skráadátur</string>
     <string name="last_use">Seinastu nýtslu</string>
@@ -538,7 +538,7 @@
     <string name="pref_next_up_timeout_title">Steðgur áðrenn næsta</string>
     <string name="pref_still_watching_behavior_title">Vís atgerðaloysisspurning</string>
     <string name="pref_browsing">Kaging</string>
-    <string name="lbl_showing">Vísur</string>
+    <string name="lbl_showing">Vísir</string>
     <string name="server_setup_incomplete">Uppsetanin av hesum ambætaranum er ikki liðug. Lat Jellyfin-vevsíðuna upp í einum vevkaga til tess at avgreiða uppsetanina áðrenn tú ritar inn.</string>
     <string name="lbl_remove_users">Sum ein avleiðing av hesum verða allar tilhoyrandi kontur strikaðar</string>
     <string name="playback_info_container">Pakkasnið: %1$s</string>
@@ -552,12 +552,12 @@
     <string name="lbl_starting_with">hvørs heiti byrjar við</string>
     <string name="lbl_tune_to_channel">Skift til rásina</string>
     <string name="lbl_new_only">Einans nýggjar</string>
-    <string name="lbl_similar_items_library">Tílíkir miðlar í savninum</string>
-    <string name="msg_error_live_stream">Villa undir stroyming av beinleiðis sjónvarpi. Roynur aftur…</string>
+    <string name="lbl_similar_items_library">Líkir miðlar í savninum</string>
+    <string name="msg_error_live_stream">Ein villa kom fyri undir stroyming av beinleiðis sjónvarpi. Roynir aftur…</string>
     <string name="pref_button_remapping_description">Trýst á einhvønn knøtt á fjarstýringini til tess at áseta hann</string>
     <string name="press_to_close">Trýst fyri at loka</string>
     <string name="enable_smart_view">Virkja snilt sýni</string>
-    <string name="enable_smart_view_description">Snilt sýni vísur miðlar á ein meira viðkomandi hátt heldur enn í eini talvu</string>
+    <string name="enable_smart_view_description">Snilt sýni vísir miðlar á ein meira viðkomandi hátt heldur enn í eini talvu</string>
     <string name="licenses_link">Loyvir (Licensir)</string>
     <string name="licenses_link_description">Sí loyvini (licensirnar) fyri kotusøvnini ið eru nýtt í Jellyfin-appini</string>
     <string name="license_license">Loyvi (Licensur)</string>
@@ -613,7 +613,7 @@
     <string name="skip_forward_length">Tíðarbil at spola fram við</string>
     <string name="home_section_library_small">Mínir miðlar (lítil)</string>
     <string name="app_notification_update_soon">Dagfør ambætaran frá útgávu %1$s til í minsta lagi %2$s fyri at kunna at halda á fram at brúka appina eftir næstu dagføring.</string>
-    <string name="msg_cancel_entire_series">Ynskir tú at avlýsa ALLAR upptøkur av HESI SENDIRØÐINI?</string>
+    <string name="msg_cancel_entire_series">Vilt tú avlýsa ALLAR upptøkur av HESI SENDIRØÐINI?</string>
     <string name="live_tv_preferences">Stillingar fyri beinleiðis sjónvarp</string>
     <string name="lbl_on_now">Á sjónvarpsskráum nú</string>
     <string name="lbl_begin_padding">Byrjanarífylling</string>
@@ -640,7 +640,7 @@
     <string name="pref_refresh_rate_scale_on_tv">Skift á sjónvarpi</string>
     <string name="pref_refresh_rate_scale_on_device">Skift á eind</string>
     <string name="pref_device_model">Modell eindarinnar</string>
-    <string name="lbl_more_like_this">Fleiri líkir hesum</string>
+    <string name="lbl_more_like_this">Tílíkir miðlar</string>
     <string name="video_start_delay">Seinka kykmyndabyrjan</string>
     <string name="grid_direction">Talvukós</string>
     <string name="lbl_colored_backgrounds">Flokslittar bakgrundir</string>
@@ -667,7 +667,7 @@
     <string name="photo_display_duration_description">Tíðarbil áðrenn skift verður til næstu myndina</string>
     <string name="photo_player">Myndasýning</string>
     <string name="photo_display_duration">Tíðarbil í myndasýning</string>
-    <string name="preference_hdr_overrides">HDR snið</string>
+    <string name="preference_hdr_overrides">HDR-snið</string>
     <string name="hdr_override_enable">Virkja</string>
     <string name="hdr_override_disable">Óvirkja</string>
     <string name="hdr10_override">HDR10</string>
@@ -677,4 +677,20 @@
     <string name="dovi_profile_5">Dolby Vision profilur 5</string>
     <string name="dovi_profile_7">Dolby Vision profilur 7</string>
     <string name="dovi_profile_8">Dolby Vision profilur 8</string>
+    <string name="dovi_profile_5_description">Eittlags Dolby Vision</string>
+    <string name="dovi_profile_8_description">Eittlags Dolby Vision við HDR10-varavirkisføri</string>
+    <string name="bitstream_eac3">Bitstroym Dolby Digital Plus</string>
+    <string name="bitstream_dts">Bitstroym Digital Theater System</string>
+    <string name="bitstream_truehd">Bitstroym Dolby TrueHD</string>
+    <string name="hdr10_plus_override_description">Dynamiskar HDR-metadátur</string>
+    <string name="hdr10_override_description">Statiskar HDR-metadátur</string>
+    <plurals name="days">
+        <item quantity="one">%1$s dagur</item>
+        <item quantity="other">%1$s dagar</item>
+    </plurals>
+    <string name="home_next_up_max_days_disabled">Óavmarkað</string>
+    <string name="home_next_up_max_days">\"Næst á skránni\" tíðarmark</string>
+    <string name="tv_provider_enabled_description">Vís Jellyfin-rásir og tilmælir á Android TV-forsíðuni</string>
+    <string name="tv_provider_enabled">Android TV-forsíðuveiting</string>
+    <string name="dovi_profile_7_description">Tveylags við víðkanarlagi</string>
 </resources>

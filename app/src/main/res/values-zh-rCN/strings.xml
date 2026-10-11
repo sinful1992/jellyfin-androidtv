@@ -674,4 +674,14 @@
     <string name="dovi_profile_7_description">双层结构，带增强层</string>
     <string name="dovi_profile_8">Dolby Vision Profile 8</string>
     <string name="dovi_profile_8_description">单层，支持 HDR10 回退</string>
+    <string name="bitstream_eac3">Bitstream Dolby Digital Plus</string>
+    <string name="bitstream_dts">Bitstream Digital Theater System</string>
+    <string name="bitstream_truehd">Bitstream Dolby TrueHD</string>
+    <string name="home_next_up_max_days">下一次更新截止日期</string>
+    <string name="home_next_up_max_days_disabled">禁用</string>
+    <plurals name="days">
+        <item quantity="other">%1$s 天</item>
+    </plurals>
+    <string name="tv_provider_enabled">集成到 Android TV 首页</string>
+    <string name="tv_provider_enabled_description">在Android TV主屏幕上展示Jellyfin频道和推荐内容</string>
 </resources>
