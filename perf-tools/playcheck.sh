@@ -90,6 +90,18 @@ wait_log() {
 
 leave_player() { key 4; sleep 1; }
 
+# Release builds plant no Timber tree, so the app's own lines are only in logcat on a debug build. On a
+# release build a track switch is confirmed on the server (oracle) and the device only checks playback goes on.
+DEBUGGABLE=no
+a shell dumpsys package "$PKG" | grep -m1 "pkgFlags=" | grep -q DEBUGGABLE && DEBUGGABLE=yes
+
+# Wait for the app's line matching $1 for $2 seconds on a debug build; on a release build give the server
+# command $3 seconds (default 25) to arrive and succeed.
+wait_switch() {
+	if [ "$DEBUGGABLE" = yes ]; then wait_log "$1" "$2"
+	else sleep "${3:-25}"; fi
+}
+
 check_black_after_leave() {
 	# The three hero.42 black screens showed 4-5 s after the stop, so look at 2 s and again at 8 s.
 	sleep 2
@@ -111,7 +123,7 @@ run_C1() {
 	play_item "$C1_EP_N"
 	if ! wait_playing 40; then step_end FAIL "episode N never played"; return; fi
 	echo "WAITING C1 pick a non-default audio or subtitle track on episode N now (server command), 90 s"
-	if ! wait_log "Selected (audio|subtitle) track|Disabled subtitles|Playing http" 90; then
+	if ! wait_switch "Selected (audio|subtitle) track|Disabled subtitles|Playing http" 90; then
 		step_end FAIL "no track change seen on episode N"; return
 	fi
 	sleep 5
@@ -121,8 +133,12 @@ run_C1() {
 	sleep 10
 	local picks
 	picks=$(a logcat -d -v time | grep -Ec "Selected (audio|subtitle) track|Disabled subtitles")
+	local before after
+	before=$(position); sleep 5; after=$(position)
 	leave_player
-	if no_crash_lines; then step_end PASS "carry applied lines=$picks (server: oracle C1.a-d)"
+	if [ "$DEBUGGABLE" = no ] && ! { [ -n "$before" ] && [ -n "$after" ] && [ "$after" -gt "$before" ]; }; then
+		step_end FAIL "episode N+1 not playing on (position $before→$after)"
+	elif no_crash_lines; then step_end PASS "carry applied lines=$picks (server: oracle C1.a-d)"
 	else step_end FAIL "crash or playback error in logcat"; fi
 }
 
@@ -132,7 +148,7 @@ run_C2() {
 	if ! wait_playing 40; then step_end FAIL "never played"; return; fi
 	sleep 20
 	echo "WAITING C2 switch the audio track now (server command), 90 s"
-	if ! wait_log "Selected audio track" 90; then step_end FAIL "no client-side audio switch seen"; return; fi
+	if ! wait_switch "Selected audio track" 90; then step_end FAIL "no client-side audio switch seen"; return; fi
 	local before after
 	before=$(position); sleep 15; after=$(position)
 	leave_player
@@ -152,9 +168,13 @@ run_C3() {
 	before=$(position)
 	echo "WAITING C3 switch the audio track now (server command), 90 s"
 	# A converted stream is asked for again with the new track, and played from where it was.
-	local i=0
-	while [ $i -lt 90 ] && [ "$(a logcat -d -v time | grep -c 'Playing http')" -lt 2 ]; do sleep 1; i=$((i + 1)); done
-	if [ $i -ge 90 ]; then step_end FAIL "stream not reloaded after the switch (debug build only shows it)"; return; fi
+	if [ "$DEBUGGABLE" = yes ]; then
+		local i=0
+		while [ $i -lt 90 ] && [ "$(a logcat -d -v time | grep -c 'Playing http')" -lt 2 ]; do sleep 1; i=$((i + 1)); done
+		if [ $i -ge 90 ]; then step_end FAIL "stream not reloaded after the switch"; return; fi
+	else
+		sleep 30
+	fi
 	wait_playing 60
 	sleep 5
 	after=$(position)
@@ -218,7 +238,7 @@ run_C6() {
 	step_end "$result" "$notes"
 }
 
-echo "playcheck $SERIAL $(a shell dumpsys package $PKG | grep -m1 versionName | tr -d ' ') at $(utc)"
+echo "playcheck $SERIAL $(a shell dumpsys package $PKG | grep -m1 versionName | tr -d ' ') debuggable=$DEBUGGABLE at $(utc)"
 for s in $STEPS; do
 	item_vars=$(declare -f "run_$s" | grep -o '\$C[0-9]_[A-Z_]*' | tr -d '$' | sort -u)
 	missing=""
