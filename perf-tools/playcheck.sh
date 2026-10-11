@@ -123,6 +123,8 @@ run_C1() {
 	step_start C1
 	play_item "$C1_EP_N"
 	if ! wait_playing 40; then step_end FAIL "episode N never played"; return; fi
+	# Only lines from here on count as the switch: the item's own start logs "Playing http" too.
+	a logcat -c
 	echo "WAITING C1 pick a non-default audio or subtitle track on episode N now (server command), 90 s"
 	if ! wait_switch "Selected (audio|subtitle) track|Disabled subtitles|Playing http" 90; then
 		step_end FAIL "no track change seen on episode N"; return
@@ -148,6 +150,8 @@ run_C2() {
 	play_item "$C2_ITEM"
 	if ! wait_playing 40; then step_end FAIL "never played"; return; fi
 	sleep 20
+	# Only lines from here on count as the switch: the item's own start logs "Playing http" too.
+	a logcat -c
 	echo "WAITING C2 switch the audio track now (server command), 90 s"
 	if ! wait_switch "Selected audio track" 90; then step_end FAIL "no client-side audio switch seen"; return; fi
 	local before after
@@ -167,11 +171,13 @@ run_C3() {
 	sleep 30
 	local before after
 	before=$(position)
+	# Only lines from here on count as the switch: the item's own start logs "Playing http" too.
+	a logcat -c
 	echo "WAITING C3 switch the audio track now (server command), 90 s"
 	# A converted stream is asked for again with the new track, and played from where it was.
 	if [ "$DEBUGGABLE" = yes ]; then
 		local i=0
-		while [ $i -lt 90 ] && [ "$(a logcat -d -v time | grep -c 'Playing http')" -lt 2 ]; do sleep 1; i=$((i + 1)); done
+		while [ $i -lt 90 ] && [ "$(a logcat -d -v time | grep -c 'Playing http')" -lt 1 ]; do sleep 1; i=$((i + 1)); done
 		if [ $i -ge 90 ]; then step_end FAIL "stream not reloaded after the switch"; return; fi
 	else
 		sleep 30
