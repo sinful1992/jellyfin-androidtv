@@ -38,6 +38,12 @@ class SharedPreferencesTrackCarryStore(
 ) : TrackCarryStore {
 	private val preferences = context.getSharedPreferences("track_carry", Context.MODE_PRIVATE)
 
+	init {
+		// Entries from before choices were per user ("group/KIND") are never read again.
+		val unowned = preferences.all.keys.filter { it.count { char -> char == '/' } < 2 }
+		if (unowned.isNotEmpty()) preferences.edit { unowned.forEach(::remove) }
+	}
+
 	private fun key(user: String, group: String, kind: TrackCarryStore.Kind) = "$user/$group/${kind.name}"
 
 	override fun read(user: String, group: String, kind: TrackCarryStore.Kind): TrackPreference? {

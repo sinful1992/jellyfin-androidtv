@@ -63,11 +63,15 @@ class TrackCarryStoreTests : FunSpec({
 		store.read("bob", "series-a", TrackCarryStore.Kind.AUDIO) shouldBe null
 	}
 
-	test("a choice made before choices were per user is not read for anyone") {
-		val store = Store()
-		store.preferences.values["series-a/AUDIO"] = """{"off":false,"language":"jpn"}"""
+	test("a choice made before choices were per user is dropped, not read for anyone") {
+		val preferences = MemorySharedPreferences()
+		preferences.values["series-a/AUDIO"] = """{"off":false,"language":"jpn"}"""
+		preferences.values["alice/series-b/AUDIO"] = """{"off":false,"language":"jpn","savedAt":1000000000000}"""
 
-		store.store.read("alice", "series-a", TrackCarryStore.Kind.AUDIO) shouldBe null
+		val store = Store(preferences).store
+
+		store.read("alice", "series-a", TrackCarryStore.Kind.AUDIO) shouldBe null
+		preferences.values.keys shouldBe setOf("alice/series-b/AUDIO")
 	}
 
 	test("a choice left unused for 60 days is gone") {

@@ -223,9 +223,13 @@ class MediaStreamService internal constructor(
 	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
 		if (mediaStream == null) {
 			this.preferredAudioLanguage = carriedTracks(this).audio?.language
-			// Known ahead, the carried choice goes into this request: a converted stream asked for
+			// Known ahead, the carried audio goes into this request: a converted stream asked for
 			// with the server default would otherwise be asked for again once the choice is applied.
-			mediaStreamResolvers.firstNotNullOfOrNull { it.getKnownTracks(this) }?.let { selectCarriedTracks(it) }
+			// A subtitle only when it is none at all. Asked for up front, a subtitle the device
+			// cannot draw is burnt in by the server, converting a file that plays directly, while
+			// left to [applyCarriedTracks] a direct stream selects it on the client.
+			mediaStreamResolvers.firstNotNullOfOrNull { it.getKnownTracks(this) }
+				?.let { selectCarriedTracks(it, subtitleOnlyIfNone = true) }
 			mediaStream = resolveMediaStream(this)
 		}
 
@@ -255,9 +259,13 @@ class MediaStreamService internal constructor(
 	/**
 	 * Select the carried choices among [tracks] on this entry.
 	 *
+	 * @param subtitleOnlyIfNone select a carried subtitle only when it resolves to no subtitle
 	 * @return whether the selection changed
 	 */
-	private fun QueueEntry.selectCarriedTracks(tracks: Collection<MediaStreamTrack>): Boolean {
+	private fun QueueEntry.selectCarriedTracks(
+		tracks: Collection<MediaStreamTrack>,
+		subtitleOnlyIfNone: Boolean = false,
+	): Boolean {
 		val carried = carriedTracks(this)
 		val audioTracks = tracks.filterIsInstance<MediaStreamAudioTrack>()
 
@@ -269,7 +277,7 @@ class MediaStreamService internal constructor(
 		val subtitleIndex = carried.subtitle?.pick(
 			tracks.filterIsInstance<MediaStreamSubtitleTrack>(),
 			audioLanguage = playingAudio?.language,
-		)
+		)?.takeIf { !subtitleOnlyIfNone || it == MediaStreamSubtitleTrack.INDEX_NONE }
 
 		var changed = false
 		if (audioIndex != null && audioIndex != selectedAudioStreamIndex) {

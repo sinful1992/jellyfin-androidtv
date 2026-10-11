@@ -105,9 +105,13 @@ class JellyfinMediaStreamResolver(
 		val baseItem = queueEntry.baseItem ?: return null
 		if (!supportedMediaTypes.contains(baseItem.mediaType)) return null
 
-		val mediaStreams = baseItem.mediaSources
+		val sources = baseItem.mediaSources
 			.orEmpty()
 			.filter { it.protocol == MediaProtocol.FILE && !it.isRemote }
+		// With several versions and none chosen, the server picks which one plays.
+		if (queueEntry.mediaSourceId == null && sources.size > 1) return null
+
+		val mediaStreams = sources
 			.firstOrNull { queueEntry.mediaSourceId == null || it.id == queueEntry.mediaSourceId }
 			?.mediaStreams
 			?: return null

@@ -87,13 +87,25 @@ class CarriedTracksPlaybackTests : FunSpec({
 		}
 	}
 
-	test("a converted stream with a carried choice is asked for once, with the choice in it") {
+	test("a converted stream with carried audio is asked for once, with the audio in it") {
 		val resolver = RecordingResolver(MediaConversionMethod.Transcode, knowsTracks = true)
+		val playback = Playback(resolver) {
+			carriedTracks(QueueEntry().apply { trackCarryGroup = "series-a" }).audio = TrackPreference(language = "spa", codec = "aac")
+		}
+
+		playback.play()
+
+		resolver.requests shouldContainExactly listOf(2 to null)
+		playback.entry.selectedAudioStreamIndex shouldBe 2
+	}
+
+	test("a carried subtitle is not in the first request, which would make the server burn it in") {
+		val resolver = RecordingResolver(MediaConversionMethod.None, knowsTracks = true)
 		val playback = Playback(resolver, spanishDub)
 
 		playback.play()
 
-		resolver.requests shouldContainExactly listOf(2 to 5)
+		resolver.requests shouldContainExactly listOf(2 to null)
 		playback.entry.selectedAudioStreamIndex shouldBe 2
 		playback.entry.selectedSubtitleStreamIndex shouldBe 5
 	}
@@ -118,6 +130,15 @@ class CarriedTracksPlaybackTests : FunSpec({
 		playback.entry.selectedSubtitleStreamIndex shouldBe 5
 	}
 
+	test("a converted stream asked for again for a carried subtitle has both choices in it") {
+		val resolver = RecordingResolver(MediaConversionMethod.Transcode, knowsTracks = true)
+		val playback = Playback(resolver, spanishDub)
+
+		playback.play()
+
+		resolver.requests shouldContainExactly listOf(2 to null, 2 to 5)
+	}
+
 	test("subtitles off with Spanish audio still show the Spanish forced track") {
 		val resolver = RecordingResolver(MediaConversionMethod.Transcode, knowsTracks = true)
 		val playback = Playback(resolver) {
@@ -129,7 +150,7 @@ class CarriedTracksPlaybackTests : FunSpec({
 
 		playback.play()
 
-		resolver.requests shouldContainExactly listOf(2 to 4)
+		resolver.requests shouldContainExactly listOf(2 to null, 2 to 4)
 	}
 
 	test("subtitles off with the default English audio show none") {
