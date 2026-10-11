@@ -33,6 +33,10 @@ jellyfin-sdk = "1.8.12"
 koin = "4.2.2"
 koin-compose = "4.2.2"
 kotest = "6.2.5"
+junit4 = "4.13.2"
+junit-vintage = "5.13.4"
+org-json = "20240303"
+robolectric = "4.16"
 kotlin = "2.4.20"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
@@ -132,6 +136,13 @@ android-desugar = { module = "com.android.tools:desugar_jdk_libs", version.ref =
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+org-json = { module = "org.json:json", version.ref = "org-json" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-vintage" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+androidx-media3-test-utils = { module = "androidx.media3:media3-test-utils", version.ref = "androidx-media3" }
+androidx-media3-test-utils-robolectric = { module = "androidx.media3:media3-test-utils-robolectric", version.ref = "androidx-media3" }
 
 [bundles]
 acra = [

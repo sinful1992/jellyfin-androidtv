@@ -23,6 +23,9 @@ class PlaybackManagerBuilder(private val context: Context) {
 	var defaultRewindAmount: (() -> Duration)? = null
 	var defaultFastForwardAmount: (() -> Duration)? = null
 
+	/** The id of the user playing, which saved track choices are kept under. Null keeps them for the queue only. */
+	var trackCarryUser: () -> String? = { null }
+
 	fun install(pluginFactory: PlaybackPlugin) {
 		factories.add(pluginFactory)
 	}
@@ -51,7 +54,7 @@ class PlaybackManagerBuilder(private val context: Context) {
 
 		// Add default services
 		services.add(QueueService())
-		services.add(MediaStreamService(mediaStreamResolvers, 15.seconds, SharedPreferencesTrackCarryStore(context)))
+		services.add(MediaStreamService(mediaStreamResolvers, 15.seconds, SharedPreferencesTrackCarryStore(context), trackCarryUser))
 		services.add(TimedEventService())
 
 		// Only support a single backend right now

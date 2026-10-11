@@ -2,6 +2,7 @@ package org.jellyfin.playback.jellyfin.mediastream
 
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStreamResolver
+import org.jellyfin.playback.core.mediastream.MediaStreamTrack
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
 import org.jellyfin.playback.core.mediastream.directPlayFailed
 import org.jellyfin.playback.core.mediastream.preferredAudioLanguage
@@ -94,6 +95,24 @@ class JellyfinMediaStreamResolver(
 			// No compatible stream found
 			else -> null
 		}
+	}
+
+	/**
+	 * The tracks of the media source that will be played, as the item was fetched. Null when it was
+	 * fetched without media sources, or the source cannot be told apart.
+	 */
+	override fun getKnownTracks(queueEntry: QueueEntry): Collection<MediaStreamTrack>? {
+		val baseItem = queueEntry.baseItem ?: return null
+		if (!supportedMediaTypes.contains(baseItem.mediaType)) return null
+
+		val mediaStreams = baseItem.mediaSources
+			.orEmpty()
+			.filter { it.protocol == MediaProtocol.FILE && !it.isRemote }
+			.firstOrNull { queueEntry.mediaSourceId == null || it.id == queueEntry.mediaSourceId }
+			?.mediaStreams
+			?: return null
+
+		return runCatching { mediaStreams.mapNotNull { it.getMediaStreamTrack() } }.getOrNull()
 	}
 
 	/**

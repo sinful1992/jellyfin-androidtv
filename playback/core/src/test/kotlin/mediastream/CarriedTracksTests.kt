@@ -10,12 +10,22 @@ import kotlin.time.Duration
 private fun entry(group: String?) = QueueEntry().apply { trackCarryGroup = group }
 
 private class MemoryTrackCarryStore : TrackCarryStore {
-	val values = mutableMapOf<Pair<String, TrackCarryStore.Kind>, TrackPreference>()
+	val values = mutableMapOf<Triple<String, String, TrackCarryStore.Kind>, TrackPreference>()
+	val touched = mutableListOf<Pair<String, String>>()
 
-	override fun read(group: String, kind: TrackCarryStore.Kind) = values[group to kind]
+	override fun read(user: String, group: String, kind: TrackCarryStore.Kind) = values[Triple(user, group, kind)]
 
-	override fun write(group: String, kind: TrackCarryStore.Kind, preference: TrackPreference?) {
-		if (preference == null) values.remove(group to kind) else values[group to kind] = preference
+	override fun write(user: String, group: String, kind: TrackCarryStore.Kind, preference: TrackPreference?) {
+		val key = Triple(user, group, kind)
+		if (preference == null) values.remove(key) else values[key] = preference
+	}
+
+	override fun touch(user: String, group: String) {
+		touched += user to group
+	}
+
+	override fun clear(user: String) {
+		values.keys.removeAll { it.first == user }
 	}
 }
 
@@ -45,17 +55,56 @@ class CarriedTracksTests : FunSpec({
 	test("a series choice outlives the service, as it does the app") {
 		val store = MemoryTrackCarryStore()
 		val sdh = TrackPreference(language = "eng", title = "SDH", sdh = true)
-		MediaStreamService(emptyList(), Duration.ZERO, store).carriedTracks(entry("series-a")).subtitle = sdh
+		MediaStreamService(emptyList(), Duration.ZERO, store) { "alice" }.carriedTracks(entry("series-a")).subtitle = sdh
 
-		val restarted = MediaStreamService(emptyList(), Duration.ZERO, store)
+		val restarted = MediaStreamService(emptyList(), Duration.ZERO, store) { "alice" }
 		restarted.carriedTracks(entry("series-a")).subtitle shouldBe sdh
 		restarted.carriedTracks(entry("series-a")).audio shouldBe null
 	}
 
 	test("a choice outside any series is never stored") {
 		val store = MemoryTrackCarryStore()
-		MediaStreamService(emptyList(), Duration.ZERO, store).carriedTracks(entry(null)).subtitle = TrackPreference.OFF
+		MediaStreamService(emptyList(), Duration.ZERO, store) { "alice" }.carriedTracks(entry(null)).subtitle = TrackPreference.OFF
 
 		store.values shouldBe emptyMap()
+	}
+
+	test("another user on the same TV does not get the choice, even without an app restart") {
+		val store = MemoryTrackCarryStore()
+		var user = "alice"
+		val service = MediaStreamService(emptyList(), Duration.ZERO, store) { user }
+		val dub = TrackPreference(language = "jpn")
+		service.carriedTracks(entry("series-a")).audio = dub
+
+		user = "bob"
+		service.carriedTracks(entry("series-a")).audio shouldBe null
+
+		user = "alice"
+		service.carriedTracks(entry("series-a")).audio shouldBe dub
+	}
+
+	test("with no user signed in a choice is kept in memory only") {
+		val store = MemoryTrackCarryStore()
+		val service = MediaStreamService(emptyList(), Duration.ZERO, store) { null }
+		service.carriedTracks(entry("series-a")).subtitle = TrackPreference.OFF
+
+		service.carriedTracks(entry("series-a")).subtitle shouldBe TrackPreference.OFF
+		store.values shouldBe emptyMap()
+	}
+
+	test("forgetting drops the current user's choices, saved and in memory, and no one else's") {
+		val store = MemoryTrackCarryStore()
+		var user = "alice"
+		val service = MediaStreamService(emptyList(), Duration.ZERO, store) { user }
+		service.carriedTracks(entry("series-a")).subtitle = TrackPreference.OFF
+		user = "bob"
+		service.carriedTracks(entry("series-a")).subtitle = TrackPreference.OFF
+
+		user = "alice"
+		service.forgetCarriedTracks()
+
+		service.carriedTracks(entry("series-a")).subtitle shouldBe null
+		MediaStreamService(emptyList(), Duration.ZERO, store) { "alice" }.carriedTracks(entry("series-a")).subtitle shouldBe null
+		MediaStreamService(emptyList(), Duration.ZERO, store) { "bob" }.carriedTracks(entry("series-a")).subtitle shouldBe TrackPreference.OFF
 	}
 })
