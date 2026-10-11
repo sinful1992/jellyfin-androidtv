@@ -29,7 +29,6 @@ OUT=$HERE/playcheck-out/$(echo "$SERIAL" | tr ':/' '__')
 mkdir -p "$OUT"
 
 [ -f "$HERE/playcheck.items" ] || { echo "missing $HERE/playcheck.items"; exit 2; }
-# shellcheck disable=SC1091
 eval "$(tr -d '' < "$HERE/playcheck.items")"
 
 a() { "$ADB" -s "$SERIAL" "$@"; }
