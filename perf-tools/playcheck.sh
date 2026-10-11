@@ -30,7 +30,7 @@ mkdir -p "$OUT"
 
 [ -f "$HERE/playcheck.items" ] || { echo "missing $HERE/playcheck.items"; exit 2; }
 # shellcheck disable=SC1091
-. "$HERE/playcheck.items"
+eval "$(tr -d '' < "$HERE/playcheck.items")"
 
 a() { "$ADB" -s "$SERIAL" "$@"; }
 utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
