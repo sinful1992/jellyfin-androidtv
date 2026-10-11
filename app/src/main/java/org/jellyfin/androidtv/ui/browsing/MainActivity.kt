@@ -61,9 +61,13 @@ class MainActivity : FragmentActivity() {
 		// forever and show a black screen. A trailing GoBack is no better for a host that is empty.
 		val pendingAction = navigationRepository.currentAction.replayCache.lastOrNull()
 		if (savedInstanceState == null && navigationRepository.canGoBack) navigationRepository.reset(clearHistory = true)
-		else if (pendingAction !is NavigationAction.NavigateFragment) {
+		else if (pendingAction == null || (pendingAction !is NavigationAction.NavigateFragment && !navigationRepository.canGoBack)) {
 			navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
 		}
+		// A recreation in the same process (a theme change) keeps the history, and the nav host
+		// restores its own from the saved state, where the last action was already carried out.
+		// Replayed to the new host, a GoBack would go back a second time.
+		else if (savedInstanceState != null) navigationRepository.consumePendingAction()
 
 		navigationRepository.currentAction
 			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)

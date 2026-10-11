@@ -41,6 +41,9 @@ object TelemetryService {
 			sharedPreferencesName = TelemetryPreferences.SHARED_PREFERENCES_NAME
 			pluginLoader = AcraPluginLoader(AcraReportSenderFactory::class.java)
 			applicationLogFileLines = 250
+			// ACRA's default is the last 100 lines, which on the TV covered barely a second: the
+			// black-screen reports ended before the player error that preceded them by ~5 s.
+			logcatArguments = listOf("-t", "1000", "-v", "time")
 
 			toast {
 				text = context.getString(R.string.crash_report_toast)

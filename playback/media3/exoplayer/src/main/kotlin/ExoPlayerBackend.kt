@@ -2,6 +2,7 @@ package org.jellyfin.playback.media3.exoplayer
 
 import android.app.ActivityManager
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import android.os.Handler
 import android.view.ViewGroup
 import androidx.annotation.OptIn
@@ -190,7 +191,8 @@ class ExoPlayerBackend(
 		AssHandler(AssRenderType.OVERLAY_OPEN_GL)
 	}
 
-	private val exoPlayer by lazy {
+	@VisibleForTesting
+	internal val exoPlayer by lazy {
 		val dataSourceFactory = DefaultDataSource.Factory(
 			context,
 			exoPlayerOptions.baseDataSourceFactory,
@@ -308,6 +310,16 @@ class ExoPlayerBackend(
 
 		override fun onPlayerError(error: PlaybackException) {
 			stallHandler.removeCallbacks(reportStalled)
+
+			// After a stop the playlist is empty, and a track reselection the TV triggers as its audio
+			// output goes away (every stop and power-off on the Bravia) makes media3 fail on the missing
+			// playing period. Nothing is playing, so it is no playback's error: reported, it sent a
+			// second stop to the server. The next play prepares the player again either way.
+			if (currentStream == null) {
+				Timber.w(error, "Player error with nothing playing, ignored (${error.errorCodeName})")
+				return
+			}
+
 			Timber.w(error, "Playback failed (${error.errorCodeName})")
 			listener?.onPlayStateChange(PlayState.ERROR)
 

@@ -494,6 +494,9 @@
     <string name="pref_playback_next_up">Next up</string>
     <string name="pref_playback_media_segments">Media segments</string>
     <string name="pref_customization_subtitles">Subtitles</string>
+    <string name="pref_playback_forget_track_choices">Forget saved audio and subtitle choices</string>
+    <string name="pref_playback_forget_track_choices_description">Series go back to the server\'s default tracks for you</string>
+    <string name="pref_playback_forget_track_choices_done">Forgotten</string>
     <string name="pref_playback_prerolls">Prerolls</string>
     <string name="pref_prerolls_enabled">Enable cinema mode</string>
     <string name="pref_prerolls_enabled_description">Play custom intros before movies</string>

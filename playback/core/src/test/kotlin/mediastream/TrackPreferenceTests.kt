@@ -54,6 +54,18 @@ class TrackPreferenceTests : FunSpec({
 
 	test("subtitles off stay off") {
 		TrackPreference.OFF.pick(scrapheapSubs) shouldBe MediaStreamSubtitleTrack.INDEX_NONE
+		TrackPreference.OFF.pick(scrapheapSubs, audioLanguage = "eng") shouldBe MediaStreamSubtitleTrack.INDEX_NONE
+	}
+
+	test("subtitles off keep the forced track in the language of the audio") {
+		TrackPreference.OFF.pick(scrapheapSubs, audioLanguage = "spa") shouldBe 4
+		TrackPreference.OFF.pick(scrapheapSubs, audioLanguage = "POR") shouldBe 5
+		TrackPreference.OFF.pick(scrapheapSubs, audioLanguage = "und") shouldBe MediaStreamSubtitleTrack.INDEX_NONE
+	}
+
+	test("subtitles off pick the forced track of a same-language, same-codec pair, not the full one") {
+		val pair = listOf(sub(3, "eng", "English"), sub(4, "eng", "English", forced = true))
+		TrackPreference.OFF.pick(pair, audioLanguage = "eng") shouldBe 4
 	}
 
 	test("a forced track carries to the forced track, a full one to the full one") {

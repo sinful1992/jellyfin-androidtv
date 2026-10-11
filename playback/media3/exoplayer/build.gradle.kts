@@ -18,6 +18,7 @@ android {
 	testOptions.unitTests.all {
 		it.useJUnitPlatform()
 	}
+	testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 dependencies {
@@ -49,4 +50,9 @@ dependencies {
 	testImplementation(libs.kotest.runner.junit5)
 	testImplementation(libs.kotest.assertions)
 	testImplementation(libs.mockk)
+	testImplementation(libs.junit4)
+	testRuntimeOnly(libs.junit.vintage.engine)
+	testImplementation(libs.robolectric)
+	testImplementation(libs.androidx.media3.test.utils)
+	testImplementation(libs.androidx.media3.test.utils.robolectric)
 }

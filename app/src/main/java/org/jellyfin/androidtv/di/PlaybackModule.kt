@@ -9,6 +9,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.preference.constant.BufferLength
@@ -72,6 +73,9 @@ fun Scope.createPlaybackManager() = playbackManager(androidContext()) {
 		channel.setShowBadge(false)
 		NotificationManagerCompat.from(get()).createNotificationChannel(channel)
 	}
+
+	val userRepository = get<UserRepository>()
+	trackCarryUser = { userRepository.currentUser.value?.id?.toString() }
 
 	val userPreferences = get<UserPreferences>()
 	val bufferLength = userPreferences[UserPreferences.bufferLength]

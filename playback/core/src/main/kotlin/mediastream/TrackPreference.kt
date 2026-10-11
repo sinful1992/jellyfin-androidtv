@@ -31,12 +31,21 @@ data class TrackPreference(
 
 /**
  * The index of the track in [tracks] that best fits this preference, or null when none does and the
- * server default should stand. Subtitles turned off resolve to [MediaStreamSubtitleTrack.INDEX_NONE].
+ * server default should stand.
+ *
+ * Subtitles turned off resolve to the forced track in [audioLanguage], the language of the audio that
+ * will play, and to [MediaStreamSubtitleTrack.INDEX_NONE] when there is none. Off is a choice against
+ * reading along, not against the lines in another language that a forced track exists to translate.
  *
  * Only tracks of the type the preference was taken from should be passed in.
  */
-fun TrackPreference.pick(tracks: Collection<MediaStreamTrack>): Int? {
-	if (off) return MediaStreamSubtitleTrack.INDEX_NONE
+fun TrackPreference.pick(tracks: Collection<MediaStreamTrack>, audioLanguage: String? = null): Int? {
+	if (off) {
+		val language = audioLanguage?.takeUnless { it.isBlank() || it.equals("und", ignoreCase = true) }
+			?: return MediaStreamSubtitleTrack.INDEX_NONE
+		return tracks.firstOrNull { it.isForced && it.normalizedLanguage.equals(language, ignoreCase = true) }?.index
+			?: MediaStreamSubtitleTrack.INDEX_NONE
+	}
 
 	// Without a language the title is all there is to go on, and a loose title match on an
 	// untagged file is as likely to be wrong as right.

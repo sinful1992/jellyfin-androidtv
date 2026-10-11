@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import org.acra.ACRA
@@ -54,6 +55,18 @@ object BlackScreenHeal {
 			"layoutRequested=${view.isLayoutRequested} trigger=$trigger age=${processAgeSeconds()}"
 		// Release builds plant no Timber tree, so log directly to keep this visible in logcat.
 		Log.w(TAG, "$TAG $label, requesting layout")
+		val before = describeChain(view)
+
+		// Counts the window's layout and draw passes until the re-check. None at all means the
+		// window is not traversing; passes that leave the view at 0x0 mean it is measured to zero.
+		var layoutPasses = 0
+		var drawPasses = 0
+		val observer = root.viewTreeObserver
+		val onLayout = ViewTreeObserver.OnGlobalLayoutListener { layoutPasses++ }
+		val onDraw = ViewTreeObserver.OnPreDrawListener { drawPasses++; true }
+		observer.addOnGlobalLayoutListener(onLayout)
+		observer.addOnPreDrawListener(onDraw)
+
 		requestLayoutToWindow(view)
 
 		// Claimed now, not when sent, so a second trigger inside the delay cannot send a second report.
@@ -61,15 +74,42 @@ object BlackScreenHeal {
 		if (report) reported = true
 
 		root.postDelayed({
+			root.viewTreeObserver.takeIf { it.isAlive }?.run {
+				removeOnGlobalLayoutListener(onLayout)
+				removeOnPreDrawListener(onDraw)
+			}
+
 			// Leaving the page before the re-check (Back on a black screen) tells nothing about the heal.
 			val cured = when {
 				!view.isAttachedToWindow -> "detached"
 				else -> (view.width > 0 && view.height > 0).toString()
 			}
-			val message = "$TAG $label cured=$cured"
+			val message = buildString {
+				append("$TAG $label cured=$cured layoutPasses=$layoutPasses drawPasses=$drawPasses")
+				append("\nwindow: visibility=${root.windowVisibility} focus=${root.hasWindowFocus()} shown=${root.isShown}")
+				append("\nbefore heal (view -> window):\n").append(before)
+				append("\nafter heal:\n").append(describeChain(view))
+			}
 			Log.w(TAG, message)
 			if (report) ACRA.errorReporter.handleSilentException(IllegalStateException(message))
 		}, DELAY_MS)
+	}
+
+	/**
+	 * One line per view from [view] up to the window: size as laid out and as measured, whether a
+	 * layout is pending, and visibility. Where the chain stops being sized, or stops being flagged,
+	 * is where the lost pass is.
+	 */
+	private fun describeChain(view: View): String = buildString {
+		var current: View? = view
+		while (current != null) {
+			append("  ${current.javaClass.name}#${idName(current)} ")
+			append("${current.width}x${current.height} measured=${current.measuredWidth}x${current.measuredHeight} ")
+			append("layoutRequested=${current.isLayoutRequested} visibility=${current.visibility}")
+			if (current is ViewGroup) append(" children=${current.childCount}")
+			append('\n')
+			current = current.parent as? View
+		}
 	}
 
 	private fun fragmentName(view: View, isHost: Boolean): String {

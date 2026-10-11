@@ -23,6 +23,7 @@ class MediaStreamService internal constructor(
 	private val mediaStreamResolvers: Collection<MediaStreamResolver>,
 	private val preloadDuration: Duration,
 	private val trackCarryStore: TrackCarryStore? = null,
+	private val currentUser: () -> String? = { null },
 ) : PlayerService() {
 	private companion object {
 		private const val TIMED_EVENT_PRELOAD = "MediaStreamServicePreloadNext"
@@ -54,8 +55,10 @@ class MediaStreamService internal constructor(
 	 * Choices made in a [trackCarryGroup], kept in [trackCarryStore] so they outlive the app. An
 	 * episode is usually started on its own from its details page, which replaces the queue, and
 	 * the TV closes an idle app, so a choice kept any shorter never reached the next episode.
+	 *
+	 * Keyed by user as well as group: the users of one TV switch without the app restarting.
 	 */
-	private val groupCarriedTracks = mutableMapOf<String, CarriedTracks>()
+	private val groupCarriedTracks = mutableMapOf<Pair<String?, String>, CarriedTracks>()
 
 	/**
 	 * Choices made on entries in no group, reset when the queue ends so they cannot carry into
@@ -67,17 +70,34 @@ class MediaStreamService internal constructor(
 	 * The carried choices that apply to [entry]: those of its group, or of the queue when it has none.
 	 */
 	fun carriedTracks(entry: QueueEntry): CarriedTracks = entry.trackCarryGroup
-		?.let { group -> groupCarriedTracks.getOrPut(group) { loadCarriedTracks(group) } }
+		?.let { group ->
+			val user = currentUser()
+			groupCarriedTracks.getOrPut(user to group) { loadCarriedTracks(user, group) }
+		}
 		?: queueCarriedTracks
 
-	private fun loadCarriedTracks(group: String) = CarriedTracks(
-		audio = trackCarryStore?.read(group, TrackCarryStore.Kind.AUDIO),
-		subtitle = trackCarryStore?.read(group, TrackCarryStore.Kind.SUBTITLE),
-		onChange = { tracks ->
-			trackCarryStore?.write(group, TrackCarryStore.Kind.AUDIO, tracks.audio)
-			trackCarryStore?.write(group, TrackCarryStore.Kind.SUBTITLE, tracks.subtitle)
-		},
-	)
+	/** Without a user the choices are kept in memory only, as there is nobody to keep them for. */
+	private fun loadCarriedTracks(user: String?, group: String): CarriedTracks {
+		val store = trackCarryStore?.takeIf { user != null } ?: return CarriedTracks()
+		return CarriedTracks(
+			audio = store.read(user!!, group, TrackCarryStore.Kind.AUDIO),
+			subtitle = store.read(user, group, TrackCarryStore.Kind.SUBTITLE),
+			onChange = { tracks ->
+				store.write(user, group, TrackCarryStore.Kind.AUDIO, tracks.audio)
+				store.write(user, group, TrackCarryStore.Kind.SUBTITLE, tracks.subtitle)
+			},
+		)
+	}
+
+	/**
+	 * Forget every audio and subtitle choice the current user made, saved or not.
+	 */
+	fun forgetCarriedTracks() {
+		val user = currentUser()
+		groupCarriedTracks.keys.removeAll { it.first == user }
+		queueCarriedTracks = CarriedTracks()
+		if (user != null) trackCarryStore?.clear(user)
+	}
 
 	override suspend fun onInitialize() {
 		manager.queue.entry.onEach { entry ->
@@ -203,6 +223,13 @@ class MediaStreamService internal constructor(
 	private suspend fun QueueEntry.ensureMediaStream(): Boolean {
 		if (mediaStream == null) {
 			this.preferredAudioLanguage = carriedTracks(this).audio?.language
+			// Known ahead, the carried audio goes into this request: a converted stream asked for
+			// with the server default would otherwise be asked for again once the choice is applied.
+			// A subtitle only when it is none at all. Asked for up front, a subtitle the device
+			// cannot draw is burnt in by the server, converting a file that plays directly, while
+			// left to [applyCarriedTracks] a direct stream selects it on the client.
+			mediaStreamResolvers.firstNotNullOfOrNull { it.getKnownTracks(this) }
+				?.let { selectCarriedTracks(it, subtitleOnlyIfNone = true) }
 			mediaStream = resolveMediaStream(this)
 		}
 
@@ -219,11 +246,38 @@ class MediaStreamService internal constructor(
 	 */
 	private suspend fun QueueEntry.applyCarriedTracks() {
 		val stream = mediaStream ?: return
-		val carried = carriedTracks(this)
-		this.preferredAudioLanguage = carried.audio?.language
+		this.preferredAudioLanguage = carriedTracks(this).audio?.language
 
-		val audioIndex = carried.audio?.pick(stream.tracks.filterIsInstance<MediaStreamAudioTrack>())
-		val subtitleIndex = carried.subtitle?.pick(stream.tracks.filterIsInstance<MediaStreamSubtitleTrack>())
+		val changed = selectCarriedTracks(stream.tracks)
+		touchCarriedTracks()
+
+		if (changed && stream.conversionMethod != MediaConversionMethod.None) {
+			resolveMediaStream(this)?.let { mediaStream = it }
+		}
+	}
+
+	/**
+	 * Select the carried choices among [tracks] on this entry.
+	 *
+	 * @param subtitleOnlyIfNone select a carried subtitle only when it resolves to no subtitle
+	 * @return whether the selection changed
+	 */
+	private fun QueueEntry.selectCarriedTracks(
+		tracks: Collection<MediaStreamTrack>,
+		subtitleOnlyIfNone: Boolean = false,
+	): Boolean {
+		val carried = carriedTracks(this)
+		val audioTracks = tracks.filterIsInstance<MediaStreamAudioTrack>()
+
+		val audioIndex = carried.audio?.pick(audioTracks)
+		// Turning subtitles off keeps the forced ones for the audio that will actually play.
+		val playingAudio = audioTracks.firstOrNull { it.index == (audioIndex ?: selectedAudioStreamIndex) }
+			?: audioTracks.firstOrNull { it.isDefault }
+			?: audioTracks.firstOrNull()
+		val subtitleIndex = carried.subtitle?.pick(
+			tracks.filterIsInstance<MediaStreamSubtitleTrack>(),
+			audioLanguage = playingAudio?.language,
+		)?.takeIf { !subtitleOnlyIfNone || it == MediaStreamSubtitleTrack.INDEX_NONE }
 
 		var changed = false
 		if (audioIndex != null && audioIndex != selectedAudioStreamIndex) {
@@ -234,10 +288,15 @@ class MediaStreamService internal constructor(
 			selectedSubtitleStreamIndex = subtitleIndex
 			changed = true
 		}
+		return changed
+	}
 
-		if (changed && stream.conversionMethod != MediaConversionMethod.None) {
-			resolveMediaStream(this)?.let { mediaStream = it }
-		}
+	/** A saved choice that keeps being applied stays saved, however long ago it was made. */
+	private fun QueueEntry.touchCarriedTracks() {
+		val group = trackCarryGroup ?: return
+		val user = currentUser() ?: return
+		val carried = carriedTracks(this)
+		if (carried.audio != null || carried.subtitle != null) trackCarryStore?.touch(user, group)
 	}
 
 	private fun QueueEntry.ensurePreloadTimedEvent() {

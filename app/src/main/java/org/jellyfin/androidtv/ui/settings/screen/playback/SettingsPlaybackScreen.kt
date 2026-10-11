@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +27,8 @@ import org.jellyfin.androidtv.ui.navigation.focus.focusKey
 import org.jellyfin.androidtv.ui.settings.Routes
 import org.jellyfin.androidtv.ui.settings.compat.rememberPreference
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
+import org.jellyfin.playback.core.PlaybackManager
+import org.jellyfin.playback.core.mediastream.mediaStreamService
 import org.koin.compose.koinInject
 
 @Composable
@@ -34,6 +37,7 @@ fun SettingsPlaybackScreen() {
 	val router = LocalRouter.current
 	val externalAppRepository = koinInject<ExternalAppRepository>()
 	val userPreferences = koinInject<UserPreferences>()
+	val playbackManager = koinInject<PlaybackManager>()
 
 	SettingsColumn {
 		item {
@@ -98,6 +102,24 @@ fun SettingsPlaybackScreen() {
 				headingContent = { Text(stringResource(R.string.pref_customization_subtitles)) },
 				onClick = { router.push(Routes.CUSTOMIZATION_SUBTITLES) },
 				modifier = Modifier.focusKey(Routes.CUSTOMIZATION_SUBTITLES)
+			)
+		}
+
+		item {
+			var forgotten by remember { mutableStateOf(false) }
+			ListButton(
+				leadingContent = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
+				headingContent = { Text(stringResource(R.string.pref_playback_forget_track_choices)) },
+				captionContent = {
+					Text(stringResource(
+						if (forgotten) R.string.pref_playback_forget_track_choices_done
+						else R.string.pref_playback_forget_track_choices_description
+					))
+				},
+				onClick = {
+					playbackManager.mediaStreamService.forgetCarriedTracks()
+					forgotten = true
+				},
 			)
 		}
 
