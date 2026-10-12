@@ -286,6 +286,17 @@ fun SettingsPlaybackAdvancedScreen() {
 			)
 		}
 
+		item {
+			var decodeDtsOnDevice by rememberPreference(userPreferences, UserPreferences.decodeDtsOnDevice)
+			ListButton(
+				headingContent = { Text(stringResource(R.string.decode_dts_on_device)) },
+				trailingContent = { Checkbox(checked = decodeDtsOnDevice) },
+				captionContent = { Text(stringResource(R.string.decode_dts_on_device_content)) },
+				onClick = { decodeDtsOnDevice = !decodeDtsOnDevice },
+				modifier = Modifier.focusKey("decode_dts_on_device")
+			)
+		}
+
 		item { ListSection(headingContent = { Text(stringResource(R.string.pref_troubleshooting)) }) }
 
 		item {

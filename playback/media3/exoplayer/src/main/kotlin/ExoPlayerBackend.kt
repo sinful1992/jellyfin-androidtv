@@ -24,6 +24,9 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.util.EventLogger
@@ -77,6 +80,9 @@ class ExoPlayerBackend(
 		const val TS_SEARCH_BYTES_LM = TsExtractor.TS_PACKET_SIZE * 1800
 		const val TS_SEARCH_BYTES_HM = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES
 		const val MEDIA_ITEM_COUNT_MAX = 10
+
+		// media3 multiplies this by 4 for DTS-HD, so 2 s at its maximum rate.
+		private const val PASSTHROUGH_BUFFER_DURATION_US = 500_000
 
 		private val containerRejections = setOf(
 			PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
@@ -217,8 +223,31 @@ class ExoPlayerBackend(
 			}
 		} else DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
-		val renderersFactory = DefaultRenderersFactory(context).apply {
+		val renderersFactory = object : DefaultRenderersFactory(context) {
+			@Suppress("DEPRECATION")
+			override fun buildAudioSink(
+				context: Context,
+				enableFloatOutput: Boolean,
+				enableAudioOutputPlaybackParams: Boolean,
+			): AudioSink {
+				val sink = DefaultAudioSink.Builder(context)
+					.setEnableFloatOutput(enableFloatOutput)
+					.setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+					// DTS-HD passed through gets 2 s of output buffer instead of media3's 1 s, so a run
+					// of maximum-size frames has more to draw on before the output runs dry.
+					.setAudioTrackBufferSizeProvider(
+						DefaultAudioTrackBufferSizeProvider.Builder()
+							.setPassthroughBufferDurationUs(PASSTHROUGH_BUFFER_DURATION_US)
+							.build()
+					)
+					.build()
+
+				return if (exoPlayerOptions.decodeDts) DtsDecodingAudioSink(sink) else sink
+			}
+		}.apply {
 			setEnableDecoderFallback(true)
+			// The FFmpeg decoder hands DTS-HD MA over as float. Without float output it is cut to 16 bit.
+			setEnableAudioFloatOutput(exoPlayerOptions.decodeDts)
 			setExtensionRendererMode(
 				when (exoPlayerOptions.preferFfmpeg) {
 					true -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER

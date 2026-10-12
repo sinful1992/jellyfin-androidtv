@@ -91,6 +91,11 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		var preferExoPlayerFfmpeg = booleanPreference("exoplayer_prefer_ffmpeg", defaultValue = false)
 
 		/**
+		 * Whether DTS is decoded on this device instead of being passed through to the audio system.
+		 */
+		var decodeDtsOnDevice = booleanPreference("decode_dts_on_device", defaultValue = true)
+
+		/**
 		 * User defined AVC level override. AUTO uses device-reported capabilities.
 		 */
 		var userAVCLevel = enumPreference("user_avc_level", AVCLevel.AUTO)

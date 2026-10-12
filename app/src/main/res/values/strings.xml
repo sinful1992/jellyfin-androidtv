@@ -456,6 +456,8 @@
     <string name="current_queue">Current queue</string>
     <string name="prefer_exoplayer_ffmpeg">Prefer FFmpeg for audio playback</string>
     <string name="prefer_exoplayer_ffmpeg_content">Use FFmpeg to decode audio, even if platform codecs are available.</string>
+    <string name="decode_dts_on_device">Decode DTS on this device</string>
+    <string name="decode_dts_on_device_content">Sends DTS to the speakers as PCM instead of passing it through. Fixes stuttering DTS-HD on some TVs, but DTS:X height channels are lost. Takes effect after restarting the app.</string>
     <string name="default_video_zoom">Default zoom mode</string>
     <string name="video_start_delay">Video start delay</string>
     <string name="playback_buffer_length">Playback buffer size</string>
