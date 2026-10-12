@@ -33,7 +33,7 @@ class DtsDecodingAudioSink(sink: AudioSink) : ForwardingAudioSink(sink) {
 		if (format.isEncodedDts) AudioOffloadSupport.DEFAULT_UNSUPPORTED
 		else super.getFormatOffloadSupport(format)
 
-	private companion object {
+	internal companion object {
 		val dtsMimeTypes = setOf(
 			MimeTypes.AUDIO_DTS,
 			MimeTypes.AUDIO_DTS_HD,

@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.util.EventLogger
@@ -83,6 +84,11 @@ class ExoPlayerBackend(
 
 		// media3 multiplies this by 4 for DTS-HD, so 2 s at its maximum rate.
 		private const val PASSTHROUGH_BUFFER_DURATION_US = 500_000
+
+		private val withoutDtsDecoders = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+			if (mimeType in DtsDecodingAudioSink.dtsMimeTypes) emptyList()
+			else MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+		}
 
 		private val containerRejections = setOf(
 			PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
@@ -233,13 +239,16 @@ class ExoPlayerBackend(
 				val sink = DefaultAudioSink.Builder(context)
 					.setEnableFloatOutput(enableFloatOutput)
 					.setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
-					// DTS-HD passed through gets 2 s of output buffer instead of media3's 1 s, so a run
-					// of maximum-size frames has more to draw on before the output runs dry.
-					.setAudioTrackBufferSizeProvider(
-						DefaultAudioTrackBufferSizeProvider.Builder()
-							.setPassthroughBufferDurationUs(PASSTHROUGH_BUFFER_DURATION_US)
-							.build()
-					)
+					.apply {
+						// DTS-HD passed through gets 2 s of output buffer instead of media3's 1 s, so a
+						// run of maximum-size frames has more to draw on before the output runs dry.
+						// Only then: it doubles the Dolby passthrough buffers too, which work as they are.
+						if (!exoPlayerOptions.decodeDts) setAudioTrackBufferSizeProvider(
+							DefaultAudioTrackBufferSizeProvider.Builder()
+								.setPassthroughBufferDurationUs(PASSTHROUGH_BUFFER_DURATION_US)
+								.build()
+						)
+					}
 					.build()
 
 				return if (exoPlayerOptions.decodeDts) DtsDecodingAudioSink(sink) else sink
@@ -248,6 +257,9 @@ class ExoPlayerBackend(
 			setEnableDecoderFallback(true)
 			// The FFmpeg decoder hands DTS-HD MA over as float. Without float output it is cut to 16 bit.
 			setEnableAudioFloatOutput(exoPlayerOptions.decodeDts)
+			// The Bravia lists MediaTek DSP decoders for DTS. Left in, one of them would decode instead
+			// of FFmpeg, the path that was measured, and may downmix.
+			if (exoPlayerOptions.decodeDts) setMediaCodecSelector(withoutDtsDecoders)
 			setExtensionRendererMode(
 				when (exoPlayerOptions.preferFfmpeg) {
 					true -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
