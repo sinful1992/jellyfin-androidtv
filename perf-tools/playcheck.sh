@@ -68,7 +68,8 @@ play_item() {
 	a shell am force-stop "$PKG"
 	sleep 1
 	a shell am start -W -n "$PKG/org.jellyfin.androidtv.ui.startup.StartupActivity" -e ItemId "$1" > /dev/null
-	sleep 6
+	# A cold start has to restore the session and load the item first.
+	sleep 10
 	key 23
 }
 
