@@ -53,13 +53,19 @@ luma() {
 	python -c "import sys; from PIL import Image, ImageStat; print(int(ImageStat.Stat(Image.open(sys.argv[1]).convert('L')).mean[0]))" "$png"
 }
 
-# Seconds of playback the player reports, from the media session (works on debug and release builds).
+# The playback state line of the app under test's media session. The TV lists one session per app
+# (the release app, the debug app, the TV's own), so take the one after "package=$PKG".
+session_state() {
+	a shell dumpsys media_session | awk -v pkg="package=$PKG" '$1 == pkg { found = 1 } found && /state=PlaybackState/ { print; exit }'
+}
+
+# Seconds of playback the player reports (works on debug and release builds).
 position() {
-	a shell dumpsys media_session | grep -m1 -o 'position=[0-9]*' | cut -d= -f2 | awk '{print int($1/1000)}'
+	session_state | grep -o 'position=[0-9]*' | head -1 | cut -d= -f2 | awk '{print int($1/1000)}'
 }
 
 play_state() {
-	a shell dumpsys media_session | grep -m1 -o 'state=PlaybackState {state=[0-9]*' | grep -o '[0-9]*$'
+	session_state | grep -o 'state=PlaybackState {state=[0-9]*' | grep -o '[0-9]*$'
 }
 
 # Open the item's details page and start it from the focused Play/Resume button. The app is stopped
