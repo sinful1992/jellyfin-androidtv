@@ -62,8 +62,11 @@ play_state() {
 	a shell dumpsys media_session | grep -m1 -o 'state=PlaybackState {state=[0-9]*' | grep -o '[0-9]*$'
 }
 
-# Open the item's details page and start it from the focused Play/Resume button.
+# Open the item's details page and start it from the focused Play/Resume button. The app is stopped
+# first: opened on top of a details page it already shows, the focus stays wherever it was, not on Play.
 play_item() {
+	a shell am force-stop "$PKG"
+	sleep 1
 	a shell am start -W -n "$PKG/org.jellyfin.androidtv.ui.startup.StartupActivity" -e ItemId "$1" > /dev/null
 	sleep 6
 	key 23
