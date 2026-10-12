@@ -221,7 +221,13 @@ run_C5() {
 	step_start C5
 	play_item "$C5_ITEM"
 	if ! wait_playing 40; then step_end FAIL "never played"; return; fi
-	sleep 45
+	sleep 10
+	# The server keeps a resume point only past MinResumePct (5%) and 300 s, so move past it first.
+	echo "WAITING C5 seek to 600 s now (server Playstate Seek), 90 s"
+	local i=0
+	while [ $i -lt 90 ] && [ "$(position)" -lt 590 ] 2>/dev/null; do sleep 1; i=$((i + 1)); done
+	if [ $i -ge 90 ]; then step_end FAIL "no seek to 600 s arrived (position $(position))"; leave_player; return; fi
+	sleep 10
 	local stopped resumed
 	stopped=$(position)
 	leave_player; leave_player
