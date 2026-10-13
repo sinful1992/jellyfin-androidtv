@@ -48,7 +48,12 @@ class PassthroughFirstTrackSelectorTests : FunSpec({
 			every { getRendererType(any()) } answers { types[firstArg()] }
 			every { getTrackGroups(any()) } answers { groups[firstArg()] }
 		}
-		val supports = demoteDecodeOnly(info, arrayOf(arrayOf(), arrayOf(intArrayOf(handled)), arrayOf(intArrayOf(handled))), bravia)
+		// As MappingTrackSelector hands them over: a renderer without groups and the unmapped tracks
+		// after the last renderer come as null rows.
+		@Suppress("UNCHECKED_CAST")
+		val original = arrayOf(null, arrayOf(intArrayOf(handled)), arrayOf(intArrayOf(handled)), null) as Array<Array<IntArray>>
+		val supports = demoteDecodeOnly(info, original, bravia)
+		RendererCapabilities.getFormatSupport(original[2][0][0]) shouldBe C.FORMAT_HANDLED
 
 		RendererCapabilities.getFormatSupport(supports[1][0][0]) shouldBe C.FORMAT_HANDLED
 		RendererCapabilities.getFormatSupport(supports[2][0][0]) shouldBe C.FORMAT_UNSUPPORTED_SUBTYPE

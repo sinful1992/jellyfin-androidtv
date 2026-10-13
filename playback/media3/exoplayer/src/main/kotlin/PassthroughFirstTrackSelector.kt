@@ -30,9 +30,15 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 		rendererMixedMimeTypeAdaptationSupports: IntArray,
 		params: Parameters,
 	): Pair<ExoTrackSelection.Definition, Int>? {
-		val capabilities = AudioCapabilities.getCapabilities(context)
-		val supports = demoteDecodeOnly(mappedTrackInfo, rendererFormatSupports) { format ->
-			capabilities.isPassthroughPlaybackSupported(format)
+		// A fault here must not stop playback: the player's own pick is always there to fall back to.
+		val supports = try {
+			val capabilities = AudioCapabilities.getCapabilities(context)
+			demoteDecodeOnly(mappedTrackInfo, rendererFormatSupports) { format ->
+				capabilities.isPassthroughPlaybackSupported(format)
+			}
+		} catch (err: RuntimeException) {
+			Log.w(TAG, "Could not weigh audio tracks for passthrough, leaving the pick to the player", err)
+			rendererFormatSupports
 		}
 		return super.selectAudioTrack(mappedTrackInfo, supports, rendererMixedMimeTypeAdaptationSupports, params)
 	}
@@ -62,11 +68,15 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 			val demoted = decodeOnlyTracks(formats, canPassThrough)
 			if (demoted.isEmpty()) return rendererFormatSupports
 
-			val supports = Array(rendererFormatSupports.size) { renderer ->
-				Array(rendererFormatSupports[renderer].size) { group -> rendererFormatSupports[renderer][group].copyOf() }
-			}
+			// Only the rows changed are copied: the arrays come from Java with null rows, for renderers
+			// without groups and for the unmapped tracks after the last renderer.
+			val supports = rendererFormatSupports.copyOf()
+			val copiedRenderers = mutableSetOf<Int>()
+			val copiedGroups = mutableSetOf<kotlin.Pair<Int, Int>>()
 			for ((position, track) in demoted) {
 				val (renderer, group, _) = positions[position]
+				if (copiedRenderers.add(renderer)) supports[renderer] = supports[renderer].copyOf()
+				if (copiedGroups.add(renderer to group)) supports[renderer][group] = supports[renderer][group].copyOf()
 				val support = supports[renderer][group][track]
 				supports[renderer][group][track] = RendererCapabilities.create(
 					C.FORMAT_UNSUPPORTED_SUBTYPE,
