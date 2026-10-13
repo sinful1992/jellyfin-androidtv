@@ -190,5 +190,8 @@ class JellyfinMediaStreamResolver(
 		tracks = getTracks(),
 		queueEntry = queueEntry,
 		url = url,
+		defaultAudioLanguage = mediaSource.defaultAudioStreamIndex?.let { index ->
+			mediaSource.mediaStreams?.firstOrNull { it.type == MediaStreamType.AUDIO && it.index == index }?.language
+		},
 	)
 }

@@ -35,6 +35,11 @@ data class PlayableMediaStream(
 	override val tracks: Collection<MediaStreamTrack>,
 	val queueEntry: QueueEntry,
 	val url: String,
+	/**
+	 * Language of the audio track the server picked for this user, from their audio language
+	 * setting, or null when it gave none.
+	 */
+	val defaultAudioLanguage: String? = null,
 ) : MediaStream
 
 data class MediaStreamContainer(

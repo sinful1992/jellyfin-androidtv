@@ -467,8 +467,11 @@ class ExoPlayerBackend(
 			.clearOverridesOfType(C.TRACK_TYPE_TEXT)
 			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
 			// The language carried over from an earlier entry, for when the carried track cannot be
-			// selected by identity below. Set on every item so a stale one never lingers.
-			.setPreferredAudioLanguage(item.preferredAudioLanguage)
+			// selected by identity below. Without one, the language of the track the server picked
+			// from the user's audio language setting: the file's default flag ranks below it, so a
+			// film whose default track is a dub still starts in the user's language. Set on every
+			// item so a stale one never lingers.
+			.setPreferredAudioLanguage(item.preferredAudioLanguage ?: stream.defaultAudioLanguage)
 			.build()
 
 		// Clearing the overrides also drops the tracks chosen for this entry when its stream was
