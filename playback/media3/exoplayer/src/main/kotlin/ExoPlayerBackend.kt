@@ -26,7 +26,6 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.TsExtractor
@@ -253,7 +252,7 @@ class ExoPlayerBackend(
 		ExoPlayer.Builder(context)
 			.setLoadControl(loadControl)
 			.setRenderersFactory(renderersFactory)
-			.setTrackSelector(DefaultTrackSelector(context).apply {
+			.setTrackSelector(PassthroughFirstTrackSelector(context).apply {
 				setParameters(buildUponParameters().apply {
 					setAudioOffloadPreferences(
 						TrackSelectionParameters.AudioOffloadPreferences.DEFAULT.buildUpon().apply {
