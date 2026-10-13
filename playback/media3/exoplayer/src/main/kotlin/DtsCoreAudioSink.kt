@@ -42,19 +42,6 @@ class DtsCoreAudioSink(
 	private var pendingBuffer: ByteBuffer? = null
 	private var pendingCoreEnd = 0
 
-	// Diagnostics for the AC3 start freeze (task 45): what the sink is fed in the first seconds
-	// after each configure. To be removed once the cause is known.
-	private var feedSinceMs = 0L
-	private var feedLoggedS = -1L
-	private var feedCalls = 0
-	private var feedHandled = 0
-	private var feedLastPtsUs = 0L
-
-	private fun logFeed(event: String) {
-		val since = wallClockUs() / 1000 - feedSinceMs
-		Log.i(TAG, "feed $event +${since}ms calls=$feedCalls handled=$feedHandled lastPts=$feedLastPtsUs pending=${hasPendingData()} playing=$playing")
-	}
-
 	// The core is enough to take DTS-HD: it can always be sent instead.
 	override fun supportsFormat(format: Format): Boolean = super.supportsFormat(format.asCore())
 
@@ -66,11 +53,6 @@ class DtsCoreAudioSink(
 
 	override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
 		val format = audioSinkConfig.format
-		feedSinceMs = wallClockUs() / 1000
-		feedLoggedS = -1
-		feedCalls = 0
-		feedHandled = 0
-		Log.i(TAG, "configure ${format.sampleMimeType} ${format.channelCount}ch")
 		config = audioSinkConfig
 		pendingBuffer = null
 		midBuffer = false
@@ -91,14 +73,6 @@ class DtsCoreAudioSink(
 	}
 
 	override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
-		val handled = handleBufferInner(buffer, presentationTimeUs, encodedAccessUnitCount)
-		feedCalls++
-		if (handled) feedHandled++
-		feedLastPtsUs = presentationTimeUs
-		return handled
-	}
-
-	private fun handleBufferInner(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
 		// Switched only between access units: a partly written one belongs to the old output.
 		if (switchToCore && !midBuffer) {
 			switchToCore = false
@@ -141,11 +115,6 @@ class DtsCoreAudioSink(
 
 	override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
 		val positionUs = super.getCurrentPositionUs(sourceEnded)
-		val sinceS = (wallClockUs() / 1000 - feedSinceMs) / 1000
-		if (sinceS < 20 && sinceS != feedLoggedS) {
-			feedLoggedS = sinceS
-			logFeed("pos=$positionUs")
-		}
 		if (watching && playing && !switchToCore && positionUs != AudioSink.CURRENT_POSITION_NOT_SET) {
 			if (stallDetector.sample(wallClockUs(), positionUs, playbackParameters.speed)) {
 				Log.w(TAG, "DTS-HD passthrough is losing time, switching to the DTS core")
@@ -157,14 +126,12 @@ class DtsCoreAudioSink(
 	}
 
 	override fun play() {
-		logFeed("play")
 		playing = true
 		stallDetector.reset()
 		super.play()
 	}
 
 	override fun pause() {
-		logFeed("pause")
 		playing = false
 		stallDetector.reset()
 		super.pause()
@@ -176,7 +143,6 @@ class DtsCoreAudioSink(
 	}
 
 	override fun flush() {
-		logFeed("flush")
 		pendingBuffer = null
 		midBuffer = false
 		stallDetector.reset()
@@ -184,7 +150,6 @@ class DtsCoreAudioSink(
 	}
 
 	override fun reset() {
-		logFeed("reset")
 		pendingBuffer = null
 		midBuffer = false
 		stallDetector.reset()

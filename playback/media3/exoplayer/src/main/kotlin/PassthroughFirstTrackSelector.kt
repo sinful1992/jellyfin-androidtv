@@ -7,7 +7,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RendererCapabilities
 import androidx.media3.exoplayer.audio.AudioCapabilities
@@ -51,9 +50,12 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 		super.onRendererCapabilitiesChanged(renderer)
 	}
 
-	override fun setParameters(parameters: TrackSelectionParameters) {
-		Log.i(TAG, "parameters set")
-		super.setParameters(parameters)
+	/**
+	 * Forget the last audio pick, for a new item: a capability change before its first pick is then
+	 * handled as media3 would.
+	 */
+	fun forgetAudioPick() {
+		lastAudioPick = null
 	}
 
 	override fun selectAudioTrack(

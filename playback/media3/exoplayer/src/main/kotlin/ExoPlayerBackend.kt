@@ -191,6 +191,8 @@ class ExoPlayerBackend(
 		AssHandler(AssRenderType.OVERLAY_OPEN_GL)
 	}
 
+	private val trackSelector by lazy { PassthroughFirstTrackSelector(context) }
+
 	@VisibleForTesting
 	internal val exoPlayer by lazy {
 		val dataSourceFactory = DefaultDataSource.Factory(
@@ -255,7 +257,7 @@ class ExoPlayerBackend(
 		ExoPlayer.Builder(context)
 			.setLoadControl(loadControl)
 			.setRenderersFactory(renderersFactory)
-			.setTrackSelector(PassthroughFirstTrackSelector(context).apply {
+			.setTrackSelector(trackSelector.apply {
 				setParameters(buildUponParameters().apply {
 					setAudioOffloadPreferences(
 						TrackSelectionParameters.AudioOffloadPreferences.DEFAULT.buildUpon().apply {
@@ -456,6 +458,7 @@ class ExoPlayerBackend(
 
 		currentStream = stream
 		hasPlayedCurrentStream = false
+		trackSelector.forgetAudioPick()
 
 		// Where the previous stream was stopped says nothing about this one. Left in place, the
 		// position reported while this stream opens - its start, and its stop if it fails before a
