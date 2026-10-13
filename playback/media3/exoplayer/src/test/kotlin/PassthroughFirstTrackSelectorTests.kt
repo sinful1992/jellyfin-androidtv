@@ -1,10 +1,13 @@
 package org.jellyfin.playback.media3.exoplayer
 
+import android.text.TextUtils
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockkStatic
 import org.jellyfin.playback.media3.exoplayer.PassthroughFirstTrackSelector.Companion.decodeOnlyTracks
 
 private fun audio(mimeType: String, channels: Int, language: String? = "en") = Format.Builder()
@@ -18,6 +21,9 @@ private fun audio(mimeType: String, channels: Int, language: String? = "en") = F
 private val bravia: (Format) -> Boolean = { it.sampleMimeType != MimeTypes.AUDIO_TRUEHD && it.sampleMimeType != MimeTypes.AUDIO_AAC }
 
 class PassthroughFirstTrackSelectorTests : FunSpec({
+	mockkStatic(TextUtils::class)
+	every { TextUtils.isEmpty(any()) } answers { (firstArg() as CharSequence?).isNullOrEmpty() }
+
 	test("TrueHD next to an AC3 5.1 track in the same language is demoted") {
 		// Deadpool / Cars: TrueHD 7.1 in group 0, AC3 5.1 in group 1.
 		val groups = listOf(listOf(audio(MimeTypes.AUDIO_TRUEHD, 8)), listOf(audio(MimeTypes.AUDIO_AC3, 6)))
