@@ -28,7 +28,7 @@ class DtsHdFallback(context: Context) {
 	private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 	private val audioManager = context.getSystemService<AudioManager>()
 
-	private fun outputKey(): String {
+	fun outputKey(): String {
 		val outputs = audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS).orEmpty()
 			.filter { it.type in hdmiTypes }
 			.map { "${it.type}:${it.productName}:${it.encodings.sorted().joinToString(",")}" }
@@ -40,4 +40,6 @@ class DtsHdFallback(context: Context) {
 		get() = preferences.getString(KEY_STALLED_ON, null) == outputKey()
 
 	fun rememberStall() = preferences.edit { putString(KEY_STALLED_ON, outputKey()) }
+
+	fun forget() = preferences.edit { remove(KEY_STALLED_ON) }
 }

@@ -36,6 +36,7 @@ import org.jellyfin.androidtv.ui.settings.composable.SettingsAsyncActionListButt
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
 import org.jellyfin.androidtv.util.profile.createDeviceProfileReport
 import org.jellyfin.design.Tokens
+import org.jellyfin.playback.media3.exoplayer.DtsHdFallback
 import org.jellyfin.playback.media3.exoplayer.DtsHdOutput
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.clientLogApi
@@ -298,8 +299,12 @@ fun SettingsPlaybackAdvancedScreen() {
 						DtsHdOutput.CORE -> R.string.dts_hd_output_core
 					}))
 				},
-				// Three values, so a press steps to the next one.
-				onClick = { dtsHdOutput = DtsHdOutput.entries[(dtsHdOutput.ordinal + 1) % DtsHdOutput.entries.size] },
+				// Three values, so a press steps to the next one. Choosing automatic again gives full
+				// DTS-HD a new try on this device.
+				onClick = {
+					dtsHdOutput = DtsHdOutput.entries[(dtsHdOutput.ordinal + 1) % DtsHdOutput.entries.size]
+					if (dtsHdOutput == DtsHdOutput.AUTO) DtsHdFallback(context).forget()
+				},
 				modifier = Modifier.focusKey("dts_hd_output")
 			)
 		}

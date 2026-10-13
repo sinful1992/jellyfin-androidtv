@@ -65,6 +65,8 @@ class DtsCoreAudioSink(
 			DtsHdOutput.AUTO -> fallback?.stalled == true || !super.supportsFormat(format)
 		}
 		watching = format.isDtsHd && !stripping && output == DtsHdOutput.AUTO
+		// Shows on the TV whether the remembered output still matches after standby or a reboot.
+		if (format.isDtsHd && fallback != null) Log.i(TAG, "DTS-HD ($output, core=$stripping) on ${fallback.outputKey()}")
 		if (stripping) Log.i(TAG, "Passing DTS-HD through as its DTS core ($output)")
 
 		super.configure(if (stripping) audioSinkConfig.toCore() else audioSinkConfig)

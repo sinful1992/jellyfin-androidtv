@@ -194,7 +194,7 @@ class DtsCoreAudioSinkTests : FunSpec({
 
 		test("a stalling clock switches to the core at the next access unit, and is remembered") {
 			val tv = Bravia()
-			val fallback = mockk<DtsHdFallback>(relaxed = true) { every { stalled } returns false }
+			val fallback = mockk<DtsHdFallback>(relaxed = true) { every { stalled } returns false; every { outputKey() } returns "tv" }
 			var wallUs = 0L
 			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO, fallback, wallClockUs = { wallUs })
 			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
@@ -213,7 +213,7 @@ class DtsCoreAudioSinkTests : FunSpec({
 
 		test("a remembered stall starts DTS-HD as the core") {
 			val tv = Bravia()
-			val fallback = mockk<DtsHdFallback> { every { stalled } returns true }
+			val fallback = mockk<DtsHdFallback> { every { stalled } returns true; every { outputKey() } returns "tv" }
 			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO, fallback)
 			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
 			tv.configured shouldBe listOf(MimeTypes.AUDIO_DTS)
