@@ -40,6 +40,11 @@ data class PlayableMediaStream(
 	 * setting, or null when it gave none.
 	 */
 	val defaultAudioLanguage: String? = null,
+	/**
+	 * The subtitle track the server picked for this user from their subtitle settings,
+	 * [MediaStreamSubtitleTrack.INDEX_NONE] for none, or null when it gave no answer.
+	 */
+	val defaultSubtitleStreamIndex: Int? = null,
 ) : MediaStream
 
 data class MediaStreamContainer(

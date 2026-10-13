@@ -480,7 +480,13 @@ class ExoPlayerBackend(
 		// Clearing the overrides also drops the tracks chosen for this entry when its stream was
 		// resolved again (another track change, a profile change). Put them back once the new
 		// stream's tracks are known.
-		pendingTrackSelection = PendingTrackSelection(stream, item.selectedAudioStreamIndex, item.selectedSubtitleStreamIndex)
+		// Without a choice of the user's, the subtitle the server picked from their subtitle settings:
+		// left to the player, a subtitle flagged default in the file shows whatever its language.
+		pendingTrackSelection = PendingTrackSelection(
+			stream,
+			item.selectedAudioStreamIndex,
+			item.selectedSubtitleStreamIndex ?: stream.defaultSubtitleStreamIndex,
+		)
 
 		var preparedItemIndex = (0 until exoPlayer.mediaItemCount).firstOrNull { index ->
 			exoPlayer.getMediaItemAt(index).mediaId == stream.hashCode().toString()

@@ -193,5 +193,6 @@ class JellyfinMediaStreamResolver(
 		defaultAudioLanguage = mediaSource.defaultAudioStreamIndex?.let { index ->
 			mediaSource.mediaStreams?.firstOrNull { it.type == MediaStreamType.AUDIO && it.index == index }?.language
 		},
+		defaultSubtitleStreamIndex = mediaSource.defaultSubtitleStreamIndex,
 	)
 }
