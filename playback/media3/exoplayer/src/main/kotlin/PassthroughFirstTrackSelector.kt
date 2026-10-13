@@ -1,6 +1,7 @@
 package org.jellyfin.playback.media3.exoplayer
 
 import android.content.Context
+import android.util.Log
 import android.util.Pair
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -36,38 +37,47 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 		return super.selectAudioTrack(mappedTrackInfo, supports, rendererMixedMimeTypeAdaptationSupports, params)
 	}
 
-	private fun demoteDecodeOnly(
-		mappedTrackInfo: MappedTrackInfo,
-		rendererFormatSupports: Array<Array<IntArray>>,
-		canPassThrough: (Format) -> Boolean,
-	): Array<Array<IntArray>> {
-		val audioRenderers = (0 until mappedTrackInfo.rendererCount)
-			.filter { mappedTrackInfo.getRendererType(it) == C.TRACK_TYPE_AUDIO }
-		// Every audio renderer maps the same groups, so the first one lists the tracks.
-		val groups = audioRenderers.firstOrNull()?.let(mappedTrackInfo::getTrackGroups) ?: return rendererFormatSupports
-		val formats = (0 until groups.length).map { group ->
-			(0 until groups[group].length).map { track -> groups[group].getFormat(track) }
-		}
-
-		val demoted = decodeOnlyTracks(formats, canPassThrough)
-		if (demoted.isEmpty()) return rendererFormatSupports
-
-		val supports = Array(rendererFormatSupports.size) { renderer ->
-			Array(rendererFormatSupports[renderer].size) { group -> rendererFormatSupports[renderer][group].copyOf() }
-		}
-		for (renderer in audioRenderers) for ((group, track) in demoted) {
-			val support = supports[renderer][group][track]
-			supports[renderer][group][track] = RendererCapabilities.create(
-				C.FORMAT_UNSUPPORTED_SUBTYPE,
-				RendererCapabilities.getAdaptiveSupport(support),
-				RendererCapabilities.getTunnelingSupport(support),
-			)
-		}
-		return supports
-	}
-
 	internal companion object {
+		private const val TAG = "PassthroughFirstTrackSelector"
 		private const val SURROUND_CHANNELS = 6
+
+		fun demoteDecodeOnly(
+			mappedTrackInfo: MappedTrackInfo,
+			rendererFormatSupports: Array<Array<IntArray>>,
+			canPassThrough: (Format) -> Boolean,
+		): Array<Array<IntArray>> {
+			// Each track group is mapped to one renderer only: TrueHD to the FFmpeg renderer, AC3 to the
+			// platform one. The choice is between all of them, so they are gathered across renderers.
+			val positions = (0 until mappedTrackInfo.rendererCount)
+				.filter { mappedTrackInfo.getRendererType(it) == C.TRACK_TYPE_AUDIO }
+				.flatMap { renderer ->
+					val groups = mappedTrackInfo.getTrackGroups(renderer)
+					(0 until groups.length).map { group -> Triple(renderer, group, groups[group]) }
+				}
+			if (positions.isEmpty()) return rendererFormatSupports
+
+			val formats = positions.map { (_, _, trackGroup) ->
+				(0 until trackGroup.length).map { track -> trackGroup.getFormat(track) }
+			}
+			val demoted = decodeOnlyTracks(formats, canPassThrough)
+			if (demoted.isEmpty()) return rendererFormatSupports
+
+			val supports = Array(rendererFormatSupports.size) { renderer ->
+				Array(rendererFormatSupports[renderer].size) { group -> rendererFormatSupports[renderer][group].copyOf() }
+			}
+			for ((position, track) in demoted) {
+				val (renderer, group, _) = positions[position]
+				val support = supports[renderer][group][track]
+				supports[renderer][group][track] = RendererCapabilities.create(
+					C.FORMAT_UNSUPPORTED_SUBTYPE,
+					RendererCapabilities.getAdaptiveSupport(support),
+					RendererCapabilities.getTunnelingSupport(support),
+				)
+			}
+			Log.i(TAG, "Preferring tracks that pass through over ${demoted.map { (position, track) -> formats[position][track].sampleMimeType }}")
+			return supports
+		}
+
 
 		// A track without a language and one marked undetermined count as the same language.
 		private val Format.languageOrNull

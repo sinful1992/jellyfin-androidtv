@@ -7,8 +7,16 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.mockkStatic
 import org.jellyfin.playback.media3.exoplayer.PassthroughFirstTrackSelector.Companion.decodeOnlyTracks
+import org.jellyfin.playback.media3.exoplayer.PassthroughFirstTrackSelector.Companion.demoteDecodeOnly
+import android.util.Log
+import androidx.media3.common.C
+import androidx.media3.common.TrackGroup
+import androidx.media3.exoplayer.RendererCapabilities
+import androidx.media3.exoplayer.source.TrackGroupArray
+import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo
 
 private fun audio(mimeType: String, channels: Int, language: String? = "en") = Format.Builder()
 	.setSampleMimeType(mimeType)
@@ -23,6 +31,28 @@ private val bravia: (Format) -> Boolean = { it.sampleMimeType != MimeTypes.AUDIO
 class PassthroughFirstTrackSelectorTests : FunSpec({
 	mockkStatic(TextUtils::class)
 	every { TextUtils.isEmpty(any()) } answers { (firstArg() as CharSequence?).isNullOrEmpty() }
+	mockkStatic(Log::class)
+	every { Log.i(any(), any()) } returns 0
+
+	test("tracks mapped to different renderers are weighed against each other") {
+		// Deadpool on the Bravia: TrueHD is only playable by the FFmpeg renderer, AC3 by the platform one.
+		val handled = RendererCapabilities.create(C.FORMAT_HANDLED)
+		val groups = listOf(
+			TrackGroupArray(),
+			TrackGroupArray(TrackGroup(audio(MimeTypes.AUDIO_AC3, 6))),
+			TrackGroupArray(TrackGroup(audio(MimeTypes.AUDIO_TRUEHD, 8))),
+		)
+		val types = listOf(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_AUDIO)
+		val info = mockk<MappedTrackInfo> {
+			every { rendererCount } returns 3
+			every { getRendererType(any()) } answers { types[firstArg()] }
+			every { getTrackGroups(any()) } answers { groups[firstArg()] }
+		}
+		val supports = demoteDecodeOnly(info, arrayOf(arrayOf(), arrayOf(intArrayOf(handled)), arrayOf(intArrayOf(handled))), bravia)
+
+		RendererCapabilities.getFormatSupport(supports[1][0][0]) shouldBe C.FORMAT_HANDLED
+		RendererCapabilities.getFormatSupport(supports[2][0][0]) shouldBe C.FORMAT_UNSUPPORTED_SUBTYPE
+	}
 
 	test("TrueHD next to an AC3 5.1 track in the same language is demoted") {
 		// Deadpool / Cars: TrueHD 7.1 in group 0, AC3 5.1 in group 1.
