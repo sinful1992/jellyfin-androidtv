@@ -26,9 +26,28 @@ import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrack
  */
 @OptIn(UnstableApi::class)
 class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrackSelector(context) {
-	// Diagnostics for the AC3 start freeze (task 45): what makes the player choose tracks again.
+	// The audio track picked last, and whether it could be passed through at the time.
+	@Volatile private var lastAudioPick: Format? = null
+	@Volatile private var lastAudioPickPassesThrough = false
+
+	/**
+	 * The audio capabilities change once a passthrough output opens, and choosing tracks again for it
+	 * rebuilds the audio output. On a Bravia that rebuild of a Dolby output left the TV refusing audio,
+	 * with the picture frozen at 0.7 s. So for an audio renderer the tracks are chosen again only
+	 * when the change matters to the track playing: when it can now be passed through and could not
+	 * before, as on a Shield after a refresh rate switch, or the other way round.
+	 */
 	override fun onRendererCapabilitiesChanged(renderer: Renderer) {
-		Log.i(TAG, "capabilities changed: ${renderer.name}")
+		val pick = lastAudioPick
+		if (renderer.trackType == C.TRACK_TYPE_AUDIO && pick != null) {
+			val passesThrough = runCatching {
+				AudioCapabilities.getCapabilities(context).isPassthroughPlaybackSupported(pick)
+			}.getOrNull()
+			if (passesThrough == lastAudioPickPassesThrough) {
+				Log.i(TAG, "Audio capabilities changed, ${pick.sampleMimeType} still passes through=$passesThrough: keeping the tracks")
+				return
+			}
+		}
 		super.onRendererCapabilitiesChanged(renderer)
 	}
 
@@ -44,8 +63,9 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 		params: Parameters,
 	): Pair<ExoTrackSelection.Definition, Int>? {
 		// A fault here must not stop playback: the player's own pick is always there to fall back to.
+		var capabilities: AudioCapabilities? = null
 		val supports = try {
-			val capabilities = AudioCapabilities.getCapabilities(context)
+			capabilities = AudioCapabilities.getCapabilities(context)
 			demoteDecodeOnly(mappedTrackInfo, rendererFormatSupports) { format ->
 				capabilities.isPassthroughPlaybackSupported(format)
 			}
@@ -55,7 +75,9 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 		}
 		val result = super.selectAudioTrack(mappedTrackInfo, supports, rendererMixedMimeTypeAdaptationSupports, params)
 		val picked = result?.first?.let { it.group.getFormat(it.tracks[0]) }
-		Log.i(TAG, "audio pick: renderer=${result?.second} ${picked?.sampleMimeType} ${picked?.channelCount}ch ${picked?.language}")
+		lastAudioPick = picked
+		lastAudioPickPassesThrough = picked != null && capabilities?.isPassthroughPlaybackSupported(picked) == true
+		Log.i(TAG, "audio pick: renderer=${result?.second} ${picked?.sampleMimeType} ${picked?.channelCount}ch ${picked?.language} passthrough=$lastAudioPickPassesThrough")
 		return result
 	}
 
