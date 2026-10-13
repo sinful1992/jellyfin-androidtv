@@ -13,5 +13,5 @@ data class ExoPlayerOptions(
 	val maxBufferDuration: Duration? = null,
 	val bufferForPlaybackDuration: Duration? = null,
 	val bufferForPlaybackAfterRebufferDuration: Duration? = null,
-	val dtsHdPassthrough: Boolean = false,
+	val dtsHdOutput: DtsHdOutput = DtsHdOutput.AUTO,
 )

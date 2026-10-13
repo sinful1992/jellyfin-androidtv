@@ -8,7 +8,11 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.slot
+import io.mockk.verify
+import android.util.Log
+import androidx.media3.common.PlaybackParameters
 import org.jellyfin.playback.media3.exoplayer.DtsCoreAudioSink.Companion.asCore
 import org.jellyfin.playback.media3.exoplayer.DtsCoreAudioSink.Companion.coreSize
 import java.nio.ByteBuffer
@@ -35,6 +39,10 @@ private fun coreFrame(size: Int = 2013): ByteArray {
 private val extensionSubstream = byteArrayOf(0x64, 0x58, 0x20, 0x25) + ByteArray(3000)
 
 class DtsCoreAudioSinkTests : FunSpec({
+	mockkStatic(Log::class)
+	every { Log.i(any(), any()) } returns 0
+	every { Log.w(any<String>(), any<String>()) } returns 0
+
 	test("DTS-HD is offered to the sink as the DTS core, at most 5.1") {
 		val core = format(MimeTypes.AUDIO_DTS_HD).asCore()
 		core.sampleMimeType shouldBe MimeTypes.AUDIO_DTS
@@ -144,5 +152,106 @@ class DtsCoreAudioSinkTests : FunSpec({
 
 		sink.handleBuffer(ByteBuffer.wrap(coreFrame() + extensionSubstream), 0, 1) shouldBe true
 		written shouldBe listOf(2013 + extensionSubstream.size)
+	}
+
+	context("automatic") {
+		// A sink that passes DTS-HD and DTS through, with an audio clock the test moves.
+		class Bravia {
+			var positionUs = 0L
+			val configured = mutableListOf<String?>()
+			val written = mutableListOf<Int>()
+			val sink = mockk<AudioSink>(relaxed = true) {
+				every { supportsFormat(any()) } returns true
+				every { playbackParameters } returns PlaybackParameters.DEFAULT
+				every { getCurrentPositionUs(any()) } answers { positionUs }
+				every { configure(any()) } answers { configured += firstArg<AudioSink.AudioSinkConfig>().format.sampleMimeType }
+				every { handleBuffer(any(), any(), any()) } answers {
+					val buffer = firstArg<ByteBuffer>()
+					written += buffer.remaining()
+					buffer.position(buffer.limit())
+					true
+				}
+			}
+		}
+
+		fun accessUnit() = ByteBuffer.wrap(coreFrame() + extensionSubstream)
+
+		test("DTS-HD goes out in full while the clock keeps time") {
+			val tv = Bravia()
+			var wallUs = 0L
+			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO, wallClockUs = { wallUs })
+			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
+			sink.play()
+			repeat(1200) {
+				wallUs += 100_000
+				tv.positionUs += 100_000
+				sink.getCurrentPositionUs(false)
+				sink.handleBuffer(accessUnit(), tv.positionUs, 1) shouldBe true
+			}
+			tv.configured shouldBe listOf(MimeTypes.AUDIO_DTS_HD)
+			tv.written.last() shouldBe 2013 + extensionSubstream.size
+		}
+
+		test("a stalling clock switches to the core at the next access unit, and is remembered") {
+			val tv = Bravia()
+			val fallback = mockk<DtsHdFallback>(relaxed = true) { every { stalled } returns false }
+			var wallUs = 0L
+			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO, fallback, wallClockUs = { wallUs })
+			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
+			sink.play()
+			for (step in 1..900) {
+				wallUs += 100_000
+				// 200 ms lost every 3 s.
+				tv.positionUs += if (step % 30 == 0) -100_000 else 100_000
+				sink.getCurrentPositionUs(false)
+				sink.handleBuffer(accessUnit(), tv.positionUs, 1) shouldBe true
+			}
+			tv.configured shouldBe listOf(MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS)
+			tv.written.last() shouldBe 2013
+			verify(exactly = 1) { fallback.rememberStall() }
+		}
+
+		test("a remembered stall starts DTS-HD as the core") {
+			val tv = Bravia()
+			val fallback = mockk<DtsHdFallback> { every { stalled } returns true }
+			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO, fallback)
+			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
+			tv.configured shouldBe listOf(MimeTypes.AUDIO_DTS)
+		}
+
+		test("paused and rebuffering time is not counted") {
+			val tv = Bravia()
+			var wallUs = 0L
+			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO, wallClockUs = { wallUs })
+			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
+			sink.play()
+			repeat(300) {
+				wallUs += 100_000
+				tv.positionUs += 100_000
+				sink.getCurrentPositionUs(false)
+			}
+			// A 5 s rebuffer: the renderer pauses the sink, the clock stands still.
+			sink.pause()
+			repeat(50) {
+				wallUs += 100_000
+				sink.getCurrentPositionUs(false)
+			}
+			sink.play()
+			repeat(600) {
+				wallUs += 100_000
+				tv.positionUs += 100_000
+				sink.getCurrentPositionUs(false)
+				sink.handleBuffer(accessUnit(), tv.positionUs, 1)
+			}
+			tv.configured shouldBe listOf(MimeTypes.AUDIO_DTS_HD)
+		}
+
+		test("a sink without DTS-HD gets the core from the start") {
+			val tv = Bravia()
+			every { tv.sink.supportsFormat(any()) } answers { firstArg<Format>().sampleMimeType == MimeTypes.AUDIO_DTS }
+			val sink = DtsCoreAudioSink(tv.sink, DtsHdOutput.AUTO)
+			sink.configure(AudioSink.AudioSinkConfig.Builder(format(MimeTypes.AUDIO_DTS_HD)).build())
+			tv.configured shouldBe listOf(MimeTypes.AUDIO_DTS)
+		}
 	}
 })

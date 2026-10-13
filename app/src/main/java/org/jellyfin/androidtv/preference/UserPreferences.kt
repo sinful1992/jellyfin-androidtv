@@ -17,6 +17,7 @@ import org.jellyfin.androidtv.preference.constant.WatchedIndicatorBehavior
 import org.jellyfin.androidtv.preference.constant.ZoomMode
 import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentAction
 import org.jellyfin.androidtv.ui.playback.segment.toMediaSegmentActionsString
+import org.jellyfin.playback.media3.exoplayer.DtsHdOutput
 import org.jellyfin.preference.booleanPreference
 import org.jellyfin.preference.enumPreference
 import org.jellyfin.preference.floatPreference
@@ -91,9 +92,9 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		var preferExoPlayerFfmpeg = booleanPreference("exoplayer_prefer_ffmpeg", defaultValue = false)
 
 		/**
-		 * Whether DTS-HD is passed through in full instead of as its DTS core.
+		 * How DTS-HD is passed through: in full, as its DTS core, or in full until it is seen to stall.
 		 */
-		var dtsHdPassthrough = booleanPreference("dts_hd_passthrough", defaultValue = false)
+		var dtsHdOutput = enumPreference("dts_hd_output", DtsHdOutput.AUTO)
 
 		/**
 		 * User defined AVC level override. AUTO uses device-reported capabilities.

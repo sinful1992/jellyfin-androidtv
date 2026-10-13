@@ -36,6 +36,7 @@ import org.jellyfin.androidtv.ui.settings.composable.SettingsAsyncActionListButt
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
 import org.jellyfin.androidtv.util.profile.createDeviceProfileReport
 import org.jellyfin.design.Tokens
+import org.jellyfin.playback.media3.exoplayer.DtsHdOutput
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.clientLogApi
 import org.jellyfin.sdk.model.ServerVersion
@@ -287,13 +288,19 @@ fun SettingsPlaybackAdvancedScreen() {
 		}
 
 		item {
-			var dtsHdPassthrough by rememberPreference(userPreferences, UserPreferences.dtsHdPassthrough)
+			var dtsHdOutput by rememberPreference(userPreferences, UserPreferences.dtsHdOutput)
 			ListButton(
-				headingContent = { Text(stringResource(R.string.dts_hd_passthrough)) },
-				trailingContent = { Checkbox(checked = dtsHdPassthrough) },
-				captionContent = { Text(stringResource(R.string.dts_hd_passthrough_content)) },
-				onClick = { dtsHdPassthrough = !dtsHdPassthrough },
-				modifier = Modifier.focusKey("dts_hd_passthrough")
+				headingContent = { Text(stringResource(R.string.dts_hd_output)) },
+				captionContent = {
+					Text(stringResource(when (dtsHdOutput) {
+						DtsHdOutput.AUTO -> R.string.dts_hd_output_auto
+						DtsHdOutput.FULL -> R.string.dts_hd_output_full
+						DtsHdOutput.CORE -> R.string.dts_hd_output_core
+					}))
+				},
+				// Three values, so a press steps to the next one.
+				onClick = { dtsHdOutput = DtsHdOutput.entries[(dtsHdOutput.ordinal + 1) % DtsHdOutput.entries.size] },
+				modifier = Modifier.focusKey("dts_hd_output")
 			)
 		}
 

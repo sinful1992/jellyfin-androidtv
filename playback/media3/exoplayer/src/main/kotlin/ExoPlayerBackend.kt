@@ -225,7 +225,10 @@ class ExoPlayerBackend(
 				enableAudioOutputPlaybackParams: Boolean,
 			): AudioSink? {
 				val sink = super.buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParams)
-				return if (sink == null || exoPlayerOptions.dtsHdPassthrough) sink else DtsCoreAudioSink(sink)
+				return when {
+					sink == null || exoPlayerOptions.dtsHdOutput == DtsHdOutput.FULL -> sink
+					else -> DtsCoreAudioSink(sink, exoPlayerOptions.dtsHdOutput, DtsHdFallback(context))
+				}
 			}
 		}.apply {
 			setEnableDecoderFallback(true)

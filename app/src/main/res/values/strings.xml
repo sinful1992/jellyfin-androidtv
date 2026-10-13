@@ -456,8 +456,10 @@
     <string name="current_queue">Current queue</string>
     <string name="prefer_exoplayer_ffmpeg">Prefer FFmpeg for audio playback</string>
     <string name="prefer_exoplayer_ffmpeg_content">Use FFmpeg to decode audio, even if platform codecs are available.</string>
-    <string name="dts_hd_passthrough">Full DTS-HD passthrough</string>
-    <string name="dts_hd_passthrough_content">Sends DTS-HD to the speakers in full (lossless 7.1, DTS:X) instead of its 5.1 DTS core. Off fixes sound cutting out with DTS-HD on some TVs. Takes effect after restarting the app.</string>
+    <string name="dts_hd_output">DTS-HD output</string>
+    <string name="dts_hd_output_auto">Automatic: lossless 7.1 and DTS:X, switches to the 5.1 DTS core if the sound starts cutting out. Takes effect after restarting the app.</string>
+    <string name="dts_hd_output_full">Always lossless 7.1 and DTS:X. Takes effect after restarting the app.</string>
+    <string name="dts_hd_output_core">Always the 5.1 DTS core. Takes effect after restarting the app.</string>
     <string name="default_video_zoom">Default zoom mode</string>
     <string name="video_start_delay">Video start delay</string>
     <string name="playback_buffer_length">Playback buffer size</string>
