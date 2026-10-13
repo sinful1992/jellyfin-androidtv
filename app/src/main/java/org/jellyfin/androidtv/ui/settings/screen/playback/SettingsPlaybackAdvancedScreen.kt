@@ -287,13 +287,13 @@ fun SettingsPlaybackAdvancedScreen() {
 		}
 
 		item {
-			var decodeDtsOnDevice by rememberPreference(userPreferences, UserPreferences.decodeDtsOnDevice)
+			var dtsHdPassthrough by rememberPreference(userPreferences, UserPreferences.dtsHdPassthrough)
 			ListButton(
-				headingContent = { Text(stringResource(R.string.decode_dts_on_device)) },
-				trailingContent = { Checkbox(checked = decodeDtsOnDevice) },
-				captionContent = { Text(stringResource(R.string.decode_dts_on_device_content)) },
-				onClick = { decodeDtsOnDevice = !decodeDtsOnDevice },
-				modifier = Modifier.focusKey("decode_dts_on_device")
+				headingContent = { Text(stringResource(R.string.dts_hd_passthrough)) },
+				trailingContent = { Checkbox(checked = dtsHdPassthrough) },
+				captionContent = { Text(stringResource(R.string.dts_hd_passthrough_content)) },
+				onClick = { dtsHdPassthrough = !dtsHdPassthrough },
+				modifier = Modifier.focusKey("dts_hd_passthrough")
 			)
 		}
 
