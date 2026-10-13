@@ -2,6 +2,7 @@ package org.jellyfin.playback.jellyfin.mediastream
 
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.MediaStreamResolver
+import org.jellyfin.playback.core.mediastream.MediaStreamSubtitleTrack
 import org.jellyfin.playback.core.mediastream.MediaStreamTrack
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
 import org.jellyfin.playback.core.mediastream.directPlayFailed
@@ -193,6 +194,8 @@ class JellyfinMediaStreamResolver(
 		defaultAudioLanguage = mediaSource.defaultAudioStreamIndex?.let { index ->
 			mediaSource.mediaStreams?.firstOrNull { it.type == MediaStreamType.AUDIO && it.index == index }?.language
 		},
-		defaultSubtitleStreamIndex = mediaSource.defaultSubtitleStreamIndex,
+		// The server leaves the index out when the user's settings pick no subtitle (mode None, or
+		// nothing matching): none, as in the web client, rather than the file's default-flagged one.
+		defaultSubtitleStreamIndex = mediaSource.defaultSubtitleStreamIndex ?: MediaStreamSubtitleTrack.INDEX_NONE,
 	)
 }
