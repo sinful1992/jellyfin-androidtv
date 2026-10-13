@@ -7,6 +7,8 @@ import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RendererCapabilities
 import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -24,6 +26,17 @@ import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrack
  */
 @OptIn(UnstableApi::class)
 class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrackSelector(context) {
+	// Diagnostics for the AC3 start freeze (task 45): what makes the player choose tracks again.
+	override fun onRendererCapabilitiesChanged(renderer: Renderer) {
+		Log.i(TAG, "capabilities changed: ${renderer.name}")
+		super.onRendererCapabilitiesChanged(renderer)
+	}
+
+	override fun setParameters(parameters: TrackSelectionParameters) {
+		Log.i(TAG, "parameters set")
+		super.setParameters(parameters)
+	}
+
 	override fun selectAudioTrack(
 		mappedTrackInfo: MappedTrackInfo,
 		rendererFormatSupports: Array<Array<IntArray>>,
@@ -40,7 +53,10 @@ class PassthroughFirstTrackSelector(private val context: Context) : DefaultTrack
 			Log.w(TAG, "Could not weigh audio tracks for passthrough, leaving the pick to the player", err)
 			rendererFormatSupports
 		}
-		return super.selectAudioTrack(mappedTrackInfo, supports, rendererMixedMimeTypeAdaptationSupports, params)
+		val result = super.selectAudioTrack(mappedTrackInfo, supports, rendererMixedMimeTypeAdaptationSupports, params)
+		val picked = result?.first?.let { it.group.getFormat(it.tracks[0]) }
+		Log.i(TAG, "audio pick: renderer=${result?.second} ${picked?.sampleMimeType} ${picked?.channelCount}ch ${picked?.language}")
+		return result
 	}
 
 	internal companion object {

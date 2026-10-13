@@ -33,6 +33,7 @@ class PassthroughFirstTrackSelectorTests : FunSpec({
 	every { TextUtils.isEmpty(any()) } answers { (firstArg() as CharSequence?).isNullOrEmpty() }
 	mockkStatic(Log::class)
 	every { Log.i(any(), any()) } returns 0
+	every { Log.i(any(), any(), any()) } returns 0
 
 	test("tracks mapped to different renderers are weighed against each other") {
 		// Deadpool on the Bravia: TrueHD is only playable by the FFmpeg renderer, AC3 by the platform one.

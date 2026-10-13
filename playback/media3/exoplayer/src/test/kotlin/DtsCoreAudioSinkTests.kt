@@ -11,6 +11,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.verify
+import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.PlaybackParameters
 import org.jellyfin.playback.media3.exoplayer.DtsCoreAudioSink.Companion.asCore
@@ -40,6 +41,8 @@ private val extensionSubstream = byteArrayOf(0x64, 0x58, 0x20, 0x25) + ByteArray
 
 class DtsCoreAudioSinkTests : FunSpec({
 	mockkStatic(Log::class)
+	mockkStatic(SystemClock::class)
+	every { SystemClock.elapsedRealtime() } returns 0
 	every { Log.i(any(), any()) } returns 0
 	every { Log.w(any<String>(), any<String>()) } returns 0
 
