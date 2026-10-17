@@ -42,11 +42,13 @@ import org.jellyfin.androidtv.ui.composable.rememberPlayerPositionInfo
 import org.jellyfin.androidtv.util.apiclient.getUrl
 import org.jellyfin.androidtv.util.apiclient.itemImages
 import org.jellyfin.androidtv.util.sdk.getDisplayName
+import org.jellyfin.androidtv.util.sdk.getSeasonEpisodeName
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.koin.compose.koinInject
 import kotlin.time.Duration
@@ -172,19 +174,24 @@ fun PlayerNextUpCard(
 			verticalArrangement = Arrangement.spacedBy(4.dp),
 			modifier = Modifier.weight(1f),
 		) {
+			// "S2:E6" rides with the label so the name gets the title line to itself. Joined with
+			// the name it took most of a single line, and the name — the part anybody reads —
+			// was what the ellipsis cut.
+			val seasonEpisode = item.getSeasonEpisodeName(context).takeIf { item.type == BaseItemKind.EPISODE }
 			Text(
-				text = stringResource(R.string.lbl_next_up),
+				text = listOfNotNull(stringResource(R.string.lbl_next_up), seasonEpisode?.takeIf { it.isNotEmpty() })
+					.joinToString(" · "),
 				style = LocalTextStyle.current.merge(JellyfinTheme.typography.label).copy(
 					color = Color.White.copy(alpha = 0.75f),
 				),
 			)
 			Text(
-				text = item.getDisplayName(context),
+				text = item.name?.takeIf { it.isNotBlank() } ?: item.getDisplayName(context),
 				style = LocalTextStyle.current.merge(JellyfinTheme.typography.title).copy(
 					color = Color.White,
 				),
 				overflow = TextOverflow.Ellipsis,
-				maxLines = 1,
+				maxLines = 2,
 			)
 		}
 

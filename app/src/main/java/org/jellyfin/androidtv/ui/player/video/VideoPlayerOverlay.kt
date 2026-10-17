@@ -158,7 +158,7 @@ fun VideoPlayerOverlay(
 					.align(Alignment.BottomEnd)
 					.overscan()
 					.padding(bottom = PlayerControlsHeight + 16.dp)
-					.widthIn(max = 460.dp)
+					.widthIn(max = 560.dp)
 					.onPreviewKeyEvent { showControlsOnNavigation(it) },
 			)
 		}
