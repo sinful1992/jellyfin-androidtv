@@ -223,19 +223,19 @@ fun FullDetailsFragment.populatePreviousButton() {
 
 fun FullDetailsFragment.getNextUpEpisode(callback: (BaseItemDto?) -> Unit) {
 	lifecycleScope.launch {
-		val nextUpEpisode = getNextUpEpisode()
+		val nextUpEpisode = getNextUpEpisode(allowRestart = false)
 		callback(nextUpEpisode)
 	}
 }
 
-suspend fun FullDetailsFragment.getNextUpEpisode(): BaseItemDto? = try {
-	findNextUpEpisode()
+suspend fun FullDetailsFragment.getNextUpEpisode(allowRestart: Boolean = true): BaseItemDto? = try {
+	findNextUpEpisode(allowRestart)
 } catch (err: ApiClientException) {
 	Timber.w(err, "Failed to get next up items")
 	null
 }
 
-private suspend fun FullDetailsFragment.findNextUpEpisode(): BaseItemDto? {
+private suspend fun FullDetailsFragment.findNextUpEpisode(allowRestart: Boolean = true): BaseItemDto? {
 	val api by inject<ApiClient>()
 	val seriesId = mBaseItem.seriesId ?: mBaseItem.id
 
@@ -262,40 +262,56 @@ private suspend fun FullDetailsFragment.findNextUpEpisode(): BaseItemDto? {
 			limit = 1,
 		).content.items.firstOrNull()
 
-		suspend fun inOrder(filter: ItemFilter?) = api.itemsApi.getItems(
-			parentId = seriesId,
-			recursive = true,
-			includeItemTypes = setOf(BaseItemKind.EPISODE),
-			filters = listOfNotNull(filter),
-			isMissing = false,
-			sortBy = setOf(ItemSortBy.PARENT_INDEX_NUMBER, ItemSortBy.INDEX_NUMBER),
-			sortOrder = setOf(SortOrder.ASCENDING),
-			fields = ItemRepository.itemFields,
-			limit = 50,
-		).content.items
-
-		val resumable = latest(ItemFilter.IS_RESUMABLE)
-		val lastPlayed = latest(ItemFilter.IS_PLAYED)
-
-		if (resumable != null && !isOlderThan(resumable, lastPlayed)) return@withContext resumable
-
-		val afterLastPlayed = lastPlayed?.let {
-			api.tvShowsApi.getEpisodes(
-				seriesId = seriesId,
-				startItemId = it.id,
-				isMissing = false,
-				fields = ItemRepository.itemFields,
-				limit = 10,
-			).content.items
-		}.orEmpty()
-
-		pickEpisodeAfter(afterLastPlayed, lastPlayed?.id)
-			?: resumable
-			?: pickFirstEpisode(inOrder(ItemFilter.IS_UNPLAYED))
-			?: pickFirstEpisode(inOrder(null))
+		chooseSeriesFallback(
+			resumable = latest(ItemFilter.IS_RESUMABLE),
+			lastPlayed = latest(ItemFilter.IS_PLAYED),
+			episodesFrom = { startId ->
+				api.tvShowsApi.getEpisodes(
+					seriesId = seriesId,
+					startItemId = startId,
+					isMissing = false,
+					fields = ItemRepository.itemFields,
+					limit = 10,
+				).content.items
+			},
+			episodesInOrder = { filter ->
+				api.itemsApi.getItems(
+					parentId = seriesId,
+					recursive = true,
+					includeItemTypes = setOf(BaseItemKind.EPISODE),
+					filters = listOfNotNull(filter),
+					isMissing = false,
+					sortBy = setOf(ItemSortBy.PARENT_INDEX_NUMBER, ItemSortBy.INDEX_NUMBER),
+					sortOrder = setOf(SortOrder.ASCENDING),
+					fields = ItemRepository.itemFields,
+					limit = 50,
+				).content.items
+			},
+			allowRestart = allowRestart,
+		)
 	}
 	Timber.i("Next up empty for series $seriesId, falling back to ${fallback?.id}")
 	return fallback
+}
+
+/**
+ * Newest resumable episode unless something was played after it, then the episode after the most
+ * recently played one (played or not, so rewatches continue), then the first unplayed episode and
+ * finally, when [allowRestart], the first episode.
+ */
+internal suspend fun chooseSeriesFallback(
+	resumable: BaseItemDto?,
+	lastPlayed: BaseItemDto?,
+	episodesFrom: suspend (startId: UUID) -> List<BaseItemDto>,
+	episodesInOrder: suspend (filter: ItemFilter?) -> List<BaseItemDto>,
+	allowRestart: Boolean,
+): BaseItemDto? {
+	if (resumable != null && !isOlderThan(resumable, lastPlayed)) return resumable
+
+	return lastPlayed?.let { pickEpisodeAfter(episodesFrom(it.id), it.id) }
+		?: resumable
+		?: pickFirstEpisode(episodesInOrder(ItemFilter.IS_UNPLAYED))
+		?: if (allowRestart) pickFirstEpisode(episodesInOrder(null)) else null
 }
 
 internal fun isOlderThan(item: BaseItemDto, other: BaseItemDto?): Boolean {
@@ -325,7 +341,7 @@ fun FullDetailsFragment.resumePlayback(v: View) {
 
 	lifecycleScope.launch {
 		val nextUpEpisode = try {
-			findNextUpEpisode()
+			findNextUpEpisode(allowRestart = true)
 		} catch (err: ApiClientException) {
 			Timber.w(err, "Failed to get next up items")
 			Toast.makeText(

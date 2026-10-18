@@ -705,7 +705,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
             });
             mDetailsOverviewRow.addAction(playButton);
 
-            if (isSeries && !isStarted) {
+            if (isSeries && (!isStarted || baseItem.getUserData().getPlayed())) {
                 FullDetailsFragmentHelperKt.getNextUpEpisode(this, nextUpEpisode -> {
                     handleResumeButtonAndFocus(nextUpEpisode);
                     return null;
@@ -858,7 +858,8 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
             isStarted = nextUpEpisode.getUserData().getPlaybackPositionTicks() > 0;
         }
 
-        boolean resumeButtonVisible = (isSeries && isStarted && !isFinished) || (JavaCompat.getCanResume(mBaseItem));
+        boolean isRewatching = isSeries && isFinished && nextUpEpisode != null;
+        boolean resumeButtonVisible = (isSeries && isStarted && !isFinished) || isRewatching || (JavaCompat.getCanResume(mBaseItem));
         mResumeButton.setVisibility(resumeButtonVisible ? View.VISIBLE : View.GONE);
 
         if (resumeButtonVisible) {
