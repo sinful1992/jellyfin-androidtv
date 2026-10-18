@@ -50,6 +50,8 @@ import org.jellyfin.androidtv.ui.InteractionTrackerViewModel;
 import org.jellyfin.androidtv.ui.TextUnderButton;
 import org.jellyfin.androidtv.ui.browsing.BrowsingUtils;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
+import org.jellyfin.androidtv.ui.itemhandling.BaseRowItemSelectAction;
+import org.jellyfin.androidtv.ui.itemhandling.BaseRowType;
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
 import org.jellyfin.androidtv.ui.navigation.Destinations;
@@ -939,7 +941,14 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                                   RowPresenter.ViewHolder rowViewHolder, Row row) {
 
             if (!(item instanceof BaseRowItem)) return;
-            itemLauncher.getValue().launch((BaseRowItem) item, (ItemRowAdapter) ((ListRow) row).getAdapter(), requireContext());
+            BaseRowItem rowItem = (BaseRowItem) item;
+            BaseItemDto target = rowItem.getBaseItem();
+            if (rowItem.getBaseRowType() == BaseRowType.BaseItem && rowItem.getSelectAction() == BaseRowItemSelectAction.ShowDetails
+                    && target != null && EpisodeNavigationKt.replacesDetails(mBaseItem, target)) {
+                navigationRepository.getValue().navigate(Destinations.INSTANCE.itemDetails(target.getId()), true);
+                return;
+            }
+            itemLauncher.getValue().launch(rowItem, (ItemRowAdapter) ((ListRow) row).getAdapter(), requireContext());
         }
     }
 
