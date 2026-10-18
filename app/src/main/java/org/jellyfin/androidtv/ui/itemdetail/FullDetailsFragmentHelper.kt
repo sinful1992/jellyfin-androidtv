@@ -22,12 +22,16 @@ import org.jellyfin.androidtv.util.sdk.compat.copyWithUserData
 import org.jellyfin.androidtv.util.showIfNotEmpty
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
+import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ItemFilter
+import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.MediaType
+import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.extensions.ticks
 import org.jellyfin.sdk.model.serializer.toUUID
 import org.koin.android.ext.android.inject
@@ -226,21 +230,88 @@ fun FullDetailsFragment.getNextUpEpisode(callback: (BaseItemDto?) -> Unit) {
 
 suspend fun FullDetailsFragment.getNextUpEpisode(): BaseItemDto? {
 	val api by inject<ApiClient>()
+	val seriesId = mBaseItem.seriesId ?: mBaseItem.id
 
 	try {
 		val episodes = withContext(Dispatchers.IO) {
 			api.tvShowsApi.getNextUp(
-				seriesId = mBaseItem.seriesId ?: mBaseItem.id,
+				seriesId = seriesId,
 				fields = ItemRepository.itemFields,
 				limit = 1,
 			).content
 		}
-		return episodes.items.firstOrNull()
+		episodes.items.firstOrNull()?.let { return it }
+
+		// Next Up continues after the highest played episode, so it is empty once the finale is
+		// played even when the user is rewatching earlier episodes
+		val fallback = withContext(Dispatchers.IO) {
+			suspend fun latest(filter: ItemFilter) = api.itemsApi.getItems(
+				parentId = seriesId,
+				recursive = true,
+				includeItemTypes = setOf(BaseItemKind.EPISODE),
+				filters = setOf(filter),
+				sortBy = setOf(ItemSortBy.DATE_PLAYED),
+				sortOrder = setOf(SortOrder.DESCENDING),
+				fields = ItemRepository.itemFields,
+				limit = 1,
+			).content.items.firstOrNull()
+
+			suspend fun inOrder(filter: ItemFilter?) = api.itemsApi.getItems(
+				parentId = seriesId,
+				recursive = true,
+				includeItemTypes = setOf(BaseItemKind.EPISODE),
+				filters = listOfNotNull(filter),
+				isMissing = false,
+				sortBy = setOf(ItemSortBy.PARENT_INDEX_NUMBER, ItemSortBy.INDEX_NUMBER),
+				sortOrder = setOf(SortOrder.ASCENDING),
+				fields = ItemRepository.itemFields,
+				limit = 50,
+			).content.items
+
+			val resumable = latest(ItemFilter.IS_RESUMABLE)
+			val lastPlayed = latest(ItemFilter.IS_PLAYED)
+
+			if (resumable != null && !isOlderThan(resumable, lastPlayed)) return@withContext resumable
+
+			val afterLastPlayed = lastPlayed?.let {
+				api.tvShowsApi.getEpisodes(
+					seriesId = seriesId,
+					startItemId = it.id,
+					isMissing = false,
+					fields = ItemRepository.itemFields,
+					limit = 10,
+				).content.items
+			}.orEmpty()
+
+			pickEpisodeAfter(afterLastPlayed, lastPlayed?.id)
+				?: resumable
+				?: pickFirstEpisode(inOrder(ItemFilter.IS_UNPLAYED))
+				?: pickFirstEpisode(inOrder(null))
+		}
+		Timber.i("Next up empty for series $seriesId, falling back to ${fallback?.id}")
+		return fallback
 	} catch (err: ApiClientException) {
 		Timber.w(err, "Failed to get next up items")
 		return null
 	}
 }
+
+internal fun isOlderThan(item: BaseItemDto, other: BaseItemDto?): Boolean {
+	val itemDate = item.userData?.lastPlayedDate ?: return other != null
+	val otherDate = other?.userData?.lastPlayedDate ?: return false
+	return itemDate < otherDate
+}
+
+/** The regular episode following [startId] in a list that starts with it */
+internal fun pickEpisodeAfter(episodes: List<BaseItemDto>, startId: UUID?): BaseItemDto? =
+	episodes
+		.dropWhile { it.id != startId }
+		.drop(1)
+		.firstOrNull { it.parentIndexNumber != 0 }
+
+/** First regular episode in season order, specials (season 0) only when there is nothing else */
+internal fun pickFirstEpisode(episodes: List<BaseItemDto>): BaseItemDto? =
+	episodes.firstOrNull { it.parentIndexNumber != 0 } ?: episodes.firstOrNull()
 
 fun FullDetailsFragment.resumePlayback(v: View) {
 	if (mBaseItem.type != BaseItemKind.SERIES) {
@@ -255,7 +326,7 @@ fun FullDetailsFragment.resumePlayback(v: View) {
 		if (nextUpEpisode == null) {
 			Toast.makeText(
 				requireContext(),
-				getString(R.string.msg_video_playback_error),
+				getString(R.string.msg_series_nothing_to_resume),
 				Toast.LENGTH_LONG
 			).show()
 		} else if (nextUpEpisode.userData?.playbackPositionTicks == 0L) {
