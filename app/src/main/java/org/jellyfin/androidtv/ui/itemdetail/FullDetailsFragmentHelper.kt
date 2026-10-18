@@ -228,72 +228,74 @@ fun FullDetailsFragment.getNextUpEpisode(callback: (BaseItemDto?) -> Unit) {
 	}
 }
 
-suspend fun FullDetailsFragment.getNextUpEpisode(): BaseItemDto? {
+suspend fun FullDetailsFragment.getNextUpEpisode(): BaseItemDto? = try {
+	findNextUpEpisode()
+} catch (err: ApiClientException) {
+	Timber.w(err, "Failed to get next up items")
+	null
+}
+
+private suspend fun FullDetailsFragment.findNextUpEpisode(): BaseItemDto? {
 	val api by inject<ApiClient>()
 	val seriesId = mBaseItem.seriesId ?: mBaseItem.id
 
-	try {
-		val episodes = withContext(Dispatchers.IO) {
-			api.tvShowsApi.getNextUp(
-				seriesId = seriesId,
-				fields = ItemRepository.itemFields,
-				limit = 1,
-			).content
-		}
-		episodes.items.firstOrNull()?.let { return it }
-
-		// Next Up continues after the highest played episode, so it is empty once the finale is
-		// played even when the user is rewatching earlier episodes
-		val fallback = withContext(Dispatchers.IO) {
-			suspend fun latest(filter: ItemFilter) = api.itemsApi.getItems(
-				parentId = seriesId,
-				recursive = true,
-				includeItemTypes = setOf(BaseItemKind.EPISODE),
-				filters = setOf(filter),
-				sortBy = setOf(ItemSortBy.DATE_PLAYED),
-				sortOrder = setOf(SortOrder.DESCENDING),
-				fields = ItemRepository.itemFields,
-				limit = 1,
-			).content.items.firstOrNull()
-
-			suspend fun inOrder(filter: ItemFilter?) = api.itemsApi.getItems(
-				parentId = seriesId,
-				recursive = true,
-				includeItemTypes = setOf(BaseItemKind.EPISODE),
-				filters = listOfNotNull(filter),
-				isMissing = false,
-				sortBy = setOf(ItemSortBy.PARENT_INDEX_NUMBER, ItemSortBy.INDEX_NUMBER),
-				sortOrder = setOf(SortOrder.ASCENDING),
-				fields = ItemRepository.itemFields,
-				limit = 50,
-			).content.items
-
-			val resumable = latest(ItemFilter.IS_RESUMABLE)
-			val lastPlayed = latest(ItemFilter.IS_PLAYED)
-
-			if (resumable != null && !isOlderThan(resumable, lastPlayed)) return@withContext resumable
-
-			val afterLastPlayed = lastPlayed?.let {
-				api.tvShowsApi.getEpisodes(
-					seriesId = seriesId,
-					startItemId = it.id,
-					isMissing = false,
-					fields = ItemRepository.itemFields,
-					limit = 10,
-				).content.items
-			}.orEmpty()
-
-			pickEpisodeAfter(afterLastPlayed, lastPlayed?.id)
-				?: resumable
-				?: pickFirstEpisode(inOrder(ItemFilter.IS_UNPLAYED))
-				?: pickFirstEpisode(inOrder(null))
-		}
-		Timber.i("Next up empty for series $seriesId, falling back to ${fallback?.id}")
-		return fallback
-	} catch (err: ApiClientException) {
-		Timber.w(err, "Failed to get next up items")
-		return null
+	val episodes = withContext(Dispatchers.IO) {
+		api.tvShowsApi.getNextUp(
+			seriesId = seriesId,
+			fields = ItemRepository.itemFields,
+			limit = 1,
+		).content
 	}
+	episodes.items.firstOrNull()?.let { return it }
+
+	// Next Up continues after the highest played episode, so it is empty once the finale is
+	// played even when the user is rewatching earlier episodes
+	val fallback = withContext(Dispatchers.IO) {
+		suspend fun latest(filter: ItemFilter) = api.itemsApi.getItems(
+			parentId = seriesId,
+			recursive = true,
+			includeItemTypes = setOf(BaseItemKind.EPISODE),
+			filters = setOf(filter),
+			sortBy = setOf(ItemSortBy.DATE_PLAYED),
+			sortOrder = setOf(SortOrder.DESCENDING),
+			fields = ItemRepository.itemFields,
+			limit = 1,
+		).content.items.firstOrNull()
+
+		suspend fun inOrder(filter: ItemFilter?) = api.itemsApi.getItems(
+			parentId = seriesId,
+			recursive = true,
+			includeItemTypes = setOf(BaseItemKind.EPISODE),
+			filters = listOfNotNull(filter),
+			isMissing = false,
+			sortBy = setOf(ItemSortBy.PARENT_INDEX_NUMBER, ItemSortBy.INDEX_NUMBER),
+			sortOrder = setOf(SortOrder.ASCENDING),
+			fields = ItemRepository.itemFields,
+			limit = 50,
+		).content.items
+
+		val resumable = latest(ItemFilter.IS_RESUMABLE)
+		val lastPlayed = latest(ItemFilter.IS_PLAYED)
+
+		if (resumable != null && !isOlderThan(resumable, lastPlayed)) return@withContext resumable
+
+		val afterLastPlayed = lastPlayed?.let {
+			api.tvShowsApi.getEpisodes(
+				seriesId = seriesId,
+				startItemId = it.id,
+				isMissing = false,
+				fields = ItemRepository.itemFields,
+				limit = 10,
+			).content.items
+		}.orEmpty()
+
+		pickEpisodeAfter(afterLastPlayed, lastPlayed?.id)
+			?: resumable
+			?: pickFirstEpisode(inOrder(ItemFilter.IS_UNPLAYED))
+			?: pickFirstEpisode(inOrder(null))
+	}
+	Timber.i("Next up empty for series $seriesId, falling back to ${fallback?.id}")
+	return fallback
 }
 
 internal fun isOlderThan(item: BaseItemDto, other: BaseItemDto?): Boolean {
@@ -322,11 +324,22 @@ fun FullDetailsFragment.resumePlayback(v: View) {
 	}
 
 	lifecycleScope.launch {
-		val nextUpEpisode = getNextUpEpisode()
+		val nextUpEpisode = try {
+			findNextUpEpisode()
+		} catch (err: ApiClientException) {
+			Timber.w(err, "Failed to get next up items")
+			Toast.makeText(
+				requireContext(),
+				getString(R.string.msg_video_playback_error),
+				Toast.LENGTH_LONG
+			).show()
+			return@launch
+		}
+
 		if (nextUpEpisode == null) {
 			Toast.makeText(
 				requireContext(),
-				getString(R.string.msg_series_nothing_to_resume),
+				getString(R.string.msg_series_no_episodes),
 				Toast.LENGTH_LONG
 			).show()
 		} else if (nextUpEpisode.userData?.playbackPositionTicks == 0L) {
