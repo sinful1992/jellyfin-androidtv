@@ -481,8 +481,9 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
             @Override
             public void onError(@NonNull Exception exception) {
-                if (episodesAdapter != mEpisodesAdapter) return;
                 Timber.w(exception, "Failed to load the episodes of season %s", seasonId);
+                // A failed refresh keeps the cards it already has
+                if (episodesAdapter != mEpisodesAdapter || episodesAdapter.size() > 0) return;
                 mRowsAdapter.remove(row);
             }
         });
