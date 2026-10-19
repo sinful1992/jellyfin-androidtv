@@ -363,7 +363,10 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             text += " " + getString(R.string.lbl_starting_with) + " " + mAdapter.getStartLetter();
         }
 
-        text += " " + getString(R.string.lbl_from) + " '" + folderName + "' " + getString(R.string.lbl_sorted_by) + " " + getSortOption(mAdapter.getSortBy()).name;
+        text += " " + getString(R.string.lbl_from) + " '" + folderName + "'";
+        if (!isCollectionMovies()) {
+            text += " " + getString(R.string.lbl_sorted_by) + " " + getSortOption(mAdapter.getSortBy()).name;
+        }
 
         binding.statusText.setText(text);
     }
@@ -604,6 +607,10 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                     setRowDef(new BrowseRowDef("", BrowsingUtils.createArtistsRequest(mParentId), CHUNK_SIZE_MINIMUM, new ChangeTriggerType[]{}));
                     return;
                 }
+            } else if (type == CollectionType.BOXSETS) {
+                // The movies themselves, franchise after franchise, rather than a poster per set.
+                setRowDef(new BrowseRowDef("", BrowsingUtils.createBrowseGridItemsRequest(mFolder), 0, false, true, new ChangeTriggerType[]{}, QueryType.CollectionMovies));
+                return;
             }
         }
 
@@ -688,6 +695,9 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             case AlbumArtists:
                 mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getAlbumArtistsQuery(), chunkSize, mCardPresenter, null);
                 break;
+            case CollectionMovies:
+                mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getQuery(), mCardPresenter, null, QueryType.CollectionMovies);
+                break;
             default:
                 mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getQuery(), chunkSize, mRowDef.getPreferParentThumb(), mRowDef.isStaticHeight(), mCardPresenter, null);
                 break;
@@ -707,7 +717,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                     setItem(null);
                     updateCounter(mAdapter.getTotalItems() > 0 ? 1 : 0);
                 }
-                mLetterButton.setVisibility(ItemSortBy.SORT_NAME.equals(mAdapter.getSortBy()) ? View.VISIBLE : View.GONE);
+                mLetterButton.setVisibility(!isCollectionMovies() && ItemSortBy.SORT_NAME.equals(mAdapter.getSortBy()) ? View.VISIBLE : View.GONE);
                 if (mAdapter.getItemsLoaded() == 0) {
                     mGridView.setFocusable(false);
                     mHandler.postDelayed(() -> {
@@ -734,6 +744,10 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
         mAdapter.setSortBy(getSortOption(libraryPreferences.get(LibraryPreferences.Companion.getSortBy())));
         mAdapter.Retrieve();
+    }
+
+    private boolean isCollectionMovies() {
+        return mRowDef != null && mRowDef.getQueryType() == QueryType.CollectionMovies;
     }
 
     private ImageButton mSortButton;
@@ -791,9 +805,10 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         });
         mSortButton.setContentDescription(getString(R.string.lbl_sort_by));
 
-        binding.toolBar.addView(mSortButton);
+        // The order of the collection movies is the point of that view, so there is nothing to sort.
+        if (!isCollectionMovies()) binding.toolBar.addView(mSortButton);
 
-        if (mRowDef.getQueryType() == QueryType.Items) {
+        if (mRowDef.getQueryType() == QueryType.Items || isCollectionMovies()) {
             mUnwatchedButton = new ImageButton(requireContext(), null, 0, R.style.Button_Icon);
             updateUnwatchedButton(mAdapter.getFilters().isUnwatchedOnly());
             mUnwatchedButton.setMaxHeight(size);

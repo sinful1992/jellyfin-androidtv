@@ -5,6 +5,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,6 +26,8 @@ import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.videosApi
+import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.request.GetAlbumArtistsRequest
@@ -439,6 +444,79 @@ fun ItemRowAdapter.retrieveItems(
 		)
 	}
 }
+
+/**
+ * Every movie in every box set under [query]'s parent, as one list: the sets A–Z, each set's movies
+ * in release order. A box set has no field naming it on its movies and they are not its descendants,
+ * so there is no one query for this; each set is asked for its own, all at once.
+ *
+ * The whole list is loaded in one go, so it is never paged. The filters on [query] are the toolbar's
+ * (unwatched, favorites) and apply to the movies, not the sets; its sort and start letter are not
+ * used, as the order is the point.
+ */
+fun ItemRowAdapter.retrieveCollectionMovies(api: ApiClient, query: GetItemsRequest) {
+	ProcessLifecycleOwner.get().lifecycleScope.launch {
+		runCatching {
+			val movies = withContext(Dispatchers.IO) {
+				val sets = api.itemsApi.getItems(
+					GetItemsRequest(
+						parentId = query.parentId,
+						includeItemTypes = setOf(BaseItemKind.BOX_SET),
+						sortBy = setOf(ItemSortBy.SORT_NAME),
+					)
+				).content.items
+
+				val setMovies = coroutineScope {
+					sets.map { set ->
+						async {
+							// One set that fails to load leaves a gap, not an empty screen.
+							runCatching {
+								api.itemsApi.getItems(
+									GetItemsRequest(
+										fields = query.fields,
+										parentId = set.id,
+										includeItemTypes = setOf(BaseItemKind.MOVIE),
+										filters = query.filters,
+										sortBy = setOf(ItemSortBy.PREMIERE_DATE, ItemSortBy.PRODUCTION_YEAR, ItemSortBy.SORT_NAME),
+									)
+								).content.items
+							}.onFailure { Timber.w(it, "Movies of set %s did not load", set.id) }.getOrDefault(emptyList())
+						}
+					}.awaitAll()
+				}
+
+				flattenCollectionMovies(setMovies)
+			}
+
+			totalItems = movies.size
+			setItems(
+				items = movies,
+				transform = { item, _ -> BaseItemDtoBaseRowItem(item, preferParentThumb, isStaticHeight) },
+			)
+
+			if (itemsLoaded == 0) removeRow()
+		}.fold(
+			onSuccess = { notifyRetrieveFinished() },
+			onFailure = { error -> notifyRetrieveFinished(error as? Exception) }
+		)
+	}
+}
+
+/**
+ * The movies of each set, set after set in the order given, each set's in release order. A movie in
+ * more than one set is shown once, with the first; anything that is not a movie is left out.
+ */
+internal fun flattenCollectionMovies(setMovies: List<List<BaseItemDto>>): List<BaseItemDto> = setMovies
+	.flatMap { movies ->
+		movies
+			.filter { it.type == BaseItemKind.MOVIE }
+			.sortedWith(
+				compareBy<BaseItemDto, java.time.LocalDateTime?>(nullsLast()) { it.premiereDate }
+					.thenBy(nullsLast()) { it.productionYear }
+					.thenBy(nullsLast()) { it.sortName }
+			)
+	}
+	.distinctBy { it.id }
 
 fun ItemRowAdapter.retrievePremieres(
 	api: ApiClient,

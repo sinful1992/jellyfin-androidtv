@@ -21,4 +21,5 @@ enum class QueryType {
 	LatestItems,
 	Premieres,
 	Resume,
+	CollectionMovies,
 }

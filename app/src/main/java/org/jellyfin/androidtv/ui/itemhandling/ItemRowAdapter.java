@@ -235,6 +235,16 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
         queryType = QueryType.StaticItems;
     }
 
+    // The movies of every box set under the query's parent, set after set; see retrieveCollectionMovies.
+    public ItemRowAdapter(Context context, GetItemsRequest setsQuery, Presenter presenter, MutableObjectAdapter<Row> parent, QueryType queryType) {
+        super(presenter);
+        this.context = context;
+        mParent = parent;
+        mQuery = setsQuery;
+        this.queryType = queryType;
+        staticHeight = true;
+    }
+
     public ItemRowAdapter(Context context, GetSpecialsRequest query, Presenter presenter, MutableObjectAdapter<Row> parent) {
         super(presenter);
         this.context = context;
@@ -578,6 +588,9 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
                 break;
             case Resume:
                 ItemRowAdapterHelperKt.retrieveResumeItems(this, api.getValue(), resumeQuery);
+                break;
+            case CollectionMovies:
+                ItemRowAdapterHelperKt.retrieveCollectionMovies(this, api.getValue(), mQuery);
                 break;
         }
     }
