@@ -717,6 +717,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                 break;
             default:
                 mAdapter = new ItemRowAdapter(requireContext(), mRowDef.getQuery(), chunkSize, mRowDef.getPreferParentThumb(), mRowDef.isStaticHeight(), mCardPresenter, null);
+                mAdapter.setKeepSetsTogether(mFolder.getCollectionType() == CollectionType.MOVIES);
                 break;
         }
         mDirty = false;

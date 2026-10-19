@@ -94,6 +94,7 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
 
     private boolean preferParentThumb = false;
     private boolean staticHeight = false;
+    private boolean keepSetsTogether = false;
 
     private final Lazy<org.jellyfin.sdk.api.client.ApiClient> api = inject(org.jellyfin.sdk.api.client.ApiClient.class);
     private final Lazy<UserViewsRepository> userViewsRepository = inject(UserViewsRepository.class);
@@ -121,6 +122,18 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
 
     public QueryType getQueryType() {
         return queryType;
+    }
+
+    /**
+     * In name order with no start letter, keep each box set's movies together; for a movie library.
+     * See retrieveMoviesWithSets.
+     */
+    public void setKeepSetsTogether(boolean keepSetsTogether) {
+        this.keepSetsTogether = keepSetsTogether;
+    }
+
+    private boolean isKeepingSetsTogether() {
+        return keepSetsTogether && ItemSortBy.SORT_NAME.equals(mSortBy) && getStartLetter() == null;
     }
 
     public void setRow(ListRow row) {
@@ -527,7 +540,9 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
         itemsLoaded = 0;
         switch (queryType) {
             case Items:
-                if (mQuery.getStartIndex() != null && mQuery.getLimit() != null) {
+                if (isKeepingSetsTogether()) {
+                    ItemRowAdapterHelperKt.retrieveMoviesWithSets(this, api.getValue(), mQuery, sortOrder == SortOrder.DESCENDING);
+                } else if (mQuery.getStartIndex() != null && mQuery.getLimit() != null) {
                     ItemRowAdapterHelperKt.retrieveItems(this, api.getValue(), mQuery, mQuery.getStartIndex(), mQuery.getLimit());
                 } else {
                     ItemRowAdapterHelperKt.retrieveItems(this, api.getValue(), mQuery, 0, chunkSize);
