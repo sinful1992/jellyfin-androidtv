@@ -54,19 +54,5 @@ object Utils : KoinComponent {
 	fun isEmpty(value: String?): Boolean = value.isNullOrEmpty()
 
 	@JvmStatic
-	fun getThemeColor(context: Context, resourceId: Int): Int {
-		val styledAttributes = context.theme.obtainStyledAttributes(intArrayOf(resourceId))
-		val themeColor = styledAttributes.getColor(0, 0)
-		styledAttributes.recycle()
-		return themeColor
-	}
-
-	@JvmStatic
-	fun getSafeSeekPosition(position: Long, duration: Long): Long = when {
-		position >= duration -> (duration - 1000).coerceAtLeast(0)
-		else -> position.coerceAtLeast(0)
-	}
-
-	@JvmStatic
 	fun uuidOrNull(string: String?): UUID? = string?.toUUIDOrNull()
 }

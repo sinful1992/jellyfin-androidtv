@@ -55,7 +55,6 @@ fun BaseItemDto?.canPlay() = this != null
 	&& type != BaseItemKind.PERSON
 	&& (isFolder != true || childCount?.takeIf { it > 0 } != null)
 
-fun BaseItemDto.isLiveTv() = type == BaseItemKind.PROGRAM || type == BaseItemKind.LIVE_TV_CHANNEL
 fun BaseItemDto.isNew() = isSeries == true && isNews != true && isRepeat != true
 
 fun BaseItemDto.getProgramSubText(context: Context) = buildString {

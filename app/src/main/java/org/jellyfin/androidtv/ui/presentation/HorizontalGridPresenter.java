@@ -54,10 +54,6 @@ public class HorizontalGridPresenter extends Presenter {
         mZoomFactor = zoomFactor;
     }
 
-    public void setPosition(int ndx) {
-        if (mViewHolder != null) mViewHolder.getGridView().setSelectedPosition(ndx);
-    }
-
     /**
      * Sets the number of rows in the grid.
      */

@@ -69,36 +69,6 @@ fun Button(
 }
 
 @Composable
-fun ProgressButton(
-	progress: Float,
-	onClick: () -> Unit,
-	modifier: Modifier = Modifier,
-	onLongClick: (() -> Unit)? = null,
-	enabled: Boolean = true,
-	shape: Shape = ButtonDefaults.Shape,
-	colors: ButtonColors = ButtonDefaults.colors(),
-	contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
-	interactionSource: MutableInteractionSource? = null,
-	content: @Composable RowScope.() -> Unit
-) {
-	ProgressButtonBase(
-		progress = progress,
-		onClick = onClick,
-		modifier = modifier,
-		onLongClick = onLongClick,
-		enabled = enabled,
-		shape = shape,
-		colors = colors,
-		interactionSource = interactionSource,
-	) {
-		ButtonRow(
-			contentPadding = contentPadding,
-			content = content,
-		)
-	}
-}
-
-@Composable
 private fun ButtonRow(
 	contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
 	content: @Composable RowScope.() -> Unit,

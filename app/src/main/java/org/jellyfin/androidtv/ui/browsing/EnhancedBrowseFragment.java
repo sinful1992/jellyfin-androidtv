@@ -79,7 +79,6 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
     protected static final int ALBUMS = 7;
     protected static final int ARTISTS = 8;
     public static final int FAVSONGS = 9;
-    protected static final int SCHEDULE = 10;
     protected static final int SERIES = 11;
     protected static final int ALBUM_ARTISTS = 12;
     protected static final int SHUFFLE_SONGS = 13;
