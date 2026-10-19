@@ -478,6 +478,13 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                     mRowsFragment.setSelectedPosition(rowIndex, true, new ListRowPresenter.SelectItemViewHolderTask(row.getSelectedPosition()));
                 }
             }
+
+            @Override
+            public void onError(@NonNull Exception exception) {
+                if (episodesAdapter != mEpisodesAdapter) return;
+                Timber.w(exception, "Failed to load the episodes of season %s", seasonId);
+                mRowsAdapter.remove(row);
+            }
         });
         episodesAdapter.Retrieve();
     }
@@ -1011,7 +1018,12 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
             if (!(item instanceof BaseRowItem)) return;
             BaseRowItem rowItem = (BaseRowItem) item;
             BaseItemDto target = rowItem.getBaseItem();
-            if (rowItem.getBaseRowType() == BaseRowType.BaseItem && rowItem.getSelectAction() == BaseRowItemSelectAction.ShowDetails
+            if (row == mEpisodesRow && target != null && target.getId().equals(mBaseItem.getId())) {
+                // Already on this episode's page
+                mRowsFragment.setSelectedPosition(0, true);
+                return;
+            }
+            if (row == mEpisodesRow && rowItem.getBaseRowType() == BaseRowType.BaseItem && rowItem.getSelectAction() == BaseRowItemSelectAction.ShowDetails
                     && target != null && EpisodeNavigationKt.replacesDetails(mBaseItem, target)) {
                 navigationRepository.getValue().navigate(Destinations.INSTANCE.itemDetails(target.getId()), true);
                 return;
