@@ -6,22 +6,22 @@ Every commit that changes `app/` adds its line here, under `Unreleased` until th
 
 ## Unreleased
 
-## v0.20.0-hero.50 (2026-10-19)
+## [v0.20.0-hero.50](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.50) (2026-10-19)
 - Movies sorted by Name keep each collection together, in release order (Harry Potter 1–8, Ice Age 1–6…), placed where the collection's first film sorts (c0b67c86b). A start letter or another sort uses the old A–Z list.
 - In vertical library grids, Right on the last card of a line goes to the first card of the next line, and Left goes back (0cc22adee).
 
-## v0.20.0-hero.49 (2026-10-19)
+## [v0.20.0-hero.49](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.49) (2026-10-19)
 - The Collections library opens one grid of the movies themselves: collections A–Z, each collection in release order. Sort and letter are hidden there (f8a3499c4).
 - Next Up card: season/episode on the label line, the full episode name on up to 3 lines, Watch now under it (b0fb5c402).
 - Library grids scroll up and down unless a library is set to sideways, and the columns fit the screen width (608c22990, 9400fdd76).
 
-## v0.20.0-hero.48 (2026-10-19)
+## [v0.20.0-hero.48](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.48) (2026-10-19)
 - Episode page: a whole-season Episodes row opened on the current episode, and a Seasons row to switch season in place (hidden for one-season shows). The Prev button and the Next episode row are removed (4dc7da438).
 - Moving between episodes in that row replaces the page, so Back goes to the series (ffdd74735). Only the Episodes row replaces the page; OK on the opened episode's own card goes back to its buttons; a season that fails to load removes its empty row (e6906d1eb).
 - Refreshing a swapped season's episodes after playback keeps the focus (ef3074155), and a failed refresh keeps the cards already shown (7227d63ff).
 - About 660 lines of dead code removed: legacy PlaybackManager and helpers, the interaction tracker and sibling row (0378f38fe, 59930a438).
 
-## v0.20.0-hero.47 (2026-10-19)
+## [v0.20.0-hero.47](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.47) (2026-10-19)
 - Playing a series no longer fails with "Video playback error" when the server's Next Up is empty: resumable → episode after the latest played → first unplayed → S1E1. Fully watched series show "Play next up" for a rewatch (605f709e5).
 
 ## v0.20.0-hero.46 (no tag, built locally)
