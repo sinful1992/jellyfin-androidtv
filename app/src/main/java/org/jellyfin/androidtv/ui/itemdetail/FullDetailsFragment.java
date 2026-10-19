@@ -47,7 +47,6 @@ import org.jellyfin.androidtv.data.querying.GetTrailersRequest;
 import org.jellyfin.androidtv.databinding.FragmentFullDetailsBinding;
 import org.jellyfin.androidtv.preference.UserPreferences;
 import org.jellyfin.androidtv.preference.constant.ClockBehavior;
-import org.jellyfin.androidtv.ui.InteractionTrackerViewModel;
 import org.jellyfin.androidtv.ui.TextUnderButton;
 import org.jellyfin.androidtv.ui.browsing.BrowsingUtils;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
@@ -138,7 +137,6 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
     private final Lazy<KeyProcessor> keyProcessor = inject(KeyProcessor.class);
     final Lazy<PlaybackHelper> playbackHelper = inject(PlaybackHelper.class);
     private final Lazy<ImageHelper> imageHelper = inject(ImageHelper.class);
-    private final Lazy<InteractionTrackerViewModel> interactionTracker = inject(InteractionTrackerViewModel.class);
 
     @Nullable
     @Override
