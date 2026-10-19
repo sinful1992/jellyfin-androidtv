@@ -462,8 +462,9 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 if (rowIndex < 0) return;
 
                 row.setHeaderItem(new HeaderItem(seasonEpisodesTitle(seasonName, episodesAdapter.getTotalItems())));
-                if (firstLoad[0]) {
-                    firstLoad[0] = false;
+                boolean isFirstLoad = firstLoad[0];
+                firstLoad[0] = false;
+                if (isFirstLoad) {
                     List<BaseItemDto> episodes = new ArrayList<>();
                     for (Object item : episodesAdapter) {
                         episodes.add(item instanceof BaseRowItem ? ((BaseRowItem) item).getBaseItem() : null);
@@ -472,7 +473,8 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 }
                 mRowsAdapter.set(rowIndex, row);
 
-                if (moveFocus) {
+                // A later Retrieve() (after playback) refreshes the cards without taking focus
+                if (moveFocus && isFirstLoad) {
                     mRowsFragment.setSelectedPosition(rowIndex, true, new ListRowPresenter.SelectItemViewHolderTask(row.getSelectedPosition()));
                 }
             }
