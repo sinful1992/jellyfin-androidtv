@@ -11,6 +11,13 @@ internal fun replacesDetails(current: BaseItemDto, target: BaseItemDto): Boolean
 		current.seriesId != null &&
 		current.seriesId == target.seriesId
 
+/** A season of the same series picked on an episode page swaps the episodes row instead of navigating */
+internal fun switchesSeason(current: BaseItemDto, target: BaseItemDto): Boolean =
+	current.type == BaseItemKind.EPISODE &&
+		target.type == BaseItemKind.SEASON &&
+		current.seriesId != null &&
+		current.seriesId == target.seriesId
+
 /** Where a season's episode row starts: the opened episode, else resumable, else first unplayed, else the first */
 internal fun initialEpisodeIndex(episodes: List<BaseItemDto?>, openedId: UUID?): Int {
 	if (openedId != null) {
@@ -18,7 +25,7 @@ internal fun initialEpisodeIndex(episodes: List<BaseItemDto?>, openedId: UUID?):
 		if (opened >= 0) return opened
 	}
 
-	val resumable = episodes.indexOfFirst { it?.userData?.played == false && (it.userData?.playbackPositionTicks ?: 0) > 0 }
+	val resumable = episodes.indexOfFirst { it?.userData?.played == false && (it?.userData?.playbackPositionTicks ?: 0) > 0 }
 	if (resumable >= 0) return resumable
 
 	val unplayed = episodes.indexOfFirst { it?.userData?.played == false }

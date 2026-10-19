@@ -27,6 +27,7 @@ import androidx.leanback.widget.ArrayObjectAdapter;
 import androidx.leanback.widget.ClassPresenterSelector;
 import androidx.leanback.widget.HeaderItem;
 import androidx.leanback.widget.ListRow;
+import androidx.leanback.widget.ListRowPresenter;
 import androidx.leanback.widget.OnItemViewClickedListener;
 import androidx.leanback.widget.OnItemViewSelectedListener;
 import androidx.leanback.widget.Presenter;
@@ -63,6 +64,7 @@ import org.jellyfin.androidtv.ui.presentation.CustomListRowPresenter;
 import org.jellyfin.androidtv.ui.presentation.InfoCardPresenter;
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
 import org.jellyfin.androidtv.ui.presentation.MyDetailsOverviewRowPresenter;
+import org.jellyfin.androidtv.ui.presentation.PreselectedListRow;
 import org.jellyfin.androidtv.util.DateTimeExtensionsKt;
 import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.KeyProcessor;
@@ -70,6 +72,7 @@ import org.jellyfin.androidtv.util.MarkdownRenderer;
 import org.jellyfin.androidtv.util.PlaybackHelper;
 import org.jellyfin.androidtv.util.TimeUtils;
 import org.jellyfin.androidtv.util.Utils;
+import org.jellyfin.androidtv.util.apiclient.EmptyResponse;
 import org.jellyfin.androidtv.util.apiclient.Response;
 import org.jellyfin.androidtv.util.sdk.BaseItemExtensionsKt;
 import org.jellyfin.androidtv.util.sdk.TrailerUtils;
@@ -102,7 +105,6 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
     TextUnderButton mResumeButton;
     private TextUnderButton mVersionsButton;
-    TextUnderButton mPrevButton;
     TextUnderButton mWatchedToggleButton;
 
     private DisplayMetrics mMetrics;
@@ -110,10 +112,11 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
     protected UUID mItemId;
     protected BaseRowItem mCurrentItem;
     private Instant mLastUpdated;
-    public UUID mPrevItemId;
 
     private RowsSupportFragment mRowsFragment;
     private MutableObjectAdapter<Row> mRowsAdapter;
+    private ItemRowAdapter mEpisodesAdapter;
+    private PreselectedListRow mEpisodesRow;
 
     private MyDetailsOverviewRowPresenter mDorPresenter;
     private MyDetailsOverviewRow mDetailsOverviewRow;
@@ -217,6 +220,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                                 showMoreButtonIfNeeded();
                             }
                             updateWatched();
+                            if (mEpisodesAdapter != null) mEpisodesAdapter.Retrieve();
                             mLastUpdated = Instant.now();
                             return null;
                         });
@@ -429,6 +433,86 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         row.Retrieve();
     }
 
+    private String seasonEpisodesTitle(@Nullable String seasonName, int count) {
+        if (seasonName == null) return getString(R.string.lbl_episodes);
+        return getResources().getQuantityString(R.plurals.season_episodes, count, seasonName, count);
+    }
+
+    /**
+     * Show every episode of a season in the episodes row, replacing the season shown before. The
+     * opened episode is preselected when it is in that season; [moveFocus] then moves focus onto it.
+     */
+    void showSeasonEpisodes(UUID seasonId, @Nullable String seasonName, boolean moveFocus) {
+        ItemRowAdapter episodesAdapter = new ItemRowAdapter(requireContext(), BrowsingUtils.createSeasonEpisodesRequest(seasonId), 0, false, true, new CardPresenter(true, 120), mRowsAdapter);
+        PreselectedListRow row = new PreselectedListRow(new HeaderItem(seasonName != null ? seasonName : getString(R.string.lbl_episodes)), episodesAdapter);
+
+        int previousIndex = mEpisodesRow == null ? -1 : mRowsAdapter.indexOf(mEpisodesRow);
+        if (previousIndex >= 0) mRowsAdapter.set(previousIndex, row);
+        else if (mEpisodesRow != null) mRowsAdapter.add(Math.min(1, mRowsAdapter.size()), row);
+        else mRowsAdapter.add(row);
+
+        mEpisodesAdapter = episodesAdapter;
+        mEpisodesRow = row;
+        episodesAdapter.setRow(row);
+
+        final boolean[] firstLoad = {true};
+        episodesAdapter.setRetrieveFinishedListener(new EmptyResponse(getLifecycle()) {
+            @Override
+            public void onResponse() {
+                if (episodesAdapter != mEpisodesAdapter) return;
+                int rowIndex = mRowsAdapter.indexOf(row);
+                if (rowIndex < 0) return;
+
+                row.setHeaderItem(new HeaderItem(seasonEpisodesTitle(seasonName, episodesAdapter.getTotalItems())));
+                if (firstLoad[0]) {
+                    firstLoad[0] = false;
+                    List<BaseItemDto> episodes = new ArrayList<>();
+                    for (Object item : episodesAdapter) {
+                        episodes.add(item instanceof BaseRowItem ? ((BaseRowItem) item).getBaseItem() : null);
+                    }
+                    row.setSelectedPosition(EpisodeNavigationKt.initialEpisodeIndex(episodes, mBaseItem.getId()));
+                }
+                mRowsAdapter.set(rowIndex, row);
+
+                if (moveFocus) {
+                    mRowsFragment.setSelectedPosition(rowIndex, true, new ListRowPresenter.SelectItemViewHolderTask(row.getSelectedPosition()));
+                }
+            }
+        });
+        episodesAdapter.Retrieve();
+    }
+
+    private void addSeasonsRow(MutableObjectAdapter<Row> adapter) {
+        if (mBaseItem.getSeriesId() == null) return;
+
+        ItemRowAdapter seasonsAdapter = new ItemRowAdapter(requireContext(), BrowsingUtils.createSeasonsRequest(mBaseItem.getSeriesId()), new CardPresenter(true, 120), adapter);
+        PreselectedListRow row = new PreselectedListRow(new HeaderItem(getString(R.string.lbl_seasons)), seasonsAdapter);
+        adapter.add(row);
+        seasonsAdapter.setRow(row);
+        seasonsAdapter.setRetrieveFinishedListener(new EmptyResponse(getLifecycle()) {
+            @Override
+            public void onResponse() {
+                // One season has nothing to switch to
+                if (seasonsAdapter.size() < 2) {
+                    adapter.remove(row);
+                    return;
+                }
+
+                int rowIndex = adapter.indexOf(row);
+                if (rowIndex < 0) return;
+                for (int i = 0; i < seasonsAdapter.size(); i++) {
+                    Object item = seasonsAdapter.get(i);
+                    if (item instanceof BaseRowItem && ((BaseRowItem) item).getBaseItem() != null && ((BaseRowItem) item).getBaseItem().getId().equals(mBaseItem.getSeasonId())) {
+                        row.setSelectedPosition(i);
+                        adapter.set(rowIndex, row);
+                        break;
+                    }
+                }
+            }
+        });
+        seasonsAdapter.Retrieve();
+    }
+
     protected void addAdditionalRows(MutableObjectAdapter<Row> adapter) {
         Timber.d("Item type: %s", mBaseItem.getType().toString());
 
@@ -524,16 +608,16 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 break;
 
             case EPISODE:
+                mEpisodesRow = null;
+                if (mBaseItem.getSeasonId() != null) {
+                    showSeasonEpisodes(mBaseItem.getSeasonId(), mBaseItem.getSeasonName(), false);
+                    addSeasonsRow(adapter);
+                }
+
                 //Additional Parts
                 if (mBaseItem.getPartCount() != null && mBaseItem.getPartCount() > 0) {
                     ItemRowAdapter additionalPartsAdapter = new ItemRowAdapter(requireContext(), new GetAdditionalPartsRequest(mBaseItem.getId()), new CardPresenter(), adapter);
                     addItemRow(adapter, additionalPartsAdapter, 0, getString(R.string.lbl_additional_parts));
-                }
-
-                if (mBaseItem.getSeasonId() != null && mBaseItem.getIndexNumber() != null) {
-                    // query index is zero-based but episode no is not
-                    ItemRowAdapter nextAdapter = new ItemRowAdapter(requireContext(), BrowsingUtils.createNextEpisodesRequest(mBaseItem.getSeasonId(), mBaseItem.getIndexNumber()), 0, false, true, new CardPresenter(true, 120), adapter);
-                    addItemRow(adapter, nextAdapter, 5, getString(R.string.lbl_next_episode));
                 }
 
                 //Guest stars
@@ -798,21 +882,6 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         }
 
         if (mBaseItem.getType() == BaseItemKind.EPISODE && mBaseItem.getSeriesId() != null) {
-            //add the prev button first so it will be there in proper position - we'll show it later if needed
-            mPrevButton = TextUnderButton.create(requireContext(), R.drawable.ic_previous_episode, buttonSize, 3, getString(R.string.lbl_previous_episode), new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (mPrevItemId != null) {
-                        navigationRepository.getValue().navigate(Destinations.INSTANCE.itemDetails(mPrevItemId));
-                    }
-                }
-            });
-
-            mDetailsOverviewRow.addAction(mPrevButton);
-
-            //now go get our prev episode id
-            FullDetailsFragmentHelperKt.populatePreviousButton(FullDetailsFragment.this);
-
             goToSeriesButton = TextUnderButton.create(requireContext(), R.drawable.ic_tv, buttonSize, 0, getString(R.string.lbl_goto_series), new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -848,8 +917,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
         moreButton.setVisibility(View.GONE);
         mDetailsOverviewRow.addAction(moreButton);
-        if (mBaseItem.getType() != BaseItemKind.EPISODE)
-            showMoreButtonIfNeeded();  //Episodes check for previous and then call this above
+        showMoreButtonIfNeeded();
     }
 
     private void handleResumeButtonAndFocus(BaseItemDto nextUpEpisode) {
@@ -948,6 +1016,10 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 navigationRepository.getValue().navigate(Destinations.INSTANCE.itemDetails(target.getId()), true);
                 return;
             }
+            if (target != null && EpisodeNavigationKt.switchesSeason(mBaseItem, target)) {
+                showSeasonEpisodes(target.getId(), target.getName(), true);
+                return;
+            }
             itemLauncher.getValue().launch(rowItem, (ItemRowAdapter) ((ListRow) row).getAdapter(), requireContext());
         }
     }
@@ -960,6 +1032,10 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 mCurrentItem = null;
             } else {
                 mCurrentItem = (BaseRowItem) item;
+            }
+
+            if (row instanceof PreselectedListRow && item != null && ((ListRow) row).getAdapter() instanceof ItemRowAdapter) {
+                ((PreselectedListRow) row).setSelectedPosition(((ItemRowAdapter) ((ListRow) row).getAdapter()).indexOf(item));
             }
         }
     }

@@ -544,6 +544,10 @@
     <string name="preference_enable_pgs_description">Requires transcoding when disabled</string>
     <string name="preference_enable_ass_description">Experimental feature, may not work reliably</string>
     <string name="auto">Auto</string>
+    <plurals name="season_episodes">
+        <item quantity="one">%1$s: %2$d episode</item>
+        <item quantity="other">%1$s: %2$d episodes</item>
+    </plurals>
     <plurals name="seconds">
         <item quantity="one">%1$s second</item>
         <item quantity="other">%1$s seconds</item>

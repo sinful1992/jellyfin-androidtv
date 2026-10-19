@@ -196,31 +196,6 @@ fun FullDetailsFragment.getItem(id: UUID, callback: (item: BaseItemDto?) -> Unit
 	}
 }
 
-fun FullDetailsFragment.populatePreviousButton() {
-	if (mBaseItem.type != BaseItemKind.EPISODE) return
-
-	val api by inject<ApiClient>()
-
-	lifecycleScope.launch {
-		val siblings = withContext(Dispatchers.IO) {
-			api.tvShowsApi.getEpisodes(
-				seriesId = requireNotNull(mBaseItem.seriesId),
-				adjacentTo = mBaseItem.id,
-			).content
-		}
-
-		val previousItem = siblings.items
-			.filterNot { it.id == mBaseItem.id }
-			.firstOrNull()
-			?.id
-
-		mPrevItemId = previousItem
-		mPrevButton.isVisible = previousItem != null
-
-		showMoreButtonIfNeeded()
-	}
-}
-
 fun FullDetailsFragment.getNextUpEpisode(callback: (BaseItemDto?) -> Unit) {
 	lifecycleScope.launch {
 		val nextUpEpisode = getNextUpEpisode(allowRestart = false)

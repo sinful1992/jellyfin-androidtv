@@ -25,5 +25,9 @@ open class CustomListRowPresenter @JvmOverloads constructor(
 
 		// Hide header view when the item doesn't have one
 		holder.headerViewHolder.view.isVisible = !(item is ListRow && item.headerItem == null)
+
+		if (item is PreselectedListRow && item.selectedPosition in 0 until item.adapter.size()) {
+			(holder as ViewHolder).gridView.selectedPosition = item.selectedPosition
+		}
 	}
 }

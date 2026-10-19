@@ -55,6 +55,16 @@ class EpisodeNavigationTests : FunSpec({
 		replacesDetails(item(BaseItemKind.EPISODE, series), item(BaseItemKind.MOVIE)) shouldBe false
 	}
 
+	test("season of the same series on an episode page swaps the row") {
+		switchesSeason(item(BaseItemKind.EPISODE, series), item(BaseItemKind.SEASON, series)) shouldBe true
+	}
+
+	test("season on the series page, or of another series, navigates") {
+		switchesSeason(item(BaseItemKind.SERIES, series), item(BaseItemKind.SEASON, series)) shouldBe false
+		switchesSeason(item(BaseItemKind.EPISODE, series), item(BaseItemKind.SEASON, UUID.randomUUID())) shouldBe false
+		switchesSeason(item(BaseItemKind.EPISODE), item(BaseItemKind.SEASON)) shouldBe false
+	}
+
 	test("opened episode is found by id, not by episode number") {
 		// Multi-episode files: "E14-15" sits at list position 12 (server.md, The Creature Cases S1)
 		val episodes = (1..17).map { item(BaseItemKind.EPISODE, series, index = if (it <= 11) it else 12 + (it - 12) * 2, played = true) }
