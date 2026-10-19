@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
@@ -42,11 +43,13 @@ import org.jellyfin.androidtv.ui.composable.rememberPlayerPositionInfo
 import org.jellyfin.androidtv.util.apiclient.getUrl
 import org.jellyfin.androidtv.util.apiclient.itemImages
 import org.jellyfin.androidtv.util.sdk.getDisplayName
+import org.jellyfin.androidtv.util.sdk.getSeasonEpisodeName
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.koin.compose.koinInject
 import kotlin.time.Duration
@@ -63,6 +66,15 @@ private val LeadTime = 30.seconds
 
 /** How heavy the ring around the focused card is. The same weight the home screen cards use. */
 private val FocusRingWidth = 4.dp
+
+/** Episode names run long; three lines of the card's text column hold the whole of nearly all of them. */
+internal const val NextUpNameMaxLines = 3
+
+/** Wide enough for a long name on two lines on a 960 dp TV, and grows with a wider screen up to half of it. */
+private val NextUpCardMinWidth = 560.dp
+private const val NextUpCardScreenShare = 0.5f
+
+internal fun nextUpCardMaxWidth(screenWidth: Dp): Dp = maxOf(NextUpCardMinWidth, screenWidth * NextUpCardScreenShare)
 
 @Immutable
 data class PlayerNextUpState(
@@ -172,30 +184,39 @@ fun PlayerNextUpCard(
 			verticalArrangement = Arrangement.spacedBy(4.dp),
 			modifier = Modifier.weight(1f),
 		) {
+			// "S2:E6" rides with the label so the name gets the title line to itself. Joined with
+			// the name it took most of a single line, and the name — the part anybody reads —
+			// was what the ellipsis cut.
+			val seasonEpisode = item.getSeasonEpisodeName(context).takeIf { item.type == BaseItemKind.EPISODE }
 			Text(
-				text = stringResource(R.string.lbl_next_up),
+				text = listOfNotNull(stringResource(R.string.lbl_next_up), seasonEpisode?.takeIf { it.isNotEmpty() })
+					.joinToString(" · "),
 				style = LocalTextStyle.current.merge(JellyfinTheme.typography.label).copy(
 					color = Color.White.copy(alpha = 0.75f),
 				),
 			)
 			Text(
-				text = item.getDisplayName(context),
+				text = item.name?.takeIf { it.isNotBlank() } ?: item.getDisplayName(context),
 				style = LocalTextStyle.current.merge(JellyfinTheme.typography.title).copy(
 					color = Color.White,
 				),
 				overflow = TextOverflow.Ellipsis,
-				maxLines = 1,
+				maxLines = NextUpNameMaxLines,
 			)
-		}
 
-		Button(
-			onClick = onPlay,
-			// The player theme makes buttons transparent so the icon row disappears into the video;
-			// this one has to read as an actionable button on its own.
-			colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.2f)),
-			modifier = Modifier.focusRequester(focusRequester),
-		) {
-			Text(stringResource(R.string.watch_now))
+			// Under the name, not beside it: beside it the button took a third of the width the
+			// name needs to be read whole.
+			Button(
+				onClick = onPlay,
+				// The player theme makes buttons transparent so the icon row disappears into the video;
+				// this one has to read as an actionable button on its own.
+				colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.2f)),
+				modifier = Modifier
+					.padding(top = 4.dp)
+					.focusRequester(focusRequester),
+			) {
+				Text(stringResource(R.string.watch_now))
+			}
 		}
 	}
 }

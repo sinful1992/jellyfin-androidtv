@@ -23,6 +23,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
@@ -158,7 +159,7 @@ fun VideoPlayerOverlay(
 					.align(Alignment.BottomEnd)
 					.overscan()
 					.padding(bottom = PlayerControlsHeight + 16.dp)
-					.widthIn(max = 460.dp)
+					.widthIn(max = nextUpCardMaxWidth(LocalConfiguration.current.screenWidthDp.dp))
 					.onPreviewKeyEvent { showControlsOnNavigation(it) },
 			)
 		}
