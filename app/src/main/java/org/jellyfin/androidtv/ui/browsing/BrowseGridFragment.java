@@ -232,6 +232,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             mGridView = ((VerticalGridPresenter.ViewHolder) mGridViewHolder).getGridView();
             mGridView.setGravity(Gravity.CENTER_HORIZONTAL);
             mGridView.setPadding(mGridPaddingLeft, mGridPaddingTop, mGridPaddingLeft, mGridPaddingTop); // prevent initial card cutoffs
+            mGridView.setOnKeyInterceptListener(this::wrapAcrossLines);
         }
         mGridView.setHorizontalSpacing(mGridItemSpacingHorizontal);
         mGridView.setVerticalSpacing(mGridItemSpacingVertical);
@@ -241,6 +242,22 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         binding.rowsFragment.addView(mGridViewHolder.view);
 
         updateAdapter();
+    }
+
+    /**
+     * Right on the last card of a line goes on to the first card of the next, and Left on the first
+     * card of a line back to the last card of the one before, rather than stopping at the edge.
+     */
+    private boolean wrapAcrossLines(KeyEvent event) {
+        if (event.getAction() != KeyEvent.ACTION_DOWN || mGridView == null || mAdapter == null) return false;
+        if (!(mGridPresenter instanceof VerticalGridPresenter)) return false;
+
+        int columns = ((VerticalGridPresenter) mGridPresenter).getNumberOfColumns();
+        int target = GridWrap.target(event.getKeyCode(), mGridView.getSelectedPosition(), columns, mAdapter.size());
+        if (target == GridWrap.NONE) return false;
+
+        mGridView.setSelectedPositionSmooth(target);
+        return true;
     }
 
     /**
