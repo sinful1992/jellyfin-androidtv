@@ -551,21 +551,24 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             }
 
             double wastedSpacePct = paddingPct + spacingPct;
-            double usableCardSpace = mGridWidth / (1.0 + wastedSpacePct); // decrease size
+            // Each card's view is mCardFocusScale wider than the card, the room it grows into on
+            // focus (cardFocusGrowthRoom), so the columns are sized by that view width.
+            double usableCardSpace = mGridWidth / (1.0 + wastedSpacePct) / mCardFocusScale; // decrease size
             double cardWidth = usableCardSpace / numCols;
 
             // fix any rounding errors and make pixel perfect
             cardHeightInt = (int) Math.round(getCardHeightBy(cardWidth, mImageType, mFolder));
             int cardWidthInt = (int) getCardWidthBy(cardHeightInt, mImageType, mFolder);
+            int cardViewWidthInt = (int) Math.ceil(cardWidthInt * mCardFocusScale);
             double cardPaddingLeftRightAdj = cardWidthInt * cardScaling;
             spacingHorizontalInt = Math.max((int) (Math.round((cardPaddingLeftRightAdj / 2.0) * CARD_SPACING_PCT)), 0); // round spacing
             if (mImageType == ImageType.BANNER) {
                 spacingHorizontalInt = Math.max((int) (Math.round((cardPaddingLeftRightAdj / 2.0) * CARD_SPACING_HORIZONTAL_BANNER_PCT)), 0); // round spacing
             }
-            int paddingLeftRightInt = mGridWidth - ((cardWidthInt * numCols) + (spacingHorizontalInt * (numCols - 1)));
+            int paddingLeftRightInt = mGridWidth - ((cardViewWidthInt * numCols) + (spacingHorizontalInt * (numCols - 1)));
             paddingLeftInt = Math.max(paddingLeftRightInt / 2, 0);
 
-            int sumSize = (cardWidthInt * numCols) + (spacingHorizontalInt * (numCols - 1)) + (paddingLeftInt * 2);
+            int sumSize = (cardViewWidthInt * numCols) + (spacingHorizontalInt * (numCols - 1)) + (paddingLeftInt * 2);
             if (Math.abs(sumSize - mGridWidth) > 2) {
                 Timber.w("setAutoCardGridValues calculation delta > 2, something is off GridWidth <%s> sumSize <%s>!", mGridWidth, sumSize);
             }
