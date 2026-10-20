@@ -325,6 +325,7 @@ private fun MoreOptionsButton(
 		Row(
 			horizontalArrangement = Arrangement.spacedBy(12.dp),
 			modifier = Modifier
+				.obstructsNextUp()
 				.padding(4.dp)
 		) {
 			content()

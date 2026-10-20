@@ -16,4 +16,17 @@ class NextUpCardTests : FunSpec({
 	test("the name may wrap instead of being cut at one line") {
 		(NextUpNameMaxLines > 1) shouldBe true
 	}
+
+	test("nothing open leaves the card where it is") {
+		nextUpClearance(anchorBottom = 1000f, obstructionTop = null, gap = 32f) shouldBe 0f
+	}
+
+	test("a list opening over the card lifts it clear of the list's top edge") {
+		// A list whose top is 400 px above the card's resting bottom edge, plus the gap.
+		nextUpClearance(anchorBottom = 1000f, obstructionTop = 600f, gap = 32f) shouldBe 432f
+	}
+
+	test("something open below the card does not move it") {
+		nextUpClearance(anchorBottom = 1000f, obstructionTop = 1100f, gap = 32f) shouldBe 0f
+	}
 })

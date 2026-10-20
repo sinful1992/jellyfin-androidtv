@@ -72,6 +72,7 @@ fun <T> PlayerOptionPicker(
 	) {
 		Column(
 			modifier = Modifier
+				.obstructsNextUp()
 				.padding(4.dp)
 				.widthIn(min = 220.dp, max = 400.dp)
 				.heightIn(max = maxHeight)

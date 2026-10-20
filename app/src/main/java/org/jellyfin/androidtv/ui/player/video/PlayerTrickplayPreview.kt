@@ -150,6 +150,7 @@ fun PlayerTrickplayPreview(
 			.withoutSize()
 			.offset(x = offsetX, y = -(PreviewHeight + PreviewOffset))
 			.height(PreviewHeight)
+			.obstructsNextUp()
 			.aspectRatio(aspectRatio)
 			.clip(JellyfinTheme.shapes.extraSmall)
 			.background(Color.Black)
