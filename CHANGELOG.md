@@ -5,6 +5,8 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+
+## [v0.20.0-hero.51](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.51) (2026-10-20)
 - Next Up card during playback is smaller (at most 380 dp, 64 dp thumbnail, fits its text) and sits in the bottom-right corner; it moves up above the controls only while they are open (f2bcb1480).
 - No BlackScreenHeal report when the app is in the background or the TV goes off, before or during the check (a resume on a hidden window looks once more a second later): a hidden window always reads 0x0, so those reports were false alarms. A shown window is still healed and reported (16a21680a, ae59c1a0b, 0692a3b2e).
 
