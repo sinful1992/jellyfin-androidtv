@@ -5,16 +5,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 class NextUpCardTests : FunSpec({
-	test("a 960 dp wide TV keeps the floor width") {
-		nextUpCardMaxWidth(960.dp) shouldBe 560.dp
+	test("the card keeps to well under half of a 960 dp TV") {
+		(NextUpCardMaxWidth < 960.dp / 2) shouldBe true
 	}
 
-	test("a narrow window keeps the floor width") {
-		nextUpCardMaxWidth(640.dp) shouldBe 560.dp
-	}
-
-	test("a wider window grows the card with it") {
-		nextUpCardMaxWidth(1280.dp) shouldBe 640.dp
+	test("the thumbnail is smaller than the 96 dp one that made the card tall") {
+		(NextUpThumbnailHeight < 96.dp) shouldBe true
 	}
 
 	test("the name may wrap instead of being cut at one line") {

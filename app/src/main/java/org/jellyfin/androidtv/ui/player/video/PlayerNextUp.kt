@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
@@ -70,11 +69,15 @@ private val FocusRingWidth = 4.dp
 /** Episode names run long; three lines of the card's text column hold the whole of nearly all of them. */
 internal const val NextUpNameMaxLines = 3
 
-/** Wide enough for a long name on two lines on a 960 dp TV, and grows with a wider screen up to half of it. */
-private val NextUpCardMinWidth = 560.dp
-private const val NextUpCardScreenShare = 0.5f
+/**
+ * The card sits over the end of an episode, credits and all, so it takes a corner and not the
+ * picture: at 560 dp it covered more than half of a 960 dp TV. A long name wraps inside this
+ * rather than widening the card, and a short one leaves it narrower still.
+ */
+internal val NextUpCardMaxWidth = 380.dp
 
-internal fun nextUpCardMaxWidth(screenWidth: Dp): Dp = maxOf(NextUpCardMinWidth, screenWidth * NextUpCardScreenShare)
+/** Tall enough to tell the episode by its still, small enough to keep the card to a corner. */
+internal val NextUpThumbnailHeight = 64.dp
 
 @Immutable
 data class PlayerNextUpState(
@@ -174,7 +177,7 @@ fun PlayerNextUpCard(
 				blurHash = thumbnail.blurHash,
 				aspectRatio = thumbnail.aspectRatio ?: 1f,
 				modifier = Modifier
-					.height(96.dp)
+					.height(NextUpThumbnailHeight)
 					.aspectRatio(thumbnail.aspectRatio ?: 1f)
 					.clip(JellyfinTheme.shapes.extraSmall)
 			)
@@ -182,7 +185,8 @@ fun PlayerNextUpCard(
 
 		Column(
 			verticalArrangement = Arrangement.spacedBy(4.dp),
-			modifier = Modifier.weight(1f),
+			// Without fill = false the column stretched every card to the full width allowed.
+			modifier = Modifier.weight(1f, fill = false),
 		) {
 			// "S2:E6" rides with the label so the name gets the title line to itself. Joined with
 			// the name it took most of a single line, and the name — the part anybody reads —
@@ -197,7 +201,7 @@ fun PlayerNextUpCard(
 			)
 			Text(
 				text = item.name?.takeIf { it.isNotBlank() } ?: item.getDisplayName(context),
-				style = LocalTextStyle.current.merge(JellyfinTheme.typography.title).copy(
+				style = LocalTextStyle.current.merge(JellyfinTheme.typography.subtitle).copy(
 					color = Color.White,
 				),
 				overflow = TextOverflow.Ellipsis,

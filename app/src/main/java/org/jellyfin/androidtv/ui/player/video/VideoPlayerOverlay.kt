@@ -1,6 +1,7 @@
 package org.jellyfin.androidtv.ui.player.video
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -23,7 +24,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
@@ -137,9 +137,13 @@ fun VideoPlayerOverlay(
 			},
 		)
 
-		// Kept out of the controls so it can be shown on its own, and parked just above where
-		// they end rather than aligned to the screen, so it clears them when they are open and
-		// does not move when they come and go.
+		// Kept out of the controls so it can be shown on its own. It sits in the bottom corner,
+		// and steps up above the controls only while they are open: parked above them for good,
+		// it hung in the middle of the picture through every set of credits.
+		val nextUpBottom by animateDpAsState(
+			targetValue = if (visibilityState.visible) PlayerControlsHeight + 16.dp else 0.dp,
+			label = "next up position",
+		)
 		nextUp.item?.let { nextItem ->
 			PlayerNextUpCard(
 				item = nextItem,
@@ -158,8 +162,8 @@ fun VideoPlayerOverlay(
 				modifier = Modifier
 					.align(Alignment.BottomEnd)
 					.overscan()
-					.padding(bottom = PlayerControlsHeight + 16.dp)
-					.widthIn(max = nextUpCardMaxWidth(LocalConfiguration.current.screenWidthDp.dp))
+					.padding(bottom = nextUpBottom)
+					.widthIn(max = NextUpCardMaxWidth)
 					.onPreviewKeyEvent { showControlsOnNavigation(it) },
 			)
 		}

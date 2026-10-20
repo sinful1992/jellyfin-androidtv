@@ -5,6 +5,7 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+- Next Up card during playback is smaller (at most 380 dp, 64 dp thumbnail, fits its text) and sits in the bottom-right corner; it moves up above the controls only while they are open.
 
 ## [v0.20.0-hero.50](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.50) (2026-10-19)
 - Movies sorted by Name keep each collection together, in release order (Harry Potter 1–8, Ice Age 1–6…), placed where the collection's first film sorts (c0b67c86b). A start letter or another sort uses the old A–Z list.
