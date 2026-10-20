@@ -34,6 +34,11 @@ object BlackScreenHeal {
 
 	private var reported = false
 
+	// What MainActivity.onResume passes.
+	private const val TRIGGER_RESUME = "resume"
+	private const val TRIGGER_RESUME_RETRY = "resume-retry"
+	private const val RESUME_RETRY_MS = 1000L
+
 	private fun processAgeSeconds(): Long {
 		val start = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) Process.getStartElapsedRealtime() else firstUse
 		return (SystemClock.elapsedRealtime() - start) / 1000
@@ -60,6 +65,9 @@ object BlackScreenHeal {
 		// one that can see a real black screen.
 		if (isWindowHidden(root.windowVisibility, root.isShown)) {
 			Log.i(TAG, "$TAG skipped hidden $label window=${root.windowVisibility}")
+			// Waking from standby can resume the activity before its window is shown again, and
+			// nothing else would look once it is, so a resume gets one more look a little later.
+			if (trigger == TRIGGER_RESUME) anchor.postDelayed({ check(anchor, TRIGGER_RESUME_RETRY) }, RESUME_RETRY_MS)
 			return
 		}
 
