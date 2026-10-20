@@ -26,7 +26,8 @@ class PlayerOverlayObstructions {
 	val highestTop: Float? get() = tops.values.minOrNull()
 
 	fun report(key: Any, top: Float) {
-		tops[key] = top
+		// The seek preview is laid out again on every scrub step, nearly always at the same height.
+		if (tops[key] != top) tops[key] = top
 	}
 
 	fun clear(key: Any) {
