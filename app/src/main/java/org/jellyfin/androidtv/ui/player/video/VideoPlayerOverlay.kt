@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -20,19 +18,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
-import org.jellyfin.androidtv.ui.composable.modifier.overscanPaddingValues
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
 import org.jellyfin.androidtv.ui.player.base.PlayerControlsHeight
 import org.jellyfin.androidtv.ui.player.base.PlayerOverlayLayout
@@ -114,95 +108,77 @@ fun VideoPlayerOverlay(
 	val entry by rememberQueueEntry(playbackManager)
 	val item = entry?.run { baseItemFlow.collectAsState(baseItem) }?.value
 
-	val obstructions = remember { PlayerOverlayObstructions() }
-	// Where the card's bottom edge sits on the screen with nothing open, so what opens over it can be
-	// measured against it.
-	var nextUpAnchorBottom by remember { mutableFloatStateOf(0f) }
-	val density = LocalDensity.current
-
-	Box(
-		modifier = modifier.onGloballyPositioned {
-			nextUpAnchorBottom = it.localToScreen(Offset(0f, it.size.height.toFloat())).y -
-				with(density) { overscanPaddingValues.calculateBottomPadding().toPx() }
-		}
-	) {
-		CompositionLocalProvider(LocalPlayerOverlayObstructions provides obstructions) {
-			PlayerOverlayLayout(
-				visibilityState = visibilityState,
-				focusRequester = overlayFocusRequester,
-				// Pausing is what the select key is reached for during playback, and it was the one
-				// thing it could not do: every press went on opening the controls, leaving the pause
-				// button two more presses away.
-				onSelect = { playbackManager.togglePlayPause() },
-				// While the card is up, moving off the top of the controls reaches it instead of
-				// closing them, and closing them hands the focus to the card rather than back to the
-				// overlay, so the offer stays one press away.
-				hideOnFocusExitUp = nextUp.item == null,
-				reclaimFocusOnHide = nextUp.item == null,
-				header = {
-					Column {
-						VideoPlayerHeader(
-							item = item,
-						)
-					}
-				},
-				controls = {
-					VideoPlayerControls(
-						playbackManager = playbackManager,
-						onPlaybackInfoClick = { showPlaybackInfo = !showPlaybackInfo },
-						nextUpFocusRequester = nextUpFocusRequester.takeIf { nextUp.item != null },
+	Box(modifier = modifier) {
+		PlayerOverlayLayout(
+			visibilityState = visibilityState,
+			focusRequester = overlayFocusRequester,
+			// Pausing is what the select key is reached for during playback, and it was the one
+			// thing it could not do: every press went on opening the controls, leaving the pause
+			// button two more presses away.
+			onSelect = { playbackManager.togglePlayPause() },
+			// While the card is up, moving off the top of the controls reaches it instead of
+			// closing them, and closing them hands the focus to the card rather than back to the
+			// overlay, so the offer stays one press away.
+			hideOnFocusExitUp = nextUp.item == null,
+			reclaimFocusOnHide = nextUp.item == null,
+			header = {
+				Column {
+					VideoPlayerHeader(
+						item = item,
 					)
-				},
-			)
-
-			// Kept out of the controls so it can be shown on its own. It sits in the bottom corner,
-			// and steps up above the controls only while they are open: parked above them for good,
-			// it hung in the middle of the picture through every set of credits. A track list or the
-			// seek preview opening over that corner lifts it higher still, rather than covering it.
-			val controlsClearance = if (visibilityState.visible) PlayerControlsHeight + NextUpGap else 0.dp
-			val obstructionClearance = with(density) {
-				nextUpClearance(nextUpAnchorBottom, obstructions.highestTop, NextUpGap.toPx()).toDp()
-			}
-			val nextUpBottom by animateDpAsState(
-				targetValue = maxOf(controlsClearance, obstructionClearance),
-				label = "next up position",
-			)
-			nextUp.item?.let { nextItem ->
-				PlayerNextUpCard(
-					item = nextItem,
-					showThumbnail = nextUp.showThumbnail,
-					focusRequester = nextUpFocusRequester,
-					onPlay = {
-						nextUp.dismiss()
-						coroutineScope.launch { playbackManager.queue.next() }
-
-						// The card is about to leave the composition, taking the focused button with
-						// it. Nothing else is asking for the focus while the controls are down, so it
-						// is handed back rather than left nowhere, which would leave the next press
-						// with nothing to answer it.
-						overlayFocusRequester.requestFocus()
-					},
-					modifier = Modifier
-						.align(Alignment.BottomEnd)
-						.overscan()
-						.padding(bottom = nextUpBottom)
-						.widthIn(max = NextUpCardMaxWidth)
-						.onPreviewKeyEvent { showControlsOnNavigation(it) },
-				)
-			}
-
-			// Playback info overlay - positioned below the header area, and shown for as long as the
-			// controls it was opened from are.
-			if (showPlaybackInfo) {
-				PlaybackInfoOverlay(
+				}
+			},
+			controls = {
+				VideoPlayerControls(
 					playbackManager = playbackManager,
-					modifier = Modifier
-						.align(Alignment.TopStart)
-						.padding(start = 48.dp, top = 100.dp)
+					onPlaybackInfoClick = { showPlaybackInfo = !showPlaybackInfo },
+					nextUpFocusRequester = nextUpFocusRequester.takeIf { nextUp.item != null },
 				)
-			}
+			},
+		)
 
-			MediaToasts(mediaToastRegistry)
+		// Kept out of the controls so it can be shown on its own. It sits in the bottom corner,
+		// and steps up above the controls only while they are open: parked above them for good,
+		// it hung in the middle of the picture through every set of credits.
+		val nextUpBottom by animateDpAsState(
+			targetValue = if (visibilityState.visible) PlayerControlsHeight + 16.dp else 0.dp,
+			label = "next up position",
+		)
+		nextUp.item?.let { nextItem ->
+			PlayerNextUpCard(
+				item = nextItem,
+				showThumbnail = nextUp.showThumbnail,
+				focusRequester = nextUpFocusRequester,
+				onPlay = {
+					nextUp.dismiss()
+					coroutineScope.launch { playbackManager.queue.next() }
+
+					// The card is about to leave the composition, taking the focused button with
+					// it. Nothing else is asking for the focus while the controls are down, so it
+					// is handed back rather than left nowhere, which would leave the next press
+					// with nothing to answer it.
+					overlayFocusRequester.requestFocus()
+				},
+				modifier = Modifier
+					.align(Alignment.BottomEnd)
+					.overscan()
+					.padding(bottom = nextUpBottom)
+					.widthIn(max = NextUpCardMaxWidth)
+					.onPreviewKeyEvent { showControlsOnNavigation(it) },
+			)
 		}
+
+		// Playback info overlay - positioned below the header area, and shown for as long as the
+		// controls it was opened from are.
+		if (showPlaybackInfo) {
+			PlaybackInfoOverlay(
+				playbackManager = playbackManager,
+				modifier = Modifier
+					.align(Alignment.TopStart)
+					.padding(start = 48.dp, top = 100.dp)
+			)
+		}
+
+		MediaToasts(mediaToastRegistry)
 	}
 }

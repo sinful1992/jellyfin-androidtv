@@ -76,9 +76,6 @@ internal const val NextUpNameMaxLines = 3
  */
 internal val NextUpCardMaxWidth = 380.dp
 
-/** How far the card keeps above the controls, or anything else open over its corner. */
-internal val NextUpGap = 16.dp
-
 /** Tall enough to tell the episode by its still, small enough to keep the card to a corner. */
 internal val NextUpThumbnailHeight = 64.dp
 
