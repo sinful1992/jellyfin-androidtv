@@ -101,6 +101,15 @@ object BlackScreenHeal {
 				append("\nafter heal:\n").append(describeChain(view))
 			}
 			Log.w(TAG, message)
+
+			// The window can also go between the two checks, when the TV goes off just after the
+			// first one. The re-check then says nothing about the heal, so it keeps the report.
+			if (isWindowHidden(root.windowVisibility, root.isShown)) {
+				Log.i(TAG, "$TAG skipped hidden $label window=${root.windowVisibility} at re-check")
+				if (report) reported = false
+				return@postDelayed
+			}
+
 			if (report) ACRA.errorReporter.handleSilentException(IllegalStateException(message))
 		}, DELAY_MS)
 	}
