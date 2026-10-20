@@ -11,6 +11,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import org.acra.ACRA
 
+/** A window that is not on screen, whose views all read 0x0 whatever is asked of them. */
+internal fun isWindowHidden(windowVisibility: Int, isShown: Boolean): Boolean =
+	windowVisibility != View.VISIBLE || !isShown
+
 /**
  * Finds a fragment view that came up with no size and asks for the layout pass it missed.
  *
@@ -121,9 +125,6 @@ object BlackScreenHeal {
 			if (report) ACRA.errorReporter.handleSilentException(IllegalStateException(message))
 		}, DELAY_MS)
 	}
-
-	internal fun isWindowHidden(windowVisibility: Int, isShown: Boolean): Boolean =
-		windowVisibility != View.VISIBLE || !isShown
 
 	/**
 	 * One line per view from [view] up to the window: size as laid out and as measured, whether a
