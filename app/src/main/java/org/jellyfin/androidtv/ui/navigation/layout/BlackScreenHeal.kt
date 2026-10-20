@@ -53,6 +53,16 @@ object BlackScreenHeal {
 		val label = "level=${fragmentName(view, hit.isHost)}/${if (hit.isHost) "host" else "root"} " +
 			"id=${idName(view)} parent=${hit.parent.width}x${hit.parent.height} " +
 			"layoutRequested=${view.isLayoutRequested} trigger=$trigger age=${processAgeSeconds()}"
+
+		// A window that is not on screen lays nothing out, so every view in it reads 0x0 and no
+		// request can change that: all of the reports so far were the app going to the background or
+		// the TV going off just after a page change. Coming back runs the resume check, which is the
+		// one that can see a real black screen.
+		if (isWindowHidden(root.windowVisibility, root.isShown)) {
+			Log.i(TAG, "$TAG skipped hidden $label window=${root.windowVisibility}")
+			return
+		}
+
 		// Release builds plant no Timber tree, so log directly to keep this visible in logcat.
 		Log.w(TAG, "$TAG $label, requesting layout")
 		val before = describeChain(view)
@@ -94,6 +104,9 @@ object BlackScreenHeal {
 			if (report) ACRA.errorReporter.handleSilentException(IllegalStateException(message))
 		}, DELAY_MS)
 	}
+
+	internal fun isWindowHidden(windowVisibility: Int, isShown: Boolean): Boolean =
+		windowVisibility != View.VISIBLE || !isShown
 
 	/**
 	 * One line per view from [view] up to the window: size as laid out and as measured, whether a
