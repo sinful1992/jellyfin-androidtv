@@ -65,13 +65,6 @@ interface NavigationRepository {
 	 * Reset navigation to the initial destination or a specific [Destination.Fragment] without clearing history.
 	 */
 	fun reset(destination: Destination.Fragment? = null) = reset(destination, false)
-
-	/**
-	 * Replace the action a new collector of [currentAction] would be replayed with by
-	 * [NavigationAction.Nothing], for a nav host that restored its own state and has already
-	 * carried the action out.
-	 */
-	fun consumePendingAction()
 }
 
 class NavigationRepositoryImpl(
@@ -105,10 +98,6 @@ class NavigationRepositoryImpl(
 		fragmentHistory.pop()
 		_currentAction.tryEmit(NavigationAction.GoBack)
 		return true
-	}
-
-	override fun consumePendingAction() {
-		_currentAction.tryEmit(NavigationAction.Nothing)
 	}
 
 	override fun reset(destination: Destination.Fragment?, clearHistory: Boolean) {

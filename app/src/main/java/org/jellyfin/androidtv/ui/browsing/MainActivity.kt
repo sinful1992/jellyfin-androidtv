@@ -25,10 +25,11 @@ import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideLocalInteractionTracker
 import org.jellyfin.androidtv.ui.composable.compat.AppNavigationHost
-import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
+import org.jellyfin.androidtv.ui.navigation.StartNavigation
 import org.jellyfin.androidtv.ui.navigation.focus.repairStaleFocus
 import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
+import org.jellyfin.androidtv.ui.navigation.startNavigation
 import org.jellyfin.androidtv.ui.screensaver.InAppScreensaver
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
 import org.jellyfin.androidtv.ui.startup.StartupActivity
@@ -56,18 +57,17 @@ class MainActivity : FragmentActivity() {
 				else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 			}.launchIn(lifecycleScope)
 
-		// A fresh process resumed straight into this activity (the task outlived its process, so
-		// StartupActivity never ran) has nothing in the replay buffer: the nav host would wait
-		// forever and show a black screen. A trailing GoBack is no better for a host that is empty.
-		val pendingAction = navigationRepository.currentAction.replayCache.lastOrNull()
-		if (savedInstanceState == null && navigationRepository.canGoBack) navigationRepository.reset(clearHistory = true)
-		else if (pendingAction == null || (pendingAction !is NavigationAction.NavigateFragment && !navigationRepository.canGoBack)) {
-			navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
+		// The nav host below starts empty every time, so it has to be handed something to show.
+		val start = startNavigation(
+			pendingAction = navigationRepository.currentAction.replayCache.lastOrNull(),
+			canGoBack = navigationRepository.canGoBack,
+			recreated = savedInstanceState != null,
+		)
+		when (start) {
+			StartNavigation.REPLAY -> Unit
+			StartNavigation.RESET_HOME -> navigationRepository.reset(clearHistory = true)
+			StartNavigation.RESET_CURRENT -> navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
 		}
-		// A recreation in the same process (a theme change) keeps the history, and the nav host
-		// restores its own from the saved state, where the last action was already carried out.
-		// Replayed to the new host, a GoBack would go back a second time.
-		else if (savedInstanceState != null) navigationRepository.consumePendingAction()
 
 		navigationRepository.currentAction
 			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
