@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
-import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.os.BundleCompat
 import androidx.core.os.ParcelCompat
@@ -17,6 +16,7 @@ import androidx.fragment.app.FragmentTransaction
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
+import org.jellyfin.androidtv.ui.navigation.layout.isEmptyNavHost
 import org.jellyfin.androidtv.util.createBundle
 import timber.log.Timber
 import java.util.Stack
@@ -72,9 +72,9 @@ class DestinationFragmentView @JvmOverloads constructor(
 
 	private val history = Stack<HistoryEntry>()
 
-	/** True until a navigation has put a fragment view into the container. */
+	/** True until the host has been given a page to show. */
 	val isShowingNothing: Boolean
-		get() = history.isEmpty() || ((getChildAt(0) as? ViewGroup)?.childCount ?: 0) == 0
+		get() = isEmptyNavHost(history.size)
 
 	fun navigate(action: NavigationAction.NavigateFragment) {
 		val entry = HistoryEntry(action.destination.fragment.java, action.destination.arguments)

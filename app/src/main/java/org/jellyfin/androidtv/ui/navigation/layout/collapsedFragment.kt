@@ -66,3 +66,12 @@ fun requestLayoutToWindow(view: View) {
 		current = current.parent as? View
 	}
 }
+
+/**
+ * Whether a nav host was never given a page: its history is empty.
+ *
+ * The container's children are deliberately not part of it. A navigation pushes its history entry at
+ * once but commits its fragment later, and on a slow TV that commit can still be pending at the
+ * check, so an empty container next to a history entry is a page on its way, not a black screen.
+ */
+fun isEmptyNavHost(historySize: Int): Boolean = historySize == 0

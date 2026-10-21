@@ -154,6 +154,15 @@ class CollapsedFragmentTests : FunSpec({
 		hit.parent.height shouldBe 1080
 	}
 
+	test("a nav host never given a page is empty") {
+		isEmptyNavHost(historySize = 0) shouldBe true
+	}
+
+	test("a nav host whose first page is still committing is not empty") {
+		// History is pushed at once, the fragment transaction runs later: no second navigation.
+		isEmptyNavHost(historySize = 1) shouldBe false
+	}
+
 	test("layout is requested on every level up to the window") {
 		val root = group(1920, 1080)
 		val container = group(1920, 1080)
