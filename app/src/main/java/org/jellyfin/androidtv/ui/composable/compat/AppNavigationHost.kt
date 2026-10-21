@@ -50,7 +50,10 @@ fun AppNavigationHost(
 	LaunchedEffect(Unit) {
 		delay(BlackScreenHeal.EMPTY_HOST_DELAY_MS)
 		BlackScreenHeal.checkEmptyHost(factory.view, { factory.view.isShowingNothing }) {
-			navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
+			// A reset leaves no current destination behind, so a deep link is only in the buffer.
+			val pending = navigationRepository.currentAction.replayCache.lastOrNull()
+			if (pending is NavigationAction.NavigateFragment) factory.view.navigate(pending)
+			else navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
 		}
 	}
 }
