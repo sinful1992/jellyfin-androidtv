@@ -6,6 +6,7 @@ Every commit that changes `app/` adds its line here, under `Unreleased` until th
 
 ## Unreleased
 - No black screen when Jellyfin is opened after the TV dropped it in standby, or after a display setting such as text size changes: the reopened screen used to throw away the page it was given and show nothing until Back (bae0ce400).
+- Pages restored after a standby restart are removed instead of piling up in the saved state, one more after every restart.
 - BlackScreenHeal also catches a nav host that was never given a page 2 s after it starts (a page still being committed does not count): it carries out the pending page again (a deep link included), logs cured=true/false and sends one report per process (bfacec3d4).
 
 ## [v0.20.0-hero.51](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.51) (2026-10-20)

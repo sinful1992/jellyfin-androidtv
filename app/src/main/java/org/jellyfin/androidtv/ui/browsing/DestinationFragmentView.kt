@@ -77,6 +77,8 @@ class DestinationFragmentView @JvmOverloads constructor(
 		get() = isEmptyNavHost(history.size)
 
 	fun navigate(action: NavigationAction.NavigateFragment) {
+		if (history.isEmpty()) removeRestoredFragments()
+
 		val entry = HistoryEntry(action.destination.fragment.java, action.destination.arguments)
 
 		// Create the base transaction so we can mutate everything at once
@@ -120,6 +122,26 @@ class DestinationFragmentView @JvmOverloads constructor(
 		activateHistoryEntry(entry, transaction)
 
 		return true
+	}
+
+	/**
+	 * Removes the pages the activity's FragmentManager restored from saved state.
+	 *
+	 * This view never restores its own history (it has no id), so on its first navigation every
+	 * fragment under [FRAGMENT_TAG_CONTENT] is left over from the previous process: the page that was
+	 * showing and the detached pages of its back stack. Detaching them kept them in the saved state,
+	 * one more after every standby restore.
+	 */
+	private fun removeRestoredFragments() {
+		if (fragmentManager.isDestroyed) return
+		val removed = mutableSetOf<Fragment>()
+		while (true) {
+			// Finds added fragments first, then detached ones, so it walks through all of them.
+			val leftover = fragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTENT) ?: break
+			if (!removed.add(leftover)) break
+			fragmentManager.beginTransaction().remove(leftover).commitNowAllowingStateLoss()
+		}
+		if (removed.isNotEmpty()) Timber.i("Removed ${removed.size} restored fragments")
 	}
 
 	private fun saveCurrentFragmentState() {
