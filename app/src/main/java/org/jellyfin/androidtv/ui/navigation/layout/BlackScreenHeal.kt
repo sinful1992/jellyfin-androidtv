@@ -126,6 +126,33 @@ object BlackScreenHeal {
 		}, DELAY_MS)
 	}
 
+	// Navigating is synchronous once the nav host collects, so a host still empty this long after it
+	// started was never given an action, which is the 2026-10-21 black screen.
+	const val EMPTY_HOST_DELAY_MS = 2_000L
+
+	/**
+	 * Navigates again when the nav host [host] is still showing nothing, checked once per host.
+	 *
+	 * A recreated MainActivity whose pending action was dropped left the host with no page at all, an
+	 * empty view that measures to 0x0. No layout pass can fill it, so the cure is a navigation.
+	 */
+	fun checkEmptyHost(host: View, isShowingNothing: () -> Boolean, navigate: () -> Unit) {
+		if (!isShowingNothing()) return
+
+		val label = "level=navhost trigger=empty-host age=${processAgeSeconds()}"
+		Log.w(TAG, "$TAG $label, navigating again")
+		navigate()
+
+		val report = !reported
+		if (report) reported = true
+
+		host.postDelayed({
+			val message = "$TAG $label cured=${!isShowingNothing()}"
+			Log.w(TAG, message)
+			if (report) ACRA.errorReporter.handleSilentException(IllegalStateException(message))
+		}, DELAY_MS)
+	}
+
 	/**
 	 * One line per view from [view] up to the window: size as laid out and as measured, whether a
 	 * layout is pending, and visibility. Where the chain stops being sized, or stops being flagged,

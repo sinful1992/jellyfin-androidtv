@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.os.BundleCompat
 import androidx.core.os.ParcelCompat
@@ -70,6 +71,10 @@ class DestinationFragmentView @JvmOverloads constructor(
 	}
 
 	private val history = Stack<HistoryEntry>()
+
+	/** True until a navigation has put a fragment view into the container. */
+	val isShowingNothing: Boolean
+		get() = history.isEmpty() || ((getChildAt(0) as? ViewGroup)?.childCount ?: 0) == 0
 
 	fun navigate(action: NavigationAction.NavigateFragment) {
 		val entry = HistoryEntry(action.destination.fragment.java, action.destination.arguments)

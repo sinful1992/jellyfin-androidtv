@@ -10,11 +10,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import org.jellyfin.androidtv.ui.browsing.DestinationFragmentView
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
+import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
 import org.koin.compose.koinInject
 
 @Composable
@@ -42,6 +44,13 @@ fun AppNavigationHost(
 				NavigationAction.GoBack -> factory.view.goBack()
 				NavigationAction.Nothing -> Unit
 			}
+		}
+	}
+
+	LaunchedEffect(Unit) {
+		delay(BlackScreenHeal.EMPTY_HOST_DELAY_MS)
+		BlackScreenHeal.checkEmptyHost(factory.view, { factory.view.isShowingNothing }) {
+			navigationRepository.reset(navigationRepository.currentDestination, clearHistory = true)
 		}
 	}
 }
