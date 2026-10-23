@@ -5,6 +5,8 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+
+## [v0.20.0-hero.53](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.53) (2026-10-23)
 - Upstream master merged (56c6fc44d = v0.20.0-beta.4 344d26eb5 + 9 translation updates): saved logins are written with AtomicFile so a crash mid-write can't lose them (3867cfa48); 3D badge on movies (8c7879ceb); browse grids take focus when they open (22fbde87e); the expandable overview in list pages works again (dd6701828); Kotlin 2.4.21, Gradle 9.8.1, kotest 6.2.6, aboutlibraries 15.3.0; translations. Not taken because the code is gone in this fork: the previous-episode button fix (button removed in hero.48) and two legacy-player fixes (legacy player deleted; the media3 player already counts only in-container subtitle tracks).
 
 ## [v0.20.0-hero.52](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.52) (2026-10-21)
