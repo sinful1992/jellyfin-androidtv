@@ -416,9 +416,7 @@
     <string name="always_authenticate">Visada prašyti prisijungimo informacijos</string>
     <string name="license_author">Autorius</string>
     <string name="lbl_tune_to_channel">Įjungti kanalą</string>
-    <string name="lbl_tv_queuing">Automatiškai paleisti sekantį epizodą</string>
     <string name="lbl_tv_queuing">Automatiškai paleisti tolimesnę seriją</string>
-    <string name="lbl_show_backdrop">Rodyti fonus</string>
     <string name="lbl_program_ended">Programa pasibaigė</string>
     <string name="lbl_instant_mix">Greitas miksas</string>
     <string name="msg_no_items">Nėra elementų, kuriuos būtų galima paleisti</string>
