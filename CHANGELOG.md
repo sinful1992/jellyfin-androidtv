@@ -5,6 +5,8 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+
+## [v0.20.0-hero.54](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.54) (2026-10-30)
 - Upstream master merged (7ec47a001, d55498aff): the home and search rows are pinned to reach RESUMED (de2dced2b, upstream's fix for home content missing after the app is reopened from the background; this fork already reached RESUMED in every AVD path tried, so here it is a safety net); Gradle 9.8.2, kotlinx-serialization-json 1.12.0; translations (the Lithuanian merge left two "auto-play next episode" lines, which breaks the build; only the new one is kept).
 
 ## [v0.20.0-hero.53](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.53) (2026-10-23)
