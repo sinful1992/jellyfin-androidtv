@@ -35,6 +35,7 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.MediaStreamType
 import org.koin.android.ext.android.inject
 import timber.log.Timber
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -98,7 +99,13 @@ class VideoPlayerFragment : Fragment() {
 	private suspend fun withVideoStream(item: BaseItemDto?): BaseItemDto? {
 		if (item == null) return null
 		if (item.mediaStreams?.any { it.type == MediaStreamType.VIDEO } == true) return item
-		return runCatching { api.userLibraryApi.getItem(item.id).content }.getOrNull()
+		return try {
+			api.userLibraryApi.getItem(item.id).content
+		} catch (e: CancellationException) {
+			throw e
+		} catch (e: Exception) {
+			null
+		}
 	}
 
 	/**
@@ -238,6 +245,14 @@ class VideoPlayerFragment : Fragment() {
 
 		displayModeSwitcher?.reset()
 		displayModeSwitcher = null
+	}
+
+	override fun onStart() {
+		super.onStart()
+
+		// Back in view before the mode switch finished (an HDMI re-sync can stop and restart the
+		// activity): let the switch start playback after all.
+		stopped = false
 	}
 
 	override fun onStop() {
