@@ -10,21 +10,31 @@ import androidx.fragment.compose.content
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.base.BaseScreen
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.DisplayLinkMonitor
+import org.jellyfin.androidtv.util.DisplayModeSwitcher
 import org.jellyfin.playback.core.PlaybackEvent
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
 import org.jellyfin.playback.core.queue.queue
 import org.jellyfin.playback.jellyfin.queue.baseItem
 import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.MediaStreamType
 import org.koin.android.ext.android.inject
 import timber.log.Timber
 import kotlin.time.Duration
@@ -39,8 +49,11 @@ class VideoPlayerFragment : Fragment() {
 	private val playbackManager by inject<PlaybackManager>()
 	private val navigationRepository by inject<NavigationRepository>()
 	private val api by inject<ApiClient>()
+	private val userPreferences by inject<UserPreferences>()
 
 	private var displayLinkMonitor: DisplayLinkMonitor? = null
+	private var displayModeSwitcher: DisplayModeSwitcher? = null
+	private var initialModeSwitch: Deferred<Unit>? = null
 	private var playbackStarted = false
 	private var unpauseOnResume = true
 	private var leaving = false
@@ -61,11 +74,47 @@ class VideoPlayerFragment : Fragment() {
 		playbackManager.queue.clear()
 		playbackManager.queue.addSupplier(queueSupplier)
 
+		// Switch the display mode before playback starts, so the HDMI re-sync happens before the
+		// audio passthrough and the display-link monitors start.
+		val switcher = DisplayModeSwitcher(requireActivity(), userPreferences[UserPreferences.refreshRateSwitchingBehavior])
+		displayModeSwitcher = switcher
+		val firstItem = queueSupplier.items.firstOrNull()
+		initialModeSwitch = lifecycleScope.async {
+			runCatching { switcher.switchFor(withVideoStream(firstItem)) }
+				.onFailure { Timber.w(it, "Display mode switch failed") }
+			Unit
+		}
+		switchModePerEntry(switcher)
+
 		awaitPlaybackStart()
 		reportPlaybackEvents()
 
 		// Pause player until the initial resume
 		playbackManager.state.pause()
+	}
+
+	/** The item with its media streams, fetched when the queue's copy came without them. */
+	private suspend fun withVideoStream(item: BaseItemDto?): BaseItemDto? {
+		if (item == null) return null
+		if (item.mediaStreams?.any { it.type == MediaStreamType.VIDEO } == true) return item
+		return runCatching { api.userLibraryApi.getItem(item.id).content }.getOrNull()
+	}
+
+	/** Later queue entries (the next episode) can have another frame rate. */
+	private fun switchModePerEntry(switcher: DisplayModeSwitcher) {
+		lifecycleScope.launch {
+			playbackManager.queue.entry
+				.mapNotNull { it?.baseItem }
+				.distinctUntilChanged { old, new -> old.id == new.id }
+				.drop(1)
+				.collect { item ->
+					initialModeSwitch?.await()
+					displayLinkMonitor?.stop()
+					runCatching { switcher.switchFor(withVideoStream(item)) }
+						.onFailure { Timber.w(it, "Display mode switch failed") }
+					if (view != null && !leaving) displayLinkMonitor = startDisplayLinkMonitor()
+				}
+		}
 	}
 
 	/**
@@ -153,7 +202,10 @@ class VideoPlayerFragment : Fragment() {
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 		super.onViewCreated(view, savedInstanceState)
 
-		displayLinkMonitor = startDisplayLinkMonitor()
+		viewLifecycleOwner.lifecycleScope.launch {
+			initialModeSwitch?.await()
+			displayLinkMonitor = startDisplayLinkMonitor()
+		}
 	}
 
 	override fun onDestroyView() {
@@ -191,7 +243,17 @@ class VideoPlayerFragment : Fragment() {
 	override fun onResume() {
 		super.onResume()
 
-		if (unpauseOnResume) playbackManager.state.unpause()
+		if (unpauseOnResume) lifecycleScope.launch {
+			initialModeSwitch?.await()
+			if (isResumed) playbackManager.state.unpause()
+		}
+	}
+
+	override fun onDestroy() {
+		super.onDestroy()
+
+		displayModeSwitcher?.reset()
+		displayModeSwitcher = null
 	}
 
 	override fun onStop() {
