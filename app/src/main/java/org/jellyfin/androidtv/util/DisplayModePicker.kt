@@ -57,6 +57,8 @@ object DisplayModePicker {
 		return if (chosen.id == current.id) null else chosen.id
 	}
 
+	// Rates are in hundredths of a hertz. One hundredth of slack absorbs rounding: 23.976 x 2.5 is
+	// 5994.0 at the source's precision but 5995 after rounding 2398 up first.
 	private fun rateMatches(rate: Int, sourceRate: Int): Boolean =
-		rate == sourceRate || rate == sourceRate * 2 || rate == (sourceRate * 2.5f).roundToInt()
+		listOf(sourceRate, sourceRate * 2, (sourceRate * 2.5f).roundToInt()).any { abs(rate - it) <= 1 }
 }

@@ -72,16 +72,17 @@ class VideoPlayerFragment : Fragment() {
 		)
 		Timber.i("Created a queue with ${queueSupplier.items.size} items, starting at $startPosition")
 		playbackManager.queue.clear()
-		playbackManager.queue.addSupplier(queueSupplier)
 
-		// Switch the display mode before playback starts, so the HDMI re-sync happens before the
-		// audio passthrough and the display-link monitors start.
+		// Switch the display mode before the queue is filled, so the HDMI re-sync is over before the
+		// player prepares: the audio track pick reads the HDMI sink's capabilities, and a pick made
+		// mid re-sync loses passthrough (TrueHD falls back to AC3 or decode and stays there).
 		val switcher = DisplayModeSwitcher(requireActivity(), userPreferences[UserPreferences.refreshRateSwitchingBehavior])
 		displayModeSwitcher = switcher
 		val firstItem = queueSupplier.items.firstOrNull()
 		initialModeSwitch = lifecycleScope.async {
 			runCatching { switcher.switchFor(withVideoStream(firstItem)) }
 				.onFailure { Timber.w(it, "Display mode switch failed") }
+			playbackManager.queue.addSupplier(queueSupplier)
 			Unit
 		}
 		switchModePerEntry(switcher)
@@ -109,10 +110,17 @@ class VideoPlayerFragment : Fragment() {
 				.drop(1)
 				.collect { item ->
 					initialModeSwitch?.await()
+					val target = runCatching { switcher.targetFor(withVideoStream(item)) }.getOrNull()
+						?: return@collect
+
+					// Pause across the re-sync so passthrough is not open while the link drops.
+					val wasPlaying = playbackManager.state.playState.value == PlayState.PLAYING
+					playbackManager.state.pause()
 					displayLinkMonitor?.stop()
-					runCatching { switcher.switchFor(withVideoStream(item)) }
+					runCatching { switcher.apply(target) }
 						.onFailure { Timber.w(it, "Display mode switch failed") }
 					if (view != null && !leaving) displayLinkMonitor = startDisplayLinkMonitor()
+					if (wasPlaying && isResumed && !leaving) playbackManager.state.unpause()
 				}
 		}
 	}

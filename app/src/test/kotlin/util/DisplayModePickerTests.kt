@@ -47,6 +47,14 @@ class DisplayModePickerTests : FunSpec({
 	test("a rate no mode offers stays put") { pick(3840, 2160, 17f) shouldBe null }
 	test("12.5 fps doubles to 2160p25") { pick(3840, 2160, 12.5f) shouldBe 18 }
 	test("already in the best mode returns null") { pick(3840, 2160, 23.976f, from = shieldModes.first { it.id == 8 }) shouldBe null }
+	test("23.976 with no 24 Hz mode falls back to 59.94 (2.5x)") {
+		val no24 = shieldModes.filter { it.refreshRate < 23f || it.refreshRate > 25f }
+		DisplayModePicker.pick(no24, shieldModes.first { it.id == 22 }, 3840, 2160, 23.976f, device) shouldBe 23
+	}
+	test("mode ids re-numbered after an HDMI replug still resolve by fps") {
+		val renumbered = shieldModes.map { it.copy(id = it.id + 22) }
+		DisplayModePicker.pick(renumbered, renumbered.last(), 3840, 2160, 23.976f, device) shouldBe 30
+	}
 	test("empty mode list stays put") {
 		DisplayModePicker.pick(emptyList(), current, 3840, 2160, 23.976f, device) shouldBe null
 	}
