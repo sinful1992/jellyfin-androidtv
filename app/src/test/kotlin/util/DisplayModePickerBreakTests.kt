@@ -1,0 +1,174 @@
+package org.jellyfin.androidtv.util
+
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import org.jellyfin.androidtv.preference.constant.RefreshRateSwitchingBehavior
+import org.jellyfin.androidtv.util.DisplayModePicker.Mode
+
+// Same 23 modes as DisplayModePickerTests. 3 tests are hand-traced to FAIL against 256fd3be5, named "EXPECTED FAIL".
+private val modes = listOf(
+	Mode(1, 1280, 720, 29.97003f), Mode(2, 1280, 720, 23.976025f), Mode(3, 1920, 1080, 29.97003f),
+	Mode(4, 1920, 1080, 23.976025f), Mode(5, 1280, 720, 59.94006f), Mode(6, 1920, 1080, 59.94006f),
+	Mode(7, 3840, 2160, 29.97003f), Mode(8, 3840, 2160, 23.976025f), Mode(9, 720, 480, 60.000004f),
+	Mode(10, 1280, 720, 30.000002f), Mode(11, 1280, 720, 24.000002f), Mode(12, 1920, 1080, 30.000002f),
+	Mode(13, 1920, 1080, 24.000002f), Mode(14, 1280, 720, 50.0f), Mode(15, 1280, 720, 60.000004f),
+	Mode(16, 1920, 1080, 50.0f), Mode(17, 3840, 2160, 30.000002f), Mode(18, 3840, 2160, 25.0f),
+	Mode(19, 3840, 2160, 24.000002f), Mode(20, 3840, 2160, 50.0f), Mode(21, 1920, 1080, 60.000004f),
+	Mode(22, 3840, 2160, 60.000004f), Mode(23, 3840, 2160, 59.94006f),
+)
+private fun mode(id: Int) = modes.first { it.id == id }
+private val device = RefreshRateSwitchingBehavior.SCALE_ON_DEVICE
+private val tv = RefreshRateSwitchingBehavior.SCALE_ON_TV
+
+private fun dev(w: Int?, h: Int?, fps: Float?, from: Int = 23) =
+	DisplayModePicker.pick(modes, mode(from), w, h, fps, device)
+
+private fun onTv(w: Int?, h: Int?, fps: Float?, from: Int = 23) =
+	DisplayModePicker.pick(modes, mode(from), w, h, fps, tv)
+
+class DisplayModePickerBreakTests : FunSpec({
+	context("fractional and exact rates, 4K output") {
+		test("23.976 family lands on 23.976, never 24") {
+			dev(3840, 2160, 23.976f) shouldBe 8
+			dev(3840, 2160, 23.976025f) shouldBe 8
+			dev(3840, 2160, 23.98f) shouldBe 8
+			dev(3840, 2160, 23.97f) shouldBe 8
+		}
+		test("24 lands on 24, never 23.976") {
+			dev(3840, 2160, 24f) shouldBe 19
+			dev(3840, 2160, 24.000002f) shouldBe 19
+		}
+		test("25 lands on 25, not its 50 double") { dev(3840, 2160, 25f) shouldBe 18 }
+		test("29.97 lands on 29.97, not 30 or its 59.94 double") { dev(3840, 2160, 29.97f) shouldBe 7 }
+		test("30 lands on 30, not 29.97 or its 60 double") { dev(3840, 2160, 30f) shouldBe 17 }
+		test("50 lands on 50") { dev(3840, 2160, 50f) shouldBe 20 }
+		test("60 from 59.94 moves to 60") { dev(3840, 2160, 60f) shouldBe 22 }
+		test("59.94 from 60 moves to 59.94") { dev(3840, 2160, 59.94f, from = 22) shouldBe 23 }
+		test("already in the right mode stays") {
+			dev(3840, 2160, 59.94f, from = 23) shouldBe null
+			dev(3840, 2160, 60f, from = 22) shouldBe null
+			dev(3840, 2160, 25f, from = 18) shouldBe null
+		}
+		test("multiples: 12 prefers 24 over 30, 15 goes to 30") {
+			dev(3840, 2160, 12f) shouldBe 19
+			dev(3840, 2160, 15f) shouldBe 17
+		}
+		test("no mode for the rate or a multiple stays") {
+			dev(3840, 2160, 48f) shouldBe null
+			dev(3840, 2160, 47.952f) shouldBe null
+		}
+		test("29.97 with no 29.97 mode falls back to 59.94") {
+			val without = modes.filter { it.id != 7 }
+			DisplayModePicker.pick(without, mode(22), 3840, 2160, 29.97f, device) shouldBe 23
+		}
+	}
+
+	context("missing and junk data never switches and never throws") {
+		test("frame rate") {
+			dev(3840, 2160, null) shouldBe null
+			dev(3840, 2160, 0f) shouldBe null
+			dev(3840, 2160, -23.976f) shouldBe null
+			dev(3840, 2160, Float.NaN) shouldBe null
+			dev(3840, 2160, Float.POSITIVE_INFINITY) shouldBe null
+			dev(3840, 2160, 0.001f) shouldBe null
+		}
+		test("size") {
+			dev(null, 2160, 23.976f) shouldBe null
+			dev(3840, null, 23.976f) shouldBe null
+			dev(0, 2160, 23.976f) shouldBe null
+			dev(3840, 0, 23.976f) shouldBe null
+			dev(-1, -1, 23.976f) shouldBe null
+		}
+		test("disabled wins over everything") {
+			DisplayModePicker.pick(modes, mode(23), 3840, 2160, 23.976f, RefreshRateSwitchingBehavior.DISABLED) shouldBe null
+		}
+		test("no usable modes") {
+			DisplayModePicker.pick(emptyList(), mode(23), 3840, 2160, 23.976f, device) shouldBe null
+			dev(3840, 2160, 23.976f, from = 9) shouldBe null
+		}
+	}
+
+	context("modes re-numbered") {
+		val renumbered = modes.reversed().map { it.copy(id = 100 - it.id) }
+		fun re(id: Int) = renumbered.first { it.id == 100 - id }
+
+		test("the rate decides, not the id or the list order") {
+			DisplayModePicker.pick(renumbered, re(23), 3840, 2160, 23.976f, device) shouldBe 92
+			DisplayModePicker.pick(renumbered, re(23), 3840, 2160, 25f, device) shouldBe 82
+			DisplayModePicker.pick(renumbered, re(23), 1920, 1080, 23.976f, tv) shouldBe 96
+		}
+		test("already there under the new ids stays") {
+			DisplayModePicker.pick(renumbered, re(8), 3840, 2160, 23.976f, device) shouldBe null
+		}
+		test("a current mode whose id is stale still resolves") {
+			val stale = Mode(999, 3840, 2160, 59.94006f)
+			DisplayModePicker.pick(modes, stale, 3840, 2160, 23.976f, device) shouldBe 8
+		}
+	}
+
+	context("1440x1080") {
+		test("device scaling keeps the 4K output") {
+			dev(1440, 1080, 23.976f) shouldBe 8
+			dev(1440, 1080, 25f) shouldBe 18
+			dev(1440, 1080, 29.97f) shouldBe 7
+		}
+		test("TV scaling takes 1080p where the rate exists") {
+			onTv(1440, 1080, 23.976f) shouldBe 4
+			onTv(1440, 1080, 29.97f) shouldBe 3
+			onTv(1440, 1080, 50f) shouldBe 16
+			onTv(1440, 1080, 59.94f) shouldBe 6
+		}
+		test("TV scaling prefers 2160p25 over 1080p50") { onTv(1440, 1080, 25f) shouldBe 18 }
+	}
+
+	context("SCALE_ON_TV against SCALE_ON_DEVICE") {
+		test("same film, different output") {
+			onTv(1920, 1080, 23.976f) shouldBe 4
+			dev(1920, 1080, 23.976f) shouldBe 8
+			onTv(1280, 720, 23.976f) shouldBe 2
+			dev(1280, 720, 23.976f) shouldBe 8
+		}
+		test("TV never goes below the video size") {
+			onTv(3840, 2160, 23.976f) shouldBe 8
+			onTv(3840, 1600, 23.976f) shouldBe 8
+		}
+		test("scope ratio uses the width") {
+			onTv(1920, 800, 23.976f) shouldBe 4
+			onTv(1280, 536, 23.976f) shouldBe 2
+		}
+		test("SD on TV: no 720x480 output, smallest mode with the rate") {
+			onTv(720, 480, 29.97f) shouldBe 1
+			onTv(720, 480, 60f) shouldBe 15
+		}
+		test("PAL SD and 720p at 25 prefer the true rate over 720p50") {
+			onTv(720, 576, 25f) shouldBe 18
+			onTv(1280, 720, 25f) shouldBe 18
+		}
+		test("device scaling from a 1080p output stays at 1080p") {
+			dev(3840, 2160, 23.976f, from = 21) shouldBe 4
+			dev(1920, 1080, 25f, from = 21) shouldBe 16
+		}
+		test("TV scaling at the current mode stays") { onTv(1920, 1080, 23.976f, from = 4) shouldBe null }
+	}
+
+	// Outside the task 125 contract (DCI width on TV scaling, a contrived tie, another-size fallback):
+	// these fail on the current picker by design and are kept as a record, disabled.
+	xcontext("expected to fail on 256fd3be5") {
+		// mode.width < width drops every mode, so DCI-width films never switch under SCALE_ON_TV.
+		test("EXPECTED FAIL: DCI 4K on TV scaling picks the largest output at the film's rate") {
+			onTv(4096, 2160, 23.976f) shouldBe 8
+			onTv(4096, 1716, 23.976f) shouldBe 8
+			onTv(3996, 2160, 24f) shouldBe 19
+		}
+		// weight > bestWeight keeps the first of a tie, even when the second is the current mode.
+		test("EXPECTED FAIL: a tie with the current mode does not switch") {
+			val twin = Mode(30, 3840, 2160, 59.94006f)
+			DisplayModePicker.pick(listOf(mode(23), twin), twin, 3840, 2160, 59.94f, device) shouldBe null
+		}
+		// The enum's KDoc says "otherwise use difference in resolution"; the picker filters instead.
+		test("EXPECTED FAIL: device scaling leaves the native size when only another size has the rate") {
+			val only = listOf(Mode(1, 1920, 1080, 60f), Mode(2, 3840, 2160, 23.976025f))
+			DisplayModePicker.pick(only, only[0], 1920, 1080, 23.976f, device) shouldBe 2
+		}
+	}
+})

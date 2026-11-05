@@ -12,10 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
@@ -26,6 +23,7 @@ import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.DisplayLinkMonitor
 import org.jellyfin.androidtv.util.DisplayModeSwitcher
+import org.jellyfin.androidtv.util.switchThenStart
 import org.jellyfin.playback.core.PlaybackEvent
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.model.PlayState
@@ -57,6 +55,7 @@ class VideoPlayerFragment : Fragment() {
 	private var playbackStarted = false
 	private var unpauseOnResume = true
 	private var leaving = false
+	private var stopped = false
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -80,12 +79,13 @@ class VideoPlayerFragment : Fragment() {
 		displayModeSwitcher = switcher
 		val firstItem = queueSupplier.items.firstOrNull()
 		initialModeSwitch = lifecycleScope.async {
-			runCatching { switcher.switchFor(withVideoStream(firstItem)) }
-				.onFailure { Timber.w(it, "Display mode switch failed") }
-			playbackManager.queue.addSupplier(queueSupplier)
-			Unit
+			val started = switchThenStart(
+				switch = { switcher.switchFor(withVideoStream(firstItem)) },
+				isGone = { leaving || stopped },
+				start = { playbackManager.queue.addSupplier(queueSupplier) },
+			)
+			if (!started) Timber.i("Player left during the display mode switch, playback not started")
 		}
-		switchModePerEntry(switcher)
 
 		awaitPlaybackStart()
 		reportPlaybackEvents()
@@ -99,30 +99,6 @@ class VideoPlayerFragment : Fragment() {
 		if (item == null) return null
 		if (item.mediaStreams?.any { it.type == MediaStreamType.VIDEO } == true) return item
 		return runCatching { api.userLibraryApi.getItem(item.id).content }.getOrNull()
-	}
-
-	/** Later queue entries (the next episode) can have another frame rate. */
-	private fun switchModePerEntry(switcher: DisplayModeSwitcher) {
-		lifecycleScope.launch {
-			playbackManager.queue.entry
-				.mapNotNull { it?.baseItem }
-				.distinctUntilChanged { old, new -> old.id == new.id }
-				.drop(1)
-				.collect { item ->
-					initialModeSwitch?.await()
-					val target = runCatching { switcher.targetFor(withVideoStream(item)) }.getOrNull()
-						?: return@collect
-
-					// Pause across the re-sync so passthrough is not open while the link drops.
-					val wasPlaying = playbackManager.state.playState.value == PlayState.PLAYING
-					playbackManager.state.pause()
-					displayLinkMonitor?.stop()
-					runCatching { switcher.apply(target) }
-						.onFailure { Timber.w(it, "Display mode switch failed") }
-					if (view != null && !leaving) displayLinkMonitor = startDisplayLinkMonitor()
-					if (wasPlaying && isResumed && !leaving) playbackManager.state.unpause()
-				}
-		}
 	}
 
 	/**
@@ -266,6 +242,8 @@ class VideoPlayerFragment : Fragment() {
 
 	override fun onStop() {
 		super.onStop()
+
+		stopped = true
 
 		playbackManager.state.stop()
 	}
