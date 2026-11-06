@@ -11,7 +11,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
@@ -39,10 +41,14 @@ import timber.log.Timber
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class VideoPlayerFragment : Fragment() {
 	companion object {
 		const val EXTRA_POSITION: String = "position"
+
+		/** Matches [DisplayModeSwitcher]'s settle: how long a returned HDMI link gets before playback starts. */
+		private val PENDING_START_SETTLE = 5.seconds
 	}
 
 	private val videoQueueManager by inject<VideoQueueManager>()
@@ -60,6 +66,7 @@ class VideoPlayerFragment : Fragment() {
 	private var stopped = false
 
 	private val pendingStart = PendingStart()
+	private var pendingStartJob: Job? = null
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -263,14 +270,21 @@ class VideoPlayerFragment : Fragment() {
 		// activity): let the switch start playback after all.
 		stopped = false
 
-		// Back after the switch finished while stopped: start the queue it held back.
-		pendingStart.release(leaving)
+		// Back after the switch finished while stopped: start the queue it held back, once the HDMI
+		// link that just came back has settled, so the audio pick does not lose passthrough.
+		pendingStartJob?.cancel()
+		pendingStartJob = lifecycleScope.launch {
+			delay(PENDING_START_SETTLE)
+			if (!stopped) pendingStart.release(leaving)
+		}
 	}
 
 	override fun onStop() {
 		super.onStop()
 
 		stopped = true
+		pendingStartJob?.cancel()
+		pendingStartJob = null
 
 		playbackManager.state.stop()
 	}
