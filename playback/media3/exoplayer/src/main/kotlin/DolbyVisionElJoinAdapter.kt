@@ -25,7 +25,7 @@ class DolbyVisionElJoinAdapterFactory(
 }
 
 @OptIn(UnstableApi::class)
-private class DolbyVisionElJoinAdapter(
+internal class DolbyVisionElJoinAdapter(
 	private val inner: MediaCodecAdapter,
 ) : MediaCodecAdapter by inner {
 	private val join = DolbyVisionElJoin()

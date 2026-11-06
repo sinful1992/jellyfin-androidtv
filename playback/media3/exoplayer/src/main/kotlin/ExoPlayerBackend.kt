@@ -221,9 +221,8 @@ class ExoPlayerBackend(
 		} else DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
 		val renderersFactory = object : DefaultRenderersFactory(context) {
-			// A Dolby Vision profile 7 decoder gets its enhancement layer only from that layer's own
-			// start after a start or seek: NVIDIA's decoder crashed on every resume of a film whose
-			// layers start apart (task 127).
+			// A new Dolby Vision profile 7 decoder gets the enhancement layer only from that layer's
+			// own start: NVIDIA's decoder crashed on every resume of a file whose layers start apart.
 			override fun getCodecAdapterFactory(): MediaCodecAdapter.Factory =
 				DolbyVisionElJoinAdapterFactory(super.getCodecAdapterFactory())
 
