@@ -20,7 +20,8 @@ object DisplayModePicker {
 	data class Mode(val id: Int, val width: Int, val height: Int, val refreshRate: Float)
 
 	/**
-	 * @return the id of the mode to switch to, or null to stay in [current].
+	 * @return the id of the mode to play in ([current]'s id when it already is the right one), or
+	 * null when this video wants no particular mode, so the display should be in its default mode.
 	 */
 	fun pick(
 		modes: List<Mode>,
@@ -67,8 +68,7 @@ object DisplayModePicker {
 			}
 		}
 
-		val chosen = best ?: return null
-		return if (chosen.id == current.id) null else chosen.id
+		return best?.id
 	}
 
 	// Rates are in hundredths of a hertz. One hundredth of slack absorbs rounding: 23.976 x 2.5 is

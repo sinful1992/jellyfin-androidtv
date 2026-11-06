@@ -64,10 +64,13 @@ class DisplayModePickerBreakTests : FunSpec({
 			dev(3840, 2160, 23.976f, from = 18) shouldBe 8
 			dev(3840, 2160, 24f, from = 20) shouldBe 19
 		}
-		test("already in the right mode stays") {
+		test("already in the right mode returns that mode") {
+			dev(3840, 2160, 23.976f, from = 8) shouldBe 8
+			dev(3840, 2160, 25f, from = 20) shouldBe 20
+		}
+		test("59.94 and 60 content want no mode of their own") {
 			dev(3840, 2160, 59.94f, from = 23) shouldBe null
 			dev(3840, 2160, 60f, from = 22) shouldBe null
-			dev(3840, 2160, 25f, from = 20) shouldBe null
 		}
 		test("12 and 15 are not film rates and stay") {
 			dev(3840, 2160, 12f) shouldBe null
@@ -118,7 +121,7 @@ class DisplayModePickerBreakTests : FunSpec({
 			DisplayModePicker.pick(renumbered, re(23), 1920, 1080, 23.976f, tv) shouldBe 96
 		}
 		test("already there under the new ids stays") {
-			DisplayModePicker.pick(renumbered, re(8), 3840, 2160, 23.976f, device) shouldBe null
+			DisplayModePicker.pick(renumbered, re(8), 3840, 2160, 23.976f, device) shouldBe 92
 		}
 		test("a current mode whose id is stale still resolves") {
 			val stale = Mode(999, 3840, 2160, 59.94006f)
@@ -166,7 +169,7 @@ class DisplayModePickerBreakTests : FunSpec({
 			dev(3840, 2160, 23.976f, from = 21) shouldBe 4
 			dev(1920, 1080, 25f, from = 21) shouldBe 16
 		}
-		test("TV scaling at the current mode stays") { onTv(1920, 1080, 23.976f, from = 4) shouldBe null }
+		test("TV scaling at the current mode returns it") { onTv(1920, 1080, 23.976f, from = 4) shouldBe 4 }
 	}
 
 	// Outside the task 125 contract (DCI width on TV scaling, a contrived tie, another-size fallback):

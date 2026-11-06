@@ -30,7 +30,29 @@ class DisplayModeSwitcher(
 	private val modeTimeout: Duration = 8.seconds,
 	private val settleDelay: Duration = 5.seconds,
 ) {
-	private companion object {
+	/** What to do with the display for the next video. */
+	sealed interface Action {
+		/** Stay in the mode the display is in. */
+		data object Keep : Action
+
+		/** Switch to the mode with [id]. */
+		data class Switch(val id: Int) : Action
+
+		/** Hand the display back to its default mode, which an earlier player left changed. */
+		data object Default : Action
+	}
+
+	companion object {
+		/**
+		 * @param picked the mode [DisplayModePicker] chose, or null when the video wants none.
+		 * @param windowPreferred the window's preferredDisplayModeId; 0 means the default mode.
+		 */
+		fun decide(picked: Int?, currentId: Int, windowPreferred: Int): Action = when {
+			picked == null && windowPreferred != 0 -> Action.Default
+			picked == null || picked == currentId -> Action.Keep
+			else -> Action.Switch(picked)
+		}
+
 		/**
 		 * The switcher whose mode the window holds. A player opened before the previous one is
 		 * destroyed takes this over, so the old player's [reset] can no longer undo the new mode.
@@ -44,8 +66,8 @@ class DisplayModeSwitcher(
 		get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) activity.display
 		else activity.windowManager.defaultDisplay
 
-	/** The mode [item] should play in, or null when no switch is wanted or possible. */
-	fun targetFor(item: BaseItemDto?): Int? {
+	/** The mode [item] should play in, or null when it wants none or the display is unknown. */
+	private fun targetFor(item: BaseItemDto?): Int? {
 		if (behavior == RefreshRateSwitchingBehavior.DISABLED) return null
 		val display = display ?: run {
 			Timber.w("No display to switch the mode of")
@@ -61,8 +83,6 @@ class DisplayModeSwitcher(
 			behavior = behavior,
 		)
 		Timber.i("Display mode for %sx%s@%s: %s (current %d)", video?.width, video?.height, video?.realFrameRate, target, display.mode.modeId)
-		// Already in the right mode: still claim the window, so an older player's reset can't undo it.
-		if (target == null) owner = this
 		return target
 	}
 
@@ -74,16 +94,42 @@ class DisplayModeSwitcher(
 		owner = this
 		setPreferredMode(modeId)
 
-		val reached = withTimeoutOrNull(modeTimeout) { awaitMode(modeId) } != null
+		val reached = withTimeoutOrNull(modeTimeout) { awaitMode { it == modeId } } != null
 		Timber.i("Display mode %d %s", modeId, if (reached) "reached" else "not reached in $modeTimeout")
 		delay(settleDelay)
 	}
 
-	/** [targetFor] then [apply]. Returns true when a switch was made. */
+	/**
+	 * Put the display in the mode [item] should play in: its own, or the default one when it wants
+	 * none (an earlier player's film mode must not carry over to a 29.97 show). Returns true when the
+	 * mode was changed.
+	 */
 	suspend fun switchFor(item: BaseItemDto?): Boolean {
-		val target = targetFor(item) ?: return false
-		apply(target)
-		return true
+		val currentId = display?.mode?.modeId ?: 0
+		val windowPreferred = activity.window?.attributes?.preferredDisplayModeId ?: 0
+		return when (val action = decide(targetFor(item), currentId, windowPreferred)) {
+			// Still claim the window, so an older player's reset can't undo the mode.
+			Action.Keep -> {
+				owner = this
+				false
+			}
+
+			is Action.Switch -> {
+				apply(action.id)
+				true
+			}
+
+			Action.Default -> {
+				owner = this
+				setPreferredMode(0)
+				val reached = withTimeoutOrNull(modeTimeout) { awaitMode { it != currentId } } != null
+				// Not reached means the default mode is the one the display was already in: no
+				// re-sync happened, so there is nothing to settle.
+				Timber.i("Display mode default %s", if (reached) "reached" else "unchanged after $modeTimeout")
+				if (reached) delay(settleDelay)
+				reached
+			}
+		}
 	}
 
 	/** Hand the display back to the system default mode, unless a newer player has taken it over. */
@@ -101,14 +147,15 @@ class DisplayModeSwitcher(
 		window.attributes = params
 	}
 
-	private suspend fun awaitMode(modeId: Int) {
+	private suspend fun awaitMode(reached: (Int) -> Boolean) {
 		val displayManager = activity.getSystemService(DisplayManager::class.java) ?: return
 		suspendCancellableCoroutine { continuation ->
 			val listener = object : DisplayManager.DisplayListener {
 				override fun onDisplayAdded(displayId: Int) = Unit
 				override fun onDisplayRemoved(displayId: Int) = Unit
 				override fun onDisplayChanged(displayId: Int) {
-					if (display?.mode?.modeId == modeId && continuation.isActive) {
+					val id = display?.mode?.modeId
+					if (id != null && reached(id) && continuation.isActive) {
 						displayManager.unregisterDisplayListener(this)
 						continuation.resume(Unit)
 					}
@@ -116,7 +163,7 @@ class DisplayModeSwitcher(
 			}
 			displayManager.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
 			continuation.invokeOnCancellation { displayManager.unregisterDisplayListener(listener) }
-			if (display?.mode?.modeId == modeId) {
+			if (display?.mode?.modeId?.let(reached) == true) {
 				displayManager.unregisterDisplayListener(listener)
 				continuation.resume(Unit)
 			}

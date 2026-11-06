@@ -46,7 +46,11 @@ class DisplayModePickerTests : FunSpec({
 	}
 	test("a rate no mode offers stays put") { pick(3840, 2160, 17f) shouldBe null }
 	test("12.5 fps is not a film rate and stays put") { pick(3840, 2160, 12.5f) shouldBe null }
-	test("already in the best mode returns null") { pick(3840, 2160, 23.976f, from = shieldModes.first { it.id == 8 }) shouldBe null }
+	test("already in the best mode returns that mode") { pick(3840, 2160, 23.976f, from = shieldModes.first { it.id == 8 }) shouldBe 8 }
+	test("a 29.97 show after a film asks for the default mode (null), not the film's 23.976") {
+		pick(1920, 1080, 29.97f, from = shieldModes.first { it.id == 8 }) shouldBe null
+		pick(1920, 1080, 29.97f, from = shieldModes.first { it.id == 19 }) shouldBe null
+	}
 	test("23.976 with no 24 Hz mode falls back to 59.94 (2.5x)") {
 		val no24 = shieldModes.filter { it.refreshRate < 23f || it.refreshRate > 25f }
 		DisplayModePicker.pick(no24, shieldModes.first { it.id == 22 }, 3840, 2160, 23.976f, device) shouldBe 23
