@@ -47,7 +47,10 @@ class VideoPlayerFragment : Fragment() {
 	companion object {
 		const val EXTRA_POSITION: String = "position"
 
-		/** Matches [DisplayModeSwitcher]'s settle: how long a returned HDMI link gets before playback starts. */
+		/**
+		 * How long a returned HDMI link gets before a held start runs. Longer than [DisplayModeSwitcher]'s
+		 * 2 s settle: this path only runs after a re-sync long enough to stop the player.
+		 */
 		private val PENDING_START_SETTLE = 5.seconds
 	}
 

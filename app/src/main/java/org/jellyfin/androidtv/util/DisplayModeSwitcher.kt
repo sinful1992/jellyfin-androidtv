@@ -28,7 +28,7 @@ class DisplayModeSwitcher(
 	private val activity: Activity,
 	private val behavior: RefreshRateSwitchingBehavior,
 	private val modeTimeout: Duration = 8.seconds,
-	private val settleDelay: Duration = 5.seconds,
+	private val settleDelay: Duration = 2.seconds,
 ) {
 	/** What to do with the display for the next video. */
 	sealed interface Action {
