@@ -10,6 +10,9 @@ import kotlin.math.roundToInt
  * Pure: the caller passes the display's modes and the video's size and frame rate.
  */
 object DisplayModePicker {
+	/** 23.976 and 24 fps, in hundredths of a hertz, with one hundredth of slack each way. */
+	private val FILM_RATES = 2397..2401
+
 	data class Mode(val id: Int, val width: Int, val height: Int, val refreshRate: Float)
 
 	/**
@@ -29,6 +32,9 @@ object DisplayModePicker {
 		val height = videoHeight?.takeIf { it > 0 } ?: return null
 
 		val sourceRate = (frameRate * 100).roundToInt()
+		// Only films switch (USER, task 127): 25/50 fps looked worse to the household at a matched
+		// rate than at 59.94, and 29.97/30 already divide 59.94/60 evenly.
+		if (sourceRate !in FILM_RATES) return null
 
 		var best: Mode? = null
 		var bestWeight = Int.MIN_VALUE

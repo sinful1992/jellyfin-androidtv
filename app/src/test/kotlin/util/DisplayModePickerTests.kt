@@ -25,10 +25,10 @@ private fun pick(w: Int?, h: Int?, fps: Float?, behavior: RefreshRateSwitchingBe
 class DisplayModePickerTests : FunSpec({
 	test("4K 23.976 film goes to 2160p23.976") { pick(3840, 2160, 23.976f) shouldBe 8 }
 	test("24.000 fps goes to 2160p24, not 23.976") { pick(3840, 2160, 24f) shouldBe 19 }
-	test("25 fps UK episode goes to 2160p25, not 50") { pick(1920, 1080, 25f) shouldBe 18 }
-	test("29.97 fps goes to 2160p29.97") { pick(1440, 1080, 29.97f) shouldBe 7 }
+	test("25 fps UK episode stays at 59.94: only films switch") { pick(1920, 1080, 25f) shouldBe null }
+	test("29.97 fps stays at 59.94: only films switch") { pick(1440, 1080, 29.97f) shouldBe null }
 	test("59.94 content stays put") { pick(3840, 2160, 59.94f) shouldBe null }
-	test("50 fps goes to 2160p50") { pick(1920, 1080, 50f) shouldBe 20 }
+	test("50 fps stays at 59.94: only films switch") { pick(1920, 1080, 50f) shouldBe null }
 	test("1080p content keeps the 2160 output when scaling on device") { pick(1920, 1080, 23.976f) shouldBe 8 }
 	test("scaling on the TV picks 1080p23.976 for 1080p content") {
 		pick(1920, 1080, 23.976f, RefreshRateSwitchingBehavior.SCALE_ON_TV) shouldBe 4
@@ -45,7 +45,7 @@ class DisplayModePickerTests : FunSpec({
 		pick(0, 0, 23.976f) shouldBe null
 	}
 	test("a rate no mode offers stays put") { pick(3840, 2160, 17f) shouldBe null }
-	test("12.5 fps doubles to 2160p25") { pick(3840, 2160, 12.5f) shouldBe 18 }
+	test("12.5 fps is not a film rate and stays put") { pick(3840, 2160, 12.5f) shouldBe null }
 	test("already in the best mode returns null") { pick(3840, 2160, 23.976f, from = shieldModes.first { it.id == 8 }) shouldBe null }
 	test("23.976 with no 24 Hz mode falls back to 59.94 (2.5x)") {
 		val no24 = shieldModes.filter { it.refreshRate < 23f || it.refreshRate > 25f }
