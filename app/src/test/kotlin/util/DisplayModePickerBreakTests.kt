@@ -67,7 +67,7 @@ class DisplayModePickerBreakTests : FunSpec({
 		test("already in the right mode stays") {
 			dev(3840, 2160, 59.94f, from = 23) shouldBe null
 			dev(3840, 2160, 60f, from = 22) shouldBe null
-			dev(3840, 2160, 25f, from = 18) shouldBe null
+			dev(3840, 2160, 25f, from = 20) shouldBe null
 		}
 		test("12 and 15 are not film rates and stay") {
 			dev(3840, 2160, 12f) shouldBe null
