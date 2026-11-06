@@ -43,7 +43,7 @@ class DisplayModePickerBreakTests : FunSpec({
 			dev(3840, 2160, 25f) shouldBe 20
 			dev(3840, 2160, 25.0f) shouldBe 20
 			dev(3840, 2160, 50f) shouldBe 20
-			dev(3840, 2160, 25f, from = 20) shouldBe null
+			dev(3840, 2160, 25f, from = 20) shouldBe 20
 			dev(3840, 2160, 25f, from = 18) shouldBe 20
 		}
 		test("25 fps with no 50 Hz mode stays") {
