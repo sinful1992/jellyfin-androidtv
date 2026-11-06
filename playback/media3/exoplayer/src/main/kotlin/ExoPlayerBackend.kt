@@ -23,6 +23,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -220,6 +221,12 @@ class ExoPlayerBackend(
 		} else DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
 		val renderersFactory = object : DefaultRenderersFactory(context) {
+			// A Dolby Vision profile 7 decoder gets its enhancement layer only from that layer's own
+			// start after a start or seek: NVIDIA's decoder crashed on every resume of a film whose
+			// layers start apart (task 127).
+			override fun getCodecAdapterFactory(): MediaCodecAdapter.Factory =
+				DolbyVisionElJoinAdapterFactory(super.getCodecAdapterFactory())
+
 			@Suppress("DEPRECATION")
 			override fun buildAudioSink(
 				context: Context,
