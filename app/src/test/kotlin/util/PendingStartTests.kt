@@ -8,8 +8,10 @@ class PendingStartTests : FunSpec({
 		var started = 0
 		val pending = PendingStart()
 		pending.hold { started++ }
+		pending.isHeld shouldBe true
 		pending.release(leaving = false)
 		started shouldBe 1
+		pending.isHeld shouldBe false
 	}
 
 	test("a second release does not start twice") {

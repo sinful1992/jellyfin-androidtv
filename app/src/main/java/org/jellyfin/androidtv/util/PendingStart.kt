@@ -8,6 +8,8 @@ package org.jellyfin.androidtv.util
 class PendingStart {
 	private var start: (() -> Unit)? = null
 
+	val isHeld: Boolean get() = start != null
+
 	fun hold(start: () -> Unit) {
 		this.start = start
 	}

@@ -98,7 +98,11 @@ class VideoPlayerFragment : Fragment() {
 			if (!started && !leaving) {
 				// Stopped by an HDMI re-sync that outlasted the switch: start when the player is back.
 				Timber.i("Player stopped during the display mode switch, starting when it returns")
-				pendingStart.hold { playbackManager.queue.addSupplier(queueSupplier) }
+				pendingStart.hold {
+					playbackManager.queue.addSupplier(queueSupplier)
+					// The monitors were held back with the start (see onViewCreated).
+					if (view != null && displayLinkMonitor == null) displayLinkMonitor = startDisplayLinkMonitor()
+				}
 			} else if (!started) {
 				Timber.i("Player left during the display mode switch, playback not started")
 			}
@@ -211,7 +215,9 @@ class VideoPlayerFragment : Fragment() {
 
 		viewLifecycleOwner.lifecycleScope.launch {
 			initialModeSwitch?.await()
-			displayLinkMonitor = startDisplayLinkMonitor()
+			// A start held back by a long re-sync starts the monitors itself once it runs: started
+			// now, mid re-sync, they could close the player before the film ever starts.
+			if (!pendingStart.isHeld) displayLinkMonitor = startDisplayLinkMonitor()
 		}
 	}
 
