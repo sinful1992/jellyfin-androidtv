@@ -8,8 +8,10 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter
 
 /**
  * Wraps codec adapters so a Dolby Vision profile 7 decoder gets its enhancement layer only from the
- * layer's own start point after the codec is created or flushed (see [DolbyVisionElJoin]). Every
- * other codec is handed back unwrapped.
+ * layer's own start point after the codec is created (see [DolbyVisionElJoin]). A flush (a seek
+ * while playing) does not hold it back again: the decoder already has the EL's setup by then, and
+ * seeking while playing never crashed. Every other codec is handed back unwrapped. Encrypted input
+ * (queueSecureInputBuffer) is passed as it is.
  */
 @OptIn(UnstableApi::class)
 class DolbyVisionElJoinAdapterFactory(
@@ -40,11 +42,6 @@ private class DolbyVisionElJoinAdapter(
 			}
 		}
 		inner.queueInputBuffer(index, offset, queuedSize, presentationTimeUs, flags)
-	}
-
-	override fun flush() {
-		inner.flush()
-		join.reset()
 	}
 
 	override fun registerOnBufferAvailableListener(listener: MediaCodecAdapter.OnBufferAvailableListener): Boolean =

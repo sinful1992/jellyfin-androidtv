@@ -72,11 +72,10 @@ class DolbyVisionElJoinTests : FunSpec({
 		join.run(warfareKey).toList() shouldBe warfareKey.toList()
 	}
 
-	test("a flush holds the EL back again until its next start") {
+	test("a stream whose EL never starts stays base layer and RPU, every frame") {
 		val join = DolbyVisionElJoin()
-		join.run(elStart)
-		join.reset()
-		join.run(midElKeyframe).toList() shouldBe baseOnly.toList()
+		repeat(50) { join.run(midElKeyframe).toList() shouldBe baseOnly.toList() }
+		join.waiting shouldBe true
 	}
 
 	test("EL parameter sets without an EL IRAP after them are dropped") {

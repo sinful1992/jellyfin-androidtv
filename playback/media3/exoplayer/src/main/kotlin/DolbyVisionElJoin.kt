@@ -3,8 +3,8 @@ package org.jellyfin.playback.media3.exoplayer
 import java.nio.ByteBuffer
 
 /**
- * Holds back the enhancement layer (EL) of a Dolby Vision profile 7 stream after the decoder starts
- * or is flushed, until the EL reaches a start point of its own.
+ * Holds back the enhancement layer (EL) of a Dolby Vision profile 7 stream after the decoder starts,
+ * until the EL reaches a start point of its own. One instance per codec.
  *
  * In a single-track profile 7 file the EL travels inside the base layer's access units as NAL units
  * of type 63, each carrying one EL NAL unit. A file may start an EL GOP at a different frame than the
@@ -22,11 +22,6 @@ class DolbyVisionElJoin {
 	/** True while EL units are being held back. */
 	var waiting = true
 		private set
-
-	/** The decoder lost its EL state: hold the EL back again until its next start. */
-	fun reset() {
-		waiting = true
-	}
 
 	/**
 	 * Filter one access unit in place, between [ByteBuffer.position] and [ByteBuffer.limit]. EL units
