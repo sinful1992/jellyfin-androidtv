@@ -23,6 +23,7 @@ import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.DisplayLinkMonitor
 import org.jellyfin.androidtv.util.DisplayModeSwitcher
+import org.jellyfin.androidtv.util.PendingStart
 import org.jellyfin.androidtv.util.switchThenStart
 import org.jellyfin.playback.core.PlaybackEvent
 import org.jellyfin.playback.core.PlaybackManager
@@ -58,6 +59,8 @@ class VideoPlayerFragment : Fragment() {
 	private var leaving = false
 	private var stopped = false
 
+	private val pendingStart = PendingStart()
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
@@ -85,7 +88,13 @@ class VideoPlayerFragment : Fragment() {
 				isGone = { leaving || stopped },
 				start = { playbackManager.queue.addSupplier(queueSupplier) },
 			)
-			if (!started) Timber.i("Player left during the display mode switch, playback not started")
+			if (!started && !leaving) {
+				// Stopped by an HDMI re-sync that outlasted the switch: start when the player is back.
+				Timber.i("Player stopped during the display mode switch, starting when it returns")
+				pendingStart.hold { playbackManager.queue.addSupplier(queueSupplier) }
+			} else if (!started) {
+				Timber.i("Player left during the display mode switch, playback not started")
+			}
 		}
 
 		awaitPlaybackStart()
@@ -253,6 +262,9 @@ class VideoPlayerFragment : Fragment() {
 		// Back in view before the mode switch finished (an HDMI re-sync can stop and restart the
 		// activity): let the switch start playback after all.
 		stopped = false
+
+		// Back after the switch finished while stopped: start the queue it held back.
+		pendingStart.release(leaving)
 	}
 
 	override fun onStop() {
