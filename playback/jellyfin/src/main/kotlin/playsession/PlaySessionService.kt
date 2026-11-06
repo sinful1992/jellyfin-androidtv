@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.jellyfin.playback.core.mediastream.MediaConversionMethod
 import org.jellyfin.playback.core.mediastream.PlayableMediaStream
@@ -78,6 +80,19 @@ class PlaySessionService(
 	 */
 	private var progressReports: Job? = null
 
+	/**
+	 * Held for each report from deciding it is still wanted until the server has answered, so
+	 * starts, updates and stops reach the server one at a time in the order they were asked for.
+	 *
+	 * Without it a pause and a stop raced each other: Back pauses the player and then stops it, and
+	 * the pause's progress report was still being put together when the stop went out. It then
+	 * arrived after the stop, named the closed session as paused, and the server opened it again
+	 * and kept it until it timed out (#8757). Not reentrant, so the `Locked` bodies call each other
+	 * and only the entry points take it. [stopProgressReports] is never called while holding it: a
+	 * progress report waiting for the lock would never let the join finish.
+	 */
+	private val reportLock = Mutex()
+
 	override suspend fun onInitialize() {
 		// The queue moving on ends the session for the entry being left. Nothing in the play state
 		// says that reliably: playback runs straight through a manual skip, and the stop that the
@@ -91,12 +106,21 @@ class PlaySessionService(
 				val open = reportedSession
 				if (open == null || open.itemId == itemId) return@onEach
 
-				sendStreamStop()
+				stopProgressReports()
 
-				if (state.playState.value == PlayState.PLAYING) {
-					sendStreamStart()
-					startProgressReports()
+				val restarted = reportLock.withLock {
+					// Again under the lock: a report queued ahead of this one may have closed it.
+					val stillOpen = reportedSession
+					if (stillOpen == null || stillOpen.itemId == itemId) return@withLock false
+
+					sendStreamStopLocked()
+
+					if (state.playState.value != PlayState.PLAYING) return@withLock false
+					sendStreamStartLocked()
+					true
 				}
+
+				if (restarted) startProgressReports()
 			}
 			.launchIn(coroutineScope)
 
@@ -138,7 +162,7 @@ class PlaySessionService(
 				// only the backstop that keeps it from outliving the playback it reports on.
 				if (state.playState.value != PlayState.PLAYING) break
 
-				reportCurrentEntry()
+				reportLock.withLock { reportCurrentEntryLocked() }
 			}
 		}
 	}
@@ -170,6 +194,16 @@ class PlaySessionService(
 		coroutineScope.launch { sendStreamUpdate() }
 	}
 
+	private suspend fun sendStreamStart() = reportLock.withLock { sendStreamStartLocked() }
+
+	private suspend fun sendStreamUpdate() = reportLock.withLock { sendStreamUpdateLocked() }
+
+	private suspend fun sendStreamStop() {
+		// Before the lock is taken: a progress report waiting for it would never let the join end.
+		stopProgressReports()
+		reportLock.withLock { sendStreamStopLocked() }
+	}
+
 	/**
 	 * Say where the current entry has reached, opening a session for it when it has none.
 	 *
@@ -177,9 +211,9 @@ class PlaySessionService(
 	 * progress report naming a session the server has not been told about is not one it can do
 	 * anything with.
 	 */
-	private suspend fun reportCurrentEntry() {
+	private suspend fun reportCurrentEntryLocked() {
 		val current = manager.queue.entry.value?.mediaStream?.identifier
-		if (reportedSession?.stream?.identifier != current) sendStreamStart() else sendStreamUpdate()
+		if (reportedSession?.stream?.identifier != current) sendStreamStartLocked() else sendStreamUpdateLocked()
 	}
 
 	private suspend fun readPosition(): Duration =
@@ -194,7 +228,7 @@ class PlaySessionService(
 			.map { QueueItem(id = it.id, playlistItemId = it.playlistItemId) }
 	}
 
-	private suspend fun sendStreamStart() {
+	private suspend fun sendStreamStartLocked() {
 		val entry = manager.queue.entry.value ?: return
 		val stream = entry.mediaStream ?: return
 		val item = entry.baseItem ?: return
@@ -204,13 +238,13 @@ class PlaySessionService(
 		// time only repeats what it already has.
 		val previous = reportedSession
 		if (previous?.stream?.identifier == stream.identifier) {
-			sendStreamUpdate()
+			sendStreamUpdateLocked()
 			return
 		}
 
 		// A different session than the one still open means the stream was resolved again. Close
 		// the old one rather than leaving the server with two sessions for one playback.
-		if (previous != null) sendStreamStop()
+		if (previous != null) sendStreamStopLocked()
 
 		reportedSession = ReportedSession(
 			itemId = item.id,
@@ -248,7 +282,7 @@ class PlaySessionService(
 		}.onFailure { error -> Timber.w(error, "Failed to send playback start event") }
 	}
 
-	private suspend fun sendStreamUpdate() {
+	private suspend fun sendStreamUpdateLocked() {
 		val entry = manager.queue.entry.value ?: return
 		val stream = entry.mediaStream ?: return
 		val item = entry.baseItem ?: return
@@ -282,13 +316,10 @@ class PlaySessionService(
 					}
 				)
 			)
-		}.onFailure { error -> Timber.w("Failed to send playback update event", error) }
+		}.onFailure { error -> Timber.w(error, "Failed to send playback update event") }
 	}
 
-	private suspend fun sendStreamStop() {
-		// Before the session is read, so a progress report cannot land after the stop.
-		stopProgressReports()
-
+	private suspend fun sendStreamStopLocked() {
 		// Deliberately not read from the queue: see [reportedSession]. Null means nothing was ever
 		// started, or the stop for it has already been sent.
 		val session = reportedSession ?: return
@@ -310,7 +341,7 @@ class PlaySessionService(
 					nowPlayingQueue = getQueue(),
 				)
 			)
-		}.onFailure { error -> Timber.w("Failed to send playback stop event", error) }
+		}.onFailure { error -> Timber.w(error, "Failed to send playback stop event") }
 	}
 }
 
