@@ -39,11 +39,22 @@ class DisplayModePickerBreakTests : FunSpec({
 			dev(3840, 2160, 24f) shouldBe 19
 			dev(3840, 2160, 24.000002f) shouldBe 19
 		}
-		test("non-film rates never switch (USER, task 127)") {
-			dev(3840, 2160, 25f) shouldBe null
+		test("25 and 50 fps go to 50 Hz, never 25 (USER, task 127)") {
+			dev(3840, 2160, 25f) shouldBe 20
+			dev(3840, 2160, 25.0f) shouldBe 20
+			dev(3840, 2160, 50f) shouldBe 20
+			dev(3840, 2160, 25f, from = 20) shouldBe null
+			dev(3840, 2160, 25f, from = 18) shouldBe 20
+		}
+		test("25 fps with no 50 Hz mode stays") {
+			val no50 = modes.filter { it.refreshRate < 49f || it.refreshRate > 51f }
+			DisplayModePicker.pick(no50, mode(23), 3840, 2160, 25f, device) shouldBe null
+		}
+		test("other non-film rates never switch (USER, task 127)") {
 			dev(3840, 2160, 29.97f) shouldBe null
 			dev(3840, 2160, 30f) shouldBe null
-			dev(3840, 2160, 50f) shouldBe null
+			dev(3840, 2160, 24.9f) shouldBe null
+			dev(3840, 2160, 25.1f) shouldBe null
 			dev(3840, 2160, 60f) shouldBe null
 			dev(3840, 2160, 59.94f, from = 22) shouldBe null
 			dev(3840, 2160, 23.95f) shouldBe null
@@ -103,7 +114,7 @@ class DisplayModePickerBreakTests : FunSpec({
 
 		test("the rate decides, not the id or the list order") {
 			DisplayModePicker.pick(renumbered, re(23), 3840, 2160, 23.976f, device) shouldBe 92
-			DisplayModePicker.pick(renumbered, re(23), 3840, 2160, 25f, device) shouldBe null
+			DisplayModePicker.pick(renumbered, re(23), 3840, 2160, 25f, device) shouldBe 80
 			DisplayModePicker.pick(renumbered, re(23), 1920, 1080, 23.976f, tv) shouldBe 96
 		}
 		test("already there under the new ids stays") {
@@ -118,14 +129,14 @@ class DisplayModePickerBreakTests : FunSpec({
 	context("1440x1080") {
 		test("device scaling keeps the 4K output") {
 			dev(1440, 1080, 23.976f) shouldBe 8
-			dev(1440, 1080, 25f) shouldBe null
+			dev(1440, 1080, 25f) shouldBe 20
 			dev(1440, 1080, 29.97f) shouldBe null
 		}
 		test("TV scaling takes 1080p where the rate exists") {
 			onTv(1440, 1080, 23.976f) shouldBe 4
 			onTv(1440, 1080, 24f) shouldBe 13
 		}
-		test("TV scaling leaves 25 fps alone") { onTv(1440, 1080, 25f) shouldBe null }
+		test("TV scaling sends 1440x1080 25 fps to 1080p50") { onTv(1440, 1080, 25f) shouldBe 16 }
 	}
 
 	context("SCALE_ON_TV against SCALE_ON_DEVICE") {
@@ -147,13 +158,13 @@ class DisplayModePickerBreakTests : FunSpec({
 			onTv(720, 480, 23.976f) shouldBe 2
 			onTv(720, 480, 29.97f) shouldBe null
 		}
-		test("PAL SD and 720p at 25 stay") {
-			onTv(720, 576, 25f) shouldBe null
-			onTv(1280, 720, 25f) shouldBe null
+		test("PAL SD and 720p at 25 go to 720p50") {
+			onTv(720, 576, 25f) shouldBe 14
+			onTv(1280, 720, 25f) shouldBe 14
 		}
 		test("device scaling from a 1080p output stays at 1080p") {
 			dev(3840, 2160, 23.976f, from = 21) shouldBe 4
-			dev(1920, 1080, 25f, from = 21) shouldBe null
+			dev(1920, 1080, 25f, from = 21) shouldBe 16
 		}
 		test("TV scaling at the current mode stays") { onTv(1920, 1080, 23.976f, from = 4) shouldBe null }
 	}

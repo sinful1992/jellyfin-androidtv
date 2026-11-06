@@ -13,6 +13,10 @@ object DisplayModePicker {
 	/** 23.976 and 24 fps, in hundredths of a hertz, with one hundredth of slack each way. */
 	private val FILM_RATES = 2397..2401
 
+	/** 25 and 50 fps: both go to a 50 Hz mode, which shows 25 fps frames twice each. */
+	private val PAL_RATES = setOf(2499..2501, 4999..5001)
+	private const val PAL_OUTPUT = 5000
+
 	data class Mode(val id: Int, val width: Int, val height: Int, val refreshRate: Float)
 
 	/**
@@ -31,10 +35,14 @@ object DisplayModePicker {
 		val width = videoWidth?.takeIf { it > 0 } ?: return null
 		val height = videoHeight?.takeIf { it > 0 } ?: return null
 
-		val sourceRate = (frameRate * 100).roundToInt()
-		// Only films switch (USER, task 127): 25/50 fps looked worse to the household at a matched
-		// rate than at 59.94, and 29.97/30 already divide 59.94/60 evenly.
-		if (sourceRate !in FILM_RATES) return null
+		val measuredRate = (frameRate * 100).roundToInt()
+		// USER, task 127: films switch to their own rate; 25 and 50 fps go to 50 Hz (25 Hz itself was
+		// hard on the eyes); everything else stays, since 29.97/30 already divide 59.94/60 evenly.
+		val sourceRate = when {
+			measuredRate in FILM_RATES -> measuredRate
+			PAL_RATES.any { measuredRate in it } -> PAL_OUTPUT
+			else -> return null
+		}
 
 		var best: Mode? = null
 		var bestWeight = Int.MIN_VALUE
