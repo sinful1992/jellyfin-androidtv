@@ -38,6 +38,7 @@ class StopAndPlayTests {
 
 	private lateinit var backend: ExoPlayerBackend
 	private val playStates = mutableListOf<PlayState>()
+	private val endedStreams = mutableListOf<String>()
 
 	@Before
 	fun setUp() {
@@ -45,6 +46,10 @@ class StopAndPlayTests {
 		backend.setListener(object : PlayerBackendEventListener() {
 			override fun onPlayStateChange(state: PlayState) {
 				playStates += state
+			}
+
+			override fun onMediaStreamEnd(mediaStream: PlayableMediaStream) {
+				endedStreams += mediaStream.identifier
 			}
 		})
 	}
@@ -112,6 +117,64 @@ class StopAndPlayTests {
 		backend.playItem(entry("second"))
 		runUntilLoaded()
 		assertEquals(null, backend.exoPlayer.playerError)
+	}
+
+	// JF-3 (audit 137). The player pauses itself at the end of every item and says so in a message
+	// to the main thread. Back pressed in that last moment stops the backend first, and the message
+	// then finds nothing playing. Robolectric's player never plays to an end, so the message is
+	// handed to the listener directly, as media3 would.
+	@Test
+	fun theEndOfAnItemReportedAfterAStopIsIgnored() {
+		backend.playItem(entry("first"))
+		backend.play()
+		runUntilLoaded()
+
+		backend.stop()
+		run(backend.exoPlayer).untilPendingCommandsAreFullyHandled()
+		playStates.clear()
+
+		backend.PlayerListener().onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM)
+
+		assertEquals(emptyList<String>(), endedStreams)
+		assertFalse("play states after the stop: $playStates", PlayState.ERROR in playStates)
+
+		// The stop is still what the session's last position comes from, and the next item loads.
+		backend.playItem(entry("second"))
+		runUntilLoaded()
+		assertEquals(null, backend.exoPlayer.playerError)
+	}
+
+	@Test
+	fun theEndOfAnItemBeforeAnyItemWasPlayedIsIgnored() {
+		backend.PlayerListener().onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM)
+
+		assertEquals(emptyList<String>(), endedStreams)
+	}
+
+	@Test
+	fun theEndOfTheItemThatIsPlayingIsStillReported() {
+		val first = entry("first")
+		backend.playItem(first)
+		backend.play()
+		runUntilLoaded()
+
+		backend.PlayerListener().onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM)
+
+		assertEquals(listOf("first"), endedStreams)
+		assertEquals(backend.exoPlayer.currentPosition, backend.getFinalPosition(first.mediaStream!!)?.inWholeMilliseconds)
+	}
+
+	@Test
+	fun aPauseForAnotherReasonAfterAStopReportsNoEnd() {
+		backend.playItem(entry("first"))
+		backend.play()
+		runUntilLoaded()
+		backend.stop()
+		run(backend.exoPlayer).untilPendingCommandsAreFullyHandled()
+
+		backend.PlayerListener().onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+
+		assertEquals(emptyList<String>(), endedStreams)
 	}
 
 	/** A second of 16-bit mono silence at 8 kHz. */

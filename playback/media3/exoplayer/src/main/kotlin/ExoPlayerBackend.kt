@@ -368,7 +368,14 @@ class ExoPlayerBackend(
 
 		override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
 			if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
-				val stream = requireNotNull(currentStream)
+				// The player pauses itself at the end of an item and says so in a message to this
+				// thread. A stop that got in first (Back in the last moment of an episode) has
+				// already taken the final position and nothing is playing: there is no end to report.
+				val stream = currentStream
+				if (stream == null) {
+					Timber.w("End of an item reported with nothing playing, ignored")
+					return
+				}
 
 				// Read before anything is told the entry ended, because what they do about it is
 				// advance the queue, and the player's position answers for the next entry from the
