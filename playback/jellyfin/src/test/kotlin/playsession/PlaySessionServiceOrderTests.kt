@@ -327,5 +327,37 @@ class PlaySessionServiceOrderTests : FunSpec({
 
 		session.service.state.playState.value shouldBe PlayState.PLAYING
 		session.liveJobs shouldBeLessThanOrEqual playing
+
+		// The handle still names the loop that runs: a pause stops it, play starts one, a stop ends it.
+		session.backendSays(PlayState.PAUSED)
+		awaitUntil { session.liveJobs == playing - 1 }
+		session.backendSays(PlayState.PLAYING)
+		awaitUntil { session.liveJobs == playing }
+		session.backendSays(PlayState.PLAYING)
+		session.service.manager.state.stop()
+		session.backendSays(PlayState.STOPPED)
+		awaitUntil { session.liveJobs == playing - 1 }
+		delay(200)
+		session.liveJobs shouldBe playing - 1
+	}
+
+	test("a second play while playing, and a pause while paused, keep one loop and none") {
+		session.play()
+		val playing = session.liveJobs
+
+		session.backendSays(PlayState.PAUSED)
+		session.backendSays(PlayState.PAUSED)
+		awaitUntil { session.liveJobs == playing - 1 }
+		session.queue.setIndex(1)
+		delay(200)
+		// A skip while paused opens no loop: nothing plays.
+		session.liveJobs shouldBe playing - 1
+
+		session.backendSays(PlayState.PLAYING)
+		awaitUntil { session.liveJobs == playing }
+		session.queue.setIndex(0)
+		awaitUntil { session.reports.count { it is Report.Started } == 3 }
+		delay(200)
+		session.liveJobs shouldBe playing
 	}
 })
