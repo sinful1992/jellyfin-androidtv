@@ -81,6 +81,15 @@ class PlaySessionService(
 	private var progressReports: Job? = null
 
 	/**
+	 * Held while [progressReports] is read or changed. The queue collector and the play state
+	 * collector both start and stop the loop, each on its own pool thread. Unguarded, one of them
+	 * could clear the handle of a loop the other had just started: that loop was then never
+	 * cancelled and reported beside its successor every interval for as long as playback ran.
+	 * Never held across a suspension, and never taken together with [reportLock].
+	 */
+	private val progressReportsLock = Mutex()
+
+	/**
 	 * Held for each report from deciding it is still wanted until the server has answered, so
 	 * starts, updates and stops reach the server one at a time in the order they were asked for.
 	 *
@@ -151,8 +160,8 @@ class PlaySessionService(
 	 * at when there was never a pause — so an item watched straight through and then interrupted
 	 * resumed from its beginning.
 	 */
-	private fun startProgressReports() {
-		if (progressReports?.isActive == true) return
+	private suspend fun startProgressReports() = progressReportsLock.withLock {
+		if (progressReports?.isActive == true) return@withLock
 
 		progressReports = coroutineScope.launch {
 			while (true) {
@@ -172,8 +181,13 @@ class PlaySessionService(
 	 * server after the stop and leave the session open behind it.
 	 */
 	private suspend fun stopProgressReports() {
-		progressReports?.cancelAndJoin()
-		progressReports = null
+		val stopped = progressReportsLock.withLock { progressReports } ?: return
+		stopped.cancelAndJoin()
+
+		// Only the loop that was stopped here: by now the handle may hold one started since.
+		progressReportsLock.withLock {
+			if (progressReports === stopped) progressReports = null
+		}
 	}
 
 	private val MediaConversionMethod.playMethod

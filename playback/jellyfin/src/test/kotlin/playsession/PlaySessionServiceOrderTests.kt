@@ -2,6 +2,7 @@ package org.jellyfin.playback.jellyfin.playsession
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -9,16 +10,20 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import org.jellyfin.playback.core.NoOpPlayerVolumeState
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.playback.core.PlaybackManagerOptions
@@ -47,6 +52,7 @@ import org.jellyfin.sdk.model.api.PlaybackStartInfo
 import org.jellyfin.sdk.model.api.PlaybackStopInfo
 import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -97,6 +103,12 @@ private class Session {
 
 	val entry = QueueEntry()
 
+	/** A second episode behind [entry], for the tests that skip. */
+	val nextEntry = QueueEntry()
+
+	/** Coroutines alive on the service's scope: its two collectors and the progress loops. */
+	val liveJobs: Int get() = service.coroutineScope.coroutineContext.job.children.count { it.isActive }
+
 	init {
 		every { api.playStateApi } returns playStateApi
 		coEvery { playStateApi.reportPlaybackStart(any()) } coAnswers {
@@ -137,12 +149,26 @@ private class Session {
 			queueEntry = entry,
 			url = "http://server/stream",
 		)
+
+		nextEntry.baseItem = BaseItemDto(id = UUID.randomUUID(), type = BaseItemKind.EPISODE)
+		nextEntry.mediaStream = PlayableMediaStream(
+			identifier = NEXT_SESSION,
+			conversionMethod = MediaConversionMethod.None,
+			container = MediaStreamContainer("mkv"),
+			tracks = emptyList(),
+			queueEntry = nextEntry,
+			url = "http://server/stream-2",
+		)
 	}
 
 	suspend fun play() {
 		queue.addSupplier(object : QueueSupplier {
-			override val size = 1
-			override suspend fun getItem(index: Int) = entry.takeIf { index == 0 }
+			override val size = 2
+			override suspend fun getItem(index: Int) = when (index) {
+				0 -> entry
+				1 -> nextEntry
+				else -> null
+			}
 		})
 		awaitUntil { queue.entry.value == entry }
 
@@ -161,6 +187,7 @@ private class Session {
 
 	companion object {
 		const val SESSION = "session-1"
+		const val NEXT_SESSION = "session-2"
 	}
 }
 
@@ -232,5 +259,73 @@ class PlaySessionServiceOrderTests : FunSpec({
 			Report.Progress(Session.SESSION, isPaused = true),
 			Report.Stopped(Session.SESSION),
 		)
+	}
+
+	// JF-1 (audit 137). The handle of the progress loop is started and cancelled by two collectors
+	// on the default pool. A skip that lands while the player pauses and resumes (what every
+	// episode boundary does) could forget a loop that was just started: it then reported beside
+	// the next one every 10 seconds for as long as playback ran.
+	test("skips that land while the player pauses and resumes leave one progress loop, not two") {
+		session.play()
+		// Both entries are fetched before the collectors read the queue from their own threads.
+		session.queue.peekNext(2)
+		val playing = session.liveJobs
+
+		// Keep the default pool busy, so a collector that is resumed has to wait its turn: the gap
+		// that lets one collector forget the loop the other has just started.
+		val busy = AtomicBoolean(true)
+		val fillers = List(Runtime.getRuntime().availableProcessors() * 4) {
+			CoroutineScope(Dispatchers.Default).launch {
+				while (busy.get()) {
+					repeat(2_000) { Thread.onSpinWait() }
+					yield()
+				}
+			}
+		}
+
+		var rounds = 0
+		try {
+			while (rounds < 6_000 && session.liveJobs <= playing) {
+				val target = if (rounds % 2 == 0) 1 else 0
+				when (rounds % 3) {
+					0 -> {
+						session.backendSays(PlayState.PAUSED)
+						session.queue.setIndex(target)
+						session.backendSays(PlayState.PLAYING)
+					}
+
+					1 -> {
+						session.queue.setIndex(target)
+						session.backendSays(PlayState.PAUSED)
+						session.backendSays(PlayState.PLAYING)
+					}
+
+					else -> {
+						session.backendSays(PlayState.PAUSED)
+						session.backendSays(PlayState.PLAYING)
+						session.queue.setIndex(target)
+					}
+				}
+				rounds++
+
+				// The next round starts from playback with its loop running, as a real skip does.
+				val waitUntil = System.nanoTime() + 50_000_000
+				while (session.liveJobs < playing && System.nanoTime() < waitUntil) Thread.onSpinWait()
+			}
+		} finally {
+			busy.set(false)
+			fillers.forEach { it.join() }
+		}
+
+		// Let both collectors finish what the last round asked for.
+		var seen = -1
+		while (seen != session.reports.size) {
+			seen = session.reports.size
+			delay(300)
+		}
+		println("JF-1 stress: $rounds rounds, ${session.liveJobs} live jobs (playing = $playing)")
+
+		session.service.state.playState.value shouldBe PlayState.PLAYING
+		session.liveJobs shouldBeLessThanOrEqual playing
 	}
 })
