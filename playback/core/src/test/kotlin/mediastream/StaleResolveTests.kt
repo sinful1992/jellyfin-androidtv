@@ -37,14 +37,19 @@ import kotlin.time.Duration.Companion.seconds
  * A resolver whose answer for an entry can be held back, standing in for a slow server, and that
  * can be told an entry has no stream at all.
  */
-private class HeldResolver : MediaStreamResolver {
+private class HeldResolver(
+	private val conversionMethod: MediaConversionMethod = MediaConversionMethod.None,
+	private val tracks: Collection<MediaStreamTrack> = emptyList(),
+) : MediaStreamResolver {
 	/** Every request made, in order. */
 	val requests: MutableList<QueueEntry> = Collections.synchronizedList(mutableListOf())
 	val unresolvable: MutableSet<QueueEntry> = ConcurrentHashMap.newKeySet()
 	private val held = ConcurrentHashMap<QueueEntry, CompletableDeferred<Unit>>()
+	private val heldFrom = ConcurrentHashMap<QueueEntry, Int>()
 
-	/** Requests for [entry] wait from now on until [release] is called for it. */
-	fun hold(entry: QueueEntry) {
+	/** Requests for [entry], from its [from]th on, wait until [release] is called for it. */
+	fun hold(entry: QueueEntry, from: Int = 1) {
+		heldFrom[entry] = from
 		held[entry] = CompletableDeferred()
 	}
 
@@ -57,14 +62,14 @@ private class HeldResolver : MediaStreamResolver {
 	override suspend fun getStream(queueEntry: QueueEntry): PlayableMediaStream? {
 		requests += queueEntry
 		val number = requestsFor(queueEntry)
-		held[queueEntry]?.await()
+		if (number >= (heldFrom[queueEntry] ?: 1)) held[queueEntry]?.await()
 		if (queueEntry in unresolvable) return null
 
 		return PlayableMediaStream(
 			identifier = "session-${System.identityHashCode(queueEntry)}-$number",
-			conversionMethod = MediaConversionMethod.None,
+			conversionMethod = conversionMethod,
 			container = MediaStreamContainer("mkv"),
-			tracks = emptyList(),
+			tracks = tracks,
 			queueEntry = queueEntry,
 			url = "http://server/stream",
 		)
@@ -275,6 +280,38 @@ class StaleResolveTests : FunSpec({
 
 		player.plays shouldContainExactly listOf("play 0")
 		player.entries[0].startPosition shouldBe null
+	}
+
+	test("an entry skipped while its stream was asked for again with a carried track is never started") {
+		// A converted stream has the audio baked in, so a carried choice asks the server a second
+		// time: the entry can be left during that request as well.
+		player.close()
+		resolver = HeldResolver(
+			conversionMethod = MediaConversionMethod.Transcode,
+			tracks = listOf(
+				MediaStreamAudioTrack(index = 1, codec = "eac3", language = "eng", isDefault = true, bitrate = 0, channels = 6, sampleRate = 48000),
+				MediaStreamAudioTrack(index = 2, codec = "aac", language = "spa", bitrate = 0, channels = 2, sampleRate = 48000),
+			),
+		)
+		player = Player(resolver)
+		val (first, second) = player.entries
+		// The service's first look at the empty queue forgets the queue's carried choices: wait for it.
+		awaitUntil { "stop" in player.asked }
+		player.service.carriedTracks(first).audio = TrackPreference(language = "spa", codec = "aac")
+		first.startPosition = 30.seconds
+
+		resolver.hold(first, from = 2)
+		player.start()
+		awaitUntil { resolver.requestsFor(first) == 2 }
+
+		player.queue.setIndex(1)
+		resolver.release(first)
+		awaitUntil { "play 1" in player.plays }
+		settle()
+
+		player.plays shouldContainExactly listOf("play 1")
+		first.startPosition shouldBe 30.seconds
+		second.selectedAudioStreamIndex shouldBe 2
 	}
 
 	// JF-5 (audit 137): a reload read "was it paused" before it asked the server for the stream,
