@@ -186,7 +186,6 @@ class MediaStreamService internal constructor(
 		val backend = requireNotNull(manager.backend)
 
 		val position = if (keepPosition) state.positionInfo.active else Duration.ZERO
-		val wasPaused = state.playState.value == PlayState.PAUSED
 
 		// Resolves run in parallel and can finish out of order, so two quick track changes on a
 		// transcode could end on the first one. Only the latest reload may replace the stream.
@@ -203,6 +202,10 @@ class MediaStreamService internal constructor(
 		}
 
 		entry.mediaStream = stream
+
+		// Read now and not before the resolve: a pause or a play pressed while the server was
+		// being asked is the state to keep.
+		val wasPaused = state.playState.value == PlayState.PAUSED
 
 		backend.playItem(entry)
 		if (position > Duration.ZERO) backend.seekTo(position)
@@ -318,9 +321,11 @@ class MediaStreamService internal constructor(
 	private suspend fun playEntry(entry: QueueEntry) {
 		val backend = requireNotNull(manager.backend)
 		val hasMediaStream = entry.ensureMediaStream()
+		if (entry.isStale()) return
 
 		if (hasMediaStream) {
 			entry.applyCarriedTracks()
+			if (entry.isStale()) return
 
 			// Taken rather than read, so replaying the same entry later starts at its beginning.
 			val startPosition = entry.startPosition ?: Duration.ZERO
@@ -337,6 +342,19 @@ class MediaStreamService internal constructor(
 				backend.stop()
 			}
 		}
+	}
+
+	/**
+	 * Whether the queue moved off this entry while the server was being asked for its stream.
+	 * Entries are handled one at a time, so without this an entry the user had already skipped or
+	 * stopped was still started when its stream arrived, and one with no stream skipped the entry
+	 * the user had moved to. The stream it got stays on the entry for when it is played after all.
+	 */
+	private fun QueueEntry.isStale(): Boolean {
+		if (manager.queue.entry.value === this) return false
+
+		Timber.d("Not starting $this, the queue moved on while its stream was resolved")
+		return true
 	}
 
 	private fun preloadNextEntry() = coroutineScope.launch(Dispatchers.Main) {
