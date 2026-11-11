@@ -7,15 +7,15 @@ class LeaveWhenShownTests : FunSpec({
 	test("a link lost while the player is shown leaves at once") {
 		var left = 0
 		val leave = LeaveWhenShown()
-		leave.linkLost(stopped = false) { left++ }
+		leave.linkLost(hidden = false) { left++ }
 		left shouldBe 1
 		leave.isDue shouldBe false
 	}
 
-	test("a link lost while the player is stopped does not navigate in the hidden window") {
+	test("a link lost while the player is paused or stopped does not navigate in the hidden window") {
 		var left = 0
 		val leave = LeaveWhenShown()
-		leave.linkLost(stopped = true) { left++ }
+		leave.linkLost(hidden = true) { left++ }
 		left shouldBe 0
 		leave.isDue shouldBe true
 	}
@@ -23,7 +23,7 @@ class LeaveWhenShownTests : FunSpec({
 	test("the held leave runs once the player is shown again") {
 		var left = 0
 		val leave = LeaveWhenShown()
-		leave.linkLost(stopped = true) { left++ }
+		leave.linkLost(hidden = true) { left++ }
 		leave.shown { left++ }
 		left shouldBe 1
 		leave.isDue shouldBe false
@@ -32,7 +32,7 @@ class LeaveWhenShownTests : FunSpec({
 	test("being shown twice leaves only once") {
 		var left = 0
 		val leave = LeaveWhenShown()
-		leave.linkLost(stopped = true) { left++ }
+		leave.linkLost(hidden = true) { left++ }
 		leave.shown { left++ }
 		leave.shown { left++ }
 		left shouldBe 1
@@ -48,8 +48,8 @@ class LeaveWhenShownTests : FunSpec({
 	test("a second loss while stopped still leaves once") {
 		var left = 0
 		val leave = LeaveWhenShown()
-		leave.linkLost(stopped = true) { left++ }
-		leave.linkLost(stopped = true) { left++ }
+		leave.linkLost(hidden = true) { left++ }
+		leave.linkLost(hidden = true) { left++ }
 		leave.shown { left++ }
 		left shouldBe 1
 	}

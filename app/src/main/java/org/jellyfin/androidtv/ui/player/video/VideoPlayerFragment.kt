@@ -1,6 +1,7 @@
 package org.jellyfin.androidtv.ui.player.video
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -238,11 +239,13 @@ class VideoPlayerFragment : Fragment() {
 	 * indefinitely into a dark room. See [DisplayLinkMonitor] for how that is detected.
 	 */
 	private fun startDisplayLinkMonitor() = DisplayLinkMonitor(requireContext()) {
-		Timber.i("Display link lost, ending playback (stopped=$stopped)")
+		// Release builds plant no Timber tree; this line is what a live capture needs to see.
+		Log.i("VideoPlayerFragment", "Display link lost, ending playback (resumed=$isResumed)")
 
-		// Stopped (TV off, HDMI re-sync): onStop already stopped playback, and going back now would
-		// build the previous page in a hidden window that is never laid out (task 147 black screen).
-		leaveWhenShown.linkLost(stopped) { leavePlayer() }
+		// Not resumed (TV going off, HDMI re-sync): going back now would build the previous page in a
+		// window that is being hidden and is never laid out (task 147 black screen). Playback itself is
+		// paused or stopped already; only the navigation waits until the player is shown again.
+		leaveWhenShown.linkLost(hidden = !isResumed) { leavePlayer() }
 	}.also { it.start(lifecycleScope) }
 
 	override fun onPause() {
@@ -260,9 +263,12 @@ class VideoPlayerFragment : Fragment() {
 	override fun onResume() {
 		super.onResume()
 
+		// The display link dropped while the player was not resumed: leave now that it is back.
+		leaveWhenShown.shown { leavePlayer() }
+
 		if (unpauseOnResume) lifecycleScope.launch {
 			initialModeSwitch?.await()
-			if (isResumed) playbackManager.state.unpause()
+			if (isResumed && !leaving) playbackManager.state.unpause()
 		}
 	}
 
@@ -279,9 +285,6 @@ class VideoPlayerFragment : Fragment() {
 		// Back in view before the mode switch finished (an HDMI re-sync can stop and restart the
 		// activity): let the switch start playback after all.
 		stopped = false
-
-		// The display link dropped while stopped: leave now that the window is coming back.
-		leaveWhenShown.shown { leavePlayer() }
 
 		// Back after the switch finished while stopped: start the queue it held back, once the HDMI
 		// link that just came back has settled, so the audio pick does not lose passthrough.
