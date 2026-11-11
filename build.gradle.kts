@@ -2,6 +2,7 @@ plugins {
 	alias(libs.plugins.android.application) apply false
 	alias(libs.plugins.android.library) apply false
 	alias(libs.plugins.detekt)
+	alias(libs.plugins.kover) apply false
 	java
 }
 
@@ -32,6 +33,14 @@ detekt {
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt> {
 	reports {
 		sarif.required.set(true)
+	}
+}
+
+// Line coverage per module: ./gradlew testDebugUnitTest koverXmlReportDebug
+// writes <module>/build/reports/kover/reportDebug.xml (scripts/kover-total.mjs sums them).
+subprojects {
+	listOf("com.android.application", "com.android.library").forEach { id ->
+		pluginManager.withPlugin(id) { pluginManager.apply("org.jetbrains.kotlinx.kover") }
 	}
 }
 
