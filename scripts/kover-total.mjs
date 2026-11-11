@@ -34,7 +34,9 @@ if (process.argv[1]?.endsWith('kover-total.mjs')) {
 	if (!reports.length) { console.error('no build/reports/kover/reportDebug.xml found'); process.exit(1); }
 	const total = { missed: 0, covered: 0 };
 	for (const r of reports) {
-		const line = reportTotals(readFileSync(r, 'utf8')).LINE ?? { missed: 0, covered: 0 };
+		const line = reportTotals(readFileSync(r, 'utf8')).LINE;
+		// a cut-off or empty report (a killed build) must not count as a module with 0 lines
+		if (!line) { console.error(`${r}: no LINE counter (cut off or empty report)`); process.exit(1); }
 		total.missed += line.missed; total.covered += line.covered;
 		console.log(`${relative(root, r).split(/[\\/]build[\\/]/)[0].padEnd(32)} ${pct(line).toFixed(2).padStart(6)} %  (${line.covered}/${line.covered + line.missed} lines)`);
 	}

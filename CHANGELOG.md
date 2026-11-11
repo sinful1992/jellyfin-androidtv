@@ -5,7 +5,7 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
-- Build only (no app change): Kover 0.9.11 line coverage on every Android module. `./gradlew testDebugUnitTest koverXmlReportDebug`, then `node scripts/kover-total.mjs` prints each module and the total (audit 137 rank 17, task 143).
+- Build only (no app change): Kover 0.9.11 line coverage on every Android module. `./gradlew testDebugUnitTest koverXmlReportDebug`, then `node scripts/kover-total.mjs` prints each module and the total (audit 137 rank 17, task 143). A report that is cut off or empty (no LINE counter) stops the script with exit 1 instead of counting as a module with 0 lines (task 145).
 - Release headings for hero.55 to hero.59, sorted by the build each line first shipped in; tags v0.20.0-hero.55..59 point at the commits those APKs were built from (audit 137, task 145).
 
 ## [v0.20.0-hero.59](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.59) (2026-11-10)
