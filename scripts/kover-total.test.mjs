@@ -48,3 +48,20 @@ test('a report without a LINE counter fails the run instead of counting as 0/0',
 	assert.equal(ok.status, 0);
 	assert.match(ok.stdout, /TOTAL\s+70\.00 %/);
 });
+
+// linus #10664: a report cut off inside a package kept that package's class/method counters as the "total"
+test('a report cut off inside a package fails the run instead of printing the partial package as the total', () => {
+	const script = join(dirname(fileURLToPath(import.meta.url)), 'kover-total.mjs');
+	const whole = '<report name="x"><package name="a"><class name="a/B"><counter type="LINE" missed="5" covered="0"/></class><counter type="LINE" missed="5" covered="0"/></package>';
+	const cut = '<package name="b"><class name="b/C"><method name="m"><counter type="LINE" missed="0" covered="3"/>';
+	for (const body of [whole + cut, whole + cut + '</report>', whole]) {
+		const d = mkdtempSync(join(tmpdir(), 'kover-cut-'));
+		mkdirSync(join(d, 'm', 'build', 'reports', 'kover'), { recursive: true });
+		writeFileSync(join(d, 'm', 'build', 'reports', 'kover', 'reportDebug.xml'), body);
+		const r = spawnSync(process.execPath, [script, d], { encoding: 'utf8' });
+		assert.equal(r.status, 1, `exit for ${body.slice(-60)}`);
+		assert.doesNotMatch(r.stdout, /TOTAL/);
+	}
+	assert.deepEqual(reportTotals(whole + cut + '</report>'), {});
+	assert.deepEqual(reportTotals(xml([1, 1], [3, 7]) + '\n'), { INSTRUCTION: { missed: 9, covered: 1 }, LINE: { missed: 3, covered: 7 } });
+});

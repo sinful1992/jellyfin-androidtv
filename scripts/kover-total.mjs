@@ -5,9 +5,12 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 export function reportTotals(xml) {
-	// The report-level counters are the <counter> elements after the last </package>.
-	const tail = xml.slice(xml.lastIndexOf('</package>') + 1);
+	// The report-level counters are the <counter> elements after the last </package>, and only when the report is
+	// whole: a file cut off inside a package (a killed build) ends with that package's class/method counters (linus #10664).
 	const out = {};
+	if (!xml.trimEnd().endsWith('</report>')) return out;
+	const tail = xml.slice(xml.lastIndexOf('</package>') + 1);
+	if (/<(package|class|method|sourcefile)\b/.test(tail.slice(tail.indexOf('>') + 1))) return out;
 	for (const m of tail.matchAll(/<counter type="(\w+)" missed="(\d+)" covered="(\d+)"\/>/g)) {
 		out[m[1]] = { missed: Number(m[2]), covered: Number(m[3]) };
 	}
