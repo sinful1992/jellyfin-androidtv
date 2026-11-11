@@ -5,6 +5,7 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+- The details page no longer comes back black after the TV was switched off during playback. Switching the TV off drops the HDMI link, and the player then went back to the details page while the app was stopped, so the page was built in a hidden window that never laid it out (0x0 until Back; caught live on the Shield, task 147). The player now waits until it is shown again before leaving, and the black-screen heal also checks when the window gains focus, which only happens once it is on screen (the resume checks at 0.5 s and 1.5 s could both run before a waking TV showed the window). Tests: LeaveWhenShownTests (6), BlackScreenHealTests +2.
 - Build only (no app change): Kover 0.9.11 line coverage on every Android module. `./gradlew testDebugUnitTest koverXmlReportDebug`, then `node scripts/kover-total.mjs` prints each module and the total (audit 137 rank 17, task 143). A report that is cut off or empty (no LINE counter) stops the script with exit 1 instead of counting as a module with 0 lines, and so does a report cut off inside a package, which used to print that package's last class as the total (task 145, linus #10664).
 - Release headings for hero.55 to hero.59, sorted by the build each line first shipped in; tags v0.20.0-hero.55..59 point at the commits those APKs were built from (audit 137, task 145).
 

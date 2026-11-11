@@ -29,6 +29,7 @@ import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.navigation.StartNavigation
 import org.jellyfin.androidtv.ui.navigation.focus.repairStaleFocus
 import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
+import org.jellyfin.androidtv.ui.navigation.layout.focusHealTrigger
 import org.jellyfin.androidtv.ui.navigation.startNavigation
 import org.jellyfin.androidtv.ui.screensaver.InAppScreensaver
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
@@ -101,6 +102,12 @@ class MainActivity : FragmentActivity() {
 		interactionTrackerViewModel.activityPaused = false
 
 		BlackScreenHeal.schedule(window.decorView, "resume")
+	}
+
+	override fun onWindowFocusChanged(hasFocus: Boolean) {
+		super.onWindowFocusChanged(hasFocus)
+
+		focusHealTrigger(hasFocus)?.let { BlackScreenHeal.schedule(window.decorView, it) }
 	}
 
 	private fun validateAuthentication(): Boolean {

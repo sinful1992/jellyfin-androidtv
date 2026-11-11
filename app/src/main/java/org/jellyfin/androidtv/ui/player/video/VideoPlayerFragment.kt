@@ -25,6 +25,7 @@ import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.DisplayLinkMonitor
 import org.jellyfin.androidtv.util.DisplayModeSwitcher
+import org.jellyfin.androidtv.util.LeaveWhenShown
 import org.jellyfin.androidtv.util.PendingStart
 import org.jellyfin.androidtv.util.switchThenStart
 import org.jellyfin.playback.core.PlaybackEvent
@@ -66,6 +67,7 @@ class VideoPlayerFragment : Fragment() {
 	private var stopped = false
 
 	private val pendingStart = PendingStart()
+	private val leaveWhenShown = LeaveWhenShown()
 	private var pendingStartJob: Job? = null
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -236,9 +238,11 @@ class VideoPlayerFragment : Fragment() {
 	 * indefinitely into a dark room. See [DisplayLinkMonitor] for how that is detected.
 	 */
 	private fun startDisplayLinkMonitor() = DisplayLinkMonitor(requireContext()) {
-		Timber.i("Display link lost, ending playback")
+		Timber.i("Display link lost, ending playback (stopped=$stopped)")
 
-		leavePlayer()
+		// Stopped (TV off, HDMI re-sync): onStop already stopped playback, and going back now would
+		// build the previous page in a hidden window that is never laid out (task 147 black screen).
+		leaveWhenShown.linkLost(stopped) { leavePlayer() }
 	}.also { it.start(lifecycleScope) }
 
 	override fun onPause() {
@@ -275,6 +279,9 @@ class VideoPlayerFragment : Fragment() {
 		// Back in view before the mode switch finished (an HDMI re-sync can stop and restart the
 		// activity): let the switch start playback after all.
 		stopped = false
+
+		// The display link dropped while stopped: leave now that the window is coming back.
+		leaveWhenShown.shown { leavePlayer() }
 
 		// Back after the switch finished while stopped: start the queue it held back, once the HDMI
 		// link that just came back has settled, so the audio pick does not lose passthrough.

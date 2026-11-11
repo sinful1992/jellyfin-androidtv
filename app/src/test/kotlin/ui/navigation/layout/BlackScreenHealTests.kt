@@ -20,4 +20,12 @@ class BlackScreenHealTests : FunSpec({
 	test("a shown window is still healed and reported") {
 		isWindowHidden(View.VISIBLE, isShown = true) shouldBe false
 	}
+
+	test("a window gaining focus, on screen again after a TV wake, gets a check") {
+		focusHealTrigger(hasFocus = true) shouldBe "focus"
+	}
+
+	test("a window losing focus, as the TV goes off, gets none") {
+		focusHealTrigger(hasFocus = false) shouldBe null
+	}
 })

@@ -16,6 +16,13 @@ internal fun isWindowHidden(windowVisibility: Int, isShown: Boolean): Boolean =
 	windowVisibility != View.VISIBLE || !isShown
 
 /**
+ * The check MainActivity runs when its window gains focus, which only happens once it is on screen.
+ * Waking a TV can take longer than the resume retry, and a page built while the window was hidden
+ * (the player leaving as the TV went off) then stayed at 0x0 with nothing looking again (task 147).
+ */
+internal fun focusHealTrigger(hasFocus: Boolean): String? = if (hasFocus) "focus" else null
+
+/**
  * Finds a fragment view that came up with no size and asks for the layout pass it missed.
  *
  * The black screen after TV standby is a fragment view left at 0x0 inside a parent that has a size:
