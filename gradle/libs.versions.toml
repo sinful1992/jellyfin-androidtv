@@ -39,6 +39,7 @@ org-json = "20240303"
 robolectric = "4.16"
 kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
+kover = "0.9.11"
 kotlinx-serialization = "1.12.0"
 libass-android = "0.5.1"
 markwon = "4.6.2"
@@ -53,6 +54,7 @@ android-library = { id = "com.android.library", version.ref = "android-gradle" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 
 [libraries]
 # Jellyfin
