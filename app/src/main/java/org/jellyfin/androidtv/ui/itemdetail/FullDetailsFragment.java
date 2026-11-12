@@ -69,6 +69,7 @@ import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.KeyProcessor;
 import org.jellyfin.androidtv.util.MarkdownRenderer;
 import org.jellyfin.androidtv.util.PlaybackHelper;
+import org.jellyfin.androidtv.util.RunWhenStarted;
 import org.jellyfin.androidtv.util.TimeUtils;
 import org.jellyfin.androidtv.util.Utils;
 import org.jellyfin.androidtv.util.apiclient.EmptyResponse;
@@ -76,6 +77,7 @@ import org.jellyfin.androidtv.util.apiclient.Response;
 import org.jellyfin.androidtv.util.sdk.BaseItemExtensionsKt;
 import org.jellyfin.androidtv.util.sdk.TrailerUtils;
 import org.jellyfin.androidtv.util.sdk.compat.JavaCompat;
+import kotlin.Unit;
 import org.jellyfin.sdk.model.api.BaseItemDto;
 import org.jellyfin.sdk.model.api.BaseItemKind;
 import org.jellyfin.sdk.model.api.BaseItemPerson;
@@ -126,6 +128,10 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
     BaseItemDto mBaseItem;
 
+    // The item and its rows arrive from the server; when the page is not started yet (built while the app is
+    // stopped) they are kept for the next start instead of dropped, or the page stays black (task 148).
+    private final RunWhenStarted mWhenStarted = new RunWhenStarted(getLifecycle());
+
     private ArrayList<MediaSourceInfo> versions;
     private final Lazy<org.jellyfin.sdk.api.client.ApiClient> api = inject(org.jellyfin.sdk.api.client.ApiClient.class);
     private final Lazy<UserPreferences> userPreferences = inject(UserPreferences.class);
@@ -158,6 +164,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
         mItemId = Utils.uuidOrNull(getArguments().getString("ItemId"));
 
+        mWhenStarted.clear();
         loadItem(mItemId);
 
         return binding.getRoot();
@@ -192,7 +199,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
                 // if last playback event exists, and event time is greater than last sync or within 2 seconds of current time
                 // the third condition accounts for a situation where a sync (dataRefresh) coincides with the end of playback
-                if (lastPlaybackTime != null && (lastPlaybackTime.isAfter(mLastUpdated) || Instant.now().toEpochMilli() - lastPlaybackTime.toEpochMilli() < 2000) && mBaseItem.getType() != BaseItemKind.MUSIC_ARTIST) {
+                if (mBaseItem != null && lastPlaybackTime != null && (lastPlaybackTime.isAfter(mLastUpdated) || Instant.now().toEpochMilli() - lastPlaybackTime.toEpochMilli() < 2000) && mBaseItem.getType() != BaseItemKind.MUSIC_ARTIST) {
                     BaseItemDto lastPlayedItem = dataRefreshService.getValue().getLastPlayedItem();
                     if (mBaseItem.getType() == BaseItemKind.EPISODE && lastPlayedItem != null && !mBaseItem.getId().equals(lastPlayedItem.getId()) && lastPlayedItem.getType() == BaseItemKind.EPISODE) {
                         Timber.i("Re-loading after new episode playback");
@@ -398,29 +405,34 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         protected void onPostExecute(MyDetailsOverviewRow detailsOverviewRow) {
             super.onPostExecute(detailsOverviewRow);
 
-            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
-
-            ClassPresenterSelector ps = new ClassPresenterSelector();
-            ps.addClassPresenter(MyDetailsOverviewRow.class, mDorPresenter);
-            mListRowPresenter = new CustomListRowPresenter(Utils.convertDpToPixel(requireContext(), 10));
-            ps.addClassPresenter(ListRow.class, mListRowPresenter);
-            mRowsAdapter = new MutableObjectAdapter<Row>(ps);
-            mRowsFragment.setAdapter(mRowsAdapter);
-            mRowsAdapter.add(detailsOverviewRow);
-
-            updateInfo(detailsOverviewRow.getItem());
-            addAdditionalRows(mRowsAdapter);
-
+            mWhenStarted.run(() -> {
+                showDetailsRow(detailsOverviewRow);
+                return Unit.INSTANCE;
+            });
         }
     }
 
-    public void setBaseItem(BaseItemDto item) {
-        if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
+    private void showDetailsRow(MyDetailsOverviewRow detailsOverviewRow) {
+        ClassPresenterSelector ps = new ClassPresenterSelector();
+        ps.addClassPresenter(MyDetailsOverviewRow.class, mDorPresenter);
+        mListRowPresenter = new CustomListRowPresenter(Utils.convertDpToPixel(requireContext(), 10));
+        ps.addClassPresenter(ListRow.class, mListRowPresenter);
+        mRowsAdapter = new MutableObjectAdapter<Row>(ps);
+        mRowsFragment.setAdapter(mRowsAdapter);
+        mRowsAdapter.add(detailsOverviewRow);
 
-        mBaseItem = item;
-        if (mBaseItem != null) {
-            new BuildDorTask().execute(item);
-        }
+        updateInfo(detailsOverviewRow.getItem());
+        addAdditionalRows(mRowsAdapter);
+    }
+
+    public void setBaseItem(BaseItemDto item) {
+        mWhenStarted.run(() -> {
+            mBaseItem = item;
+            if (mBaseItem != null) {
+                new BuildDorTask().execute(item);
+            }
+            return Unit.INSTANCE;
+        });
     }
 
     protected void addItemRow(MutableObjectAdapter<Row> parent, ItemRowAdapter row, int index, String headerText) {
