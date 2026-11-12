@@ -77,7 +77,6 @@ import org.jellyfin.androidtv.util.apiclient.Response;
 import org.jellyfin.androidtv.util.sdk.BaseItemExtensionsKt;
 import org.jellyfin.androidtv.util.sdk.TrailerUtils;
 import org.jellyfin.androidtv.util.sdk.compat.JavaCompat;
-import kotlin.Unit;
 import org.jellyfin.sdk.model.api.BaseItemDto;
 import org.jellyfin.sdk.model.api.BaseItemKind;
 import org.jellyfin.sdk.model.api.BaseItemPerson;
@@ -98,6 +97,7 @@ import java.util.List;
 import java.util.UUID;
 
 import kotlin.Lazy;
+import kotlin.Unit;
 import timber.log.Timber;
 
 public class FullDetailsFragment extends Fragment implements View.OnKeyListener {
@@ -131,6 +131,8 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
     // The item and its rows arrive from the server; when the page is not started yet (built while the app is
     // stopped) they are kept for the next start instead of dropped, or the page stays black (task 148).
     private final RunWhenStarted mWhenStarted = new RunWhenStarted(getLifecycle());
+    // Bumped for every new item and every new view: rows built for an older one are not shown over it.
+    private int mDorGeneration;
 
     private ArrayList<MediaSourceInfo> versions;
     private final Lazy<org.jellyfin.sdk.api.client.ApiClient> api = inject(org.jellyfin.sdk.api.client.ApiClient.class);
@@ -165,6 +167,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         mItemId = Utils.uuidOrNull(getArguments().getString("ItemId"));
 
         mWhenStarted.clear();
+        mDorGeneration++;
         loadItem(mItemId);
 
         return binding.getRoot();
@@ -331,6 +334,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
     private int posterHeight;
 
     private class BuildDorTask extends AsyncTask<BaseItemDto, Integer, MyDetailsOverviewRow> {
+        private final int generation = mDorGeneration;
 
         @Override
         protected MyDetailsOverviewRow doInBackground(BaseItemDto... params) {
@@ -404,6 +408,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         @Override
         protected void onPostExecute(MyDetailsOverviewRow detailsOverviewRow) {
             super.onPostExecute(detailsOverviewRow);
+            if (generation != mDorGeneration) return;
 
             mWhenStarted.run(() -> {
                 showDetailsRow(detailsOverviewRow);
@@ -426,6 +431,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
     }
 
     public void setBaseItem(BaseItemDto item) {
+        mDorGeneration++;
         mWhenStarted.run(() -> {
             mBaseItem = item;
             if (mBaseItem != null) {

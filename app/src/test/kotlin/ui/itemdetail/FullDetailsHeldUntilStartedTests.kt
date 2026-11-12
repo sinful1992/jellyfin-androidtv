@@ -51,6 +51,15 @@ class FullDetailsHeldUntilStartedTests : FunSpec({
 		(clear in 0 until onCreateView.indexOf("loadItem(mItemId);")).shouldBeTrue()
 	}
 
+	test("rows built for an older item or view are not shown over a newer item (linus #10950)") {
+		source shouldContain "private final int generation = mDorGeneration;"
+		body("protected void onPostExecute(MyDetailsOverviewRow detailsOverviewRow)") shouldContain "if (generation != mDorGeneration) return;"
+		val setBaseItem = body("public void setBaseItem(BaseItemDto item)")
+		setBaseItem.indexOf("mDorGeneration++;").let { bump -> (bump in 0 until setBaseItem.indexOf("mWhenStarted.run(")).shouldBeTrue() }
+		val onCreateView = body("public View onCreateView(")
+		(onCreateView.indexOf("mDorGeneration++;") in 0 until onCreateView.indexOf("loadItem(mItemId);")).shouldBeTrue()
+	}
+
 	test("the refresh after playback does not read an item that has not arrived yet") {
 		source shouldContain "if (mBaseItem != null && lastPlaybackTime != null"
 	}
