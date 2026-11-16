@@ -3,6 +3,7 @@ package org.jellyfin.androidtv.ui.home
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.widget.ClassPresenterSelector
@@ -53,6 +54,7 @@ import org.jellyfin.androidtv.ui.playback.AudioEventListener
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
+import org.jellyfin.androidtv.ui.presentation.CustomRowHeaderPresenter
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
 import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.KeyProcessor
@@ -117,7 +119,23 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		verticalGridView?.apply {
 			setPadding(paddingLeft, 0, paddingRight, paddingBottom)
 		}
-		setAlignment(0)
+		rowTitleHeight = verticalGridView?.let(::measureRowTitle) ?: 0
+		alignSelectedRow(heroSelected = true)
+	}
+
+	/** Height of a row's title above its cards, measured from leanback's own header view. */
+	private var rowTitleHeight = 0
+	private var alignedForHero: Boolean? = null
+
+	/**
+	 * Leanback lines a row up by its cards, so a selected row at the top of the list had its title
+	 * above the list's edge, clipped away. A card row is placed one title lower so its title shows;
+	 * the hero row (one pixel, no title) stays at the top so the first row's title shows under it.
+	 */
+	private fun alignSelectedRow(heroSelected: Boolean) {
+		if (alignedForHero == heroSelected) return
+		alignedForHero = heroSelected
+		setAlignment(homeRowAlignment(heroSelected, rowTitleHeight))
 	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -346,14 +364,20 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		// yet, so this waits for the frame the row is first laid out in and takes the focus then.
 		val grid = verticalGridView ?: return
 		grid.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-			override fun onPreDraw(): Boolean {
-				// Nothing to hand it to yet — wait for the next frame rather than give up, because
-				// the row is laid out a frame or two after the insert reaches the adapter.
-				val hero = getRowViewHolder(0)?.view
-				if (hero == null && grid.isAttachedToWindow) return true
+			private var frames = 0
 
-				grid.viewTreeObserver.removeOnPreDrawListener(this)
-				hero?.requestFocus()
+			override fun onPreDraw(): Boolean {
+				if (!grid.isAttachedToWindow) {
+					grid.viewTreeObserver.removeOnPreDrawListener(this)
+					return true
+				}
+
+				// The row is laid out a frame or two after the insert reaches the adapter, and its
+				// view can exist before it is attached; a focus request then does nothing. Keep
+				// trying until the hero really holds the focus, for at most HERO_FOCUS_FRAMES frames.
+				val hero = getRowViewHolder(0)?.view
+				val taken = hero != null && hero.isAttachedToWindow && (hero.hasFocus() || hero.requestFocus())
+				if (taken || ++frames >= HERO_FOCUS_FRAMES) grid.viewTreeObserver.removeOnPreDrawListener(this)
 				return true
 			}
 		})
@@ -413,6 +437,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			// screen and moving off the hero scrolls it up without taking it away. See
 			// HomeHeroRow.selected.
 			hero.row?.setSelected(row is HomeHeroRow)
+			alignSelectedRow(heroSelected = row is HomeHeroRow)
 
 			_focusedItem.value = if (row is ListRow && item is BaseRowItem) item.baseItem else null
 
@@ -427,4 +452,20 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			}
 		}
 	}
+}
+
+/** How many frames the home screen keeps trying to put the focus on a newly added hero. */
+private const val HERO_FOCUS_FRAMES = 30
+
+/** Where the selected row's cards sit from the top of the list: under their title, or at 0 for the hero. */
+internal fun homeRowAlignment(heroSelected: Boolean, rowTitleHeight: Int): Int =
+	if (heroSelected) 0 else rowTitleHeight.coerceAtLeast(0)
+
+private fun measureRowTitle(parent: ViewGroup): Int {
+	val header = CustomRowHeaderPresenter().onCreateViewHolder(parent).view
+	header.measure(
+		View.MeasureSpec.makeMeasureSpec(parent.width.takeIf { it > 0 } ?: 1920, View.MeasureSpec.AT_MOST),
+		View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+	)
+	return header.measuredHeight
 }
