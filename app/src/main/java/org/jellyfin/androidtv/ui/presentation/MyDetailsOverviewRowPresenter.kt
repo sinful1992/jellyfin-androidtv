@@ -124,9 +124,8 @@ class MyDetailsOverviewRowPresenter(
 				binding.infoTitle2, binding.infoValue2,
 				binding.infoTitle3, binding.infoValue3,
 			)) info.isVisible = backdrop == null
-			binding.fdButtonRow.showDividers =
-				if (backdrop != null) android.widget.LinearLayout.SHOW_DIVIDER_MIDDLE
-				else android.widget.LinearLayout.SHOW_DIVIDER_NONE
+			// Every details button is a pill, with or without art, so they always need a gap.
+			binding.fdButtonRow.showDividers = android.widget.LinearLayout.SHOW_DIVIDER_MIDDLE
 
 			binding.fdBackdrop.isVisible = backdrop != null
 			if (backdrop != null) binding.fdBackdrop.load(backdrop)

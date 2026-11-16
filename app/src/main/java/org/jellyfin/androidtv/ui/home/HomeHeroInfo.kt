@@ -68,6 +68,12 @@ fun homeHeroTitleOf(item: BaseItemDto): String =
 		?: item.name.orEmpty()
 
 /**
+ * What the fixed info block describes next: always the focused title, even when it has no art and
+ * the picture behind stays on the previous one, so the words never name a title you are not on.
+ */
+fun homeHeroNextInfo(target: BaseItemDto?, previous: BaseItemDto?): BaseItemDto? = target ?: previous
+
+/**
  * What the top of the home screen shows next.
  *
  * The focused item when it has art to show. A library tile, a folder or an audio track has none, and

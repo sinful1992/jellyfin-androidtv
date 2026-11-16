@@ -143,14 +143,18 @@ class HomeFragment : Fragment() {
 		val target = if (heroActive) selection?.item else focusedItem
 
 		var shown by remember { mutableStateOf<BaseItemDto?>(null) }
+		var info by remember { mutableStateOf<BaseItemDto?>(null) }
 		LaunchedEffect(target?.id, heroActive) {
-			if (!heroActive) delay(FollowFocusDelay)
+			// Also on the hero dots: holding Left/Right repeats the key, and each step would
+			// otherwise start its own full-screen picture and logo request.
+			delay(FollowFocusDelay)
 			shown = homeHeroNextShown(target, shown)
+			info = homeHeroNextInfo(target, info)
 		}
 
 		content(shown) {
 			HomeHeroPanel(
-				item = shown,
+				item = info,
 				selection = selection,
 				heroActive = heroActive,
 				focus = focus,

@@ -136,6 +136,28 @@ class HomeHeroInfoTests : FunSpec({
 		}
 	}
 
+	context("what the info block describes next") {
+		val previous = item(name = "Previous")
+
+		test("a focused card without art is still the one described, not the title behind") {
+			val tile = item(type = BaseItemKind.COLLECTION_FOLDER, name = "Movies", backdrop = false)
+			homeHeroNextInfo(tile, previous) shouldBe tile
+		}
+
+		test("a focused card with art is described") {
+			val next = item(name = "Next")
+			homeHeroNextInfo(next, previous) shouldBe next
+		}
+
+		test("nothing focused keeps the previous description") {
+			homeHeroNextInfo(null, previous) shouldBe previous
+		}
+
+		test("nothing yet stays empty") {
+			homeHeroNextInfo(null, null).shouldBeNull()
+		}
+	}
+
 	context("what the top of the screen shows next") {
 		val previous = item(name = "Previous")
 

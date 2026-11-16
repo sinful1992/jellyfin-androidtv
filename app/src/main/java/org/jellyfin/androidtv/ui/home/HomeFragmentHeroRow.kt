@@ -398,6 +398,11 @@ class HomeHeroRowPresenter(
 		}
 
 		fun bind(row: HomeHeroRow?) {
+			// The row being let go must not keep a highlighted Play or the dots.
+			_row.value?.let { old ->
+				old.focus.value = HomeHeroFocus.Play
+				old.focused.value = false
+			}
 			_row.value = row
 			_focus.value = HomeHeroFocus.Play
 			_focused.value = view.isFocused

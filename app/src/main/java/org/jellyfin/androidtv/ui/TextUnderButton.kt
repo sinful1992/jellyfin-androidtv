@@ -80,6 +80,9 @@ class TextUnderButton @JvmOverloads constructor(
 				addRule(RelativeLayout.CENTER_VERTICAL)
 				marginStart = 7.dp(context)
 			}
+			// The focus lives on this button, not the label: without this the label keeps its
+			// unfocused white on the white focused pill.
+			isDuplicateParentStateEnabled = true
 			alpha = 1f
 			maxLines = 1
 			setPadding(0, 0, 0, 0)

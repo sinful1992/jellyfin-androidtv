@@ -796,6 +796,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         queueButton = null;
         deleteButton = null;
         trailerButton = null;
+        playButton = null;
         String buttonLabel;
         if (baseItem.getType() == BaseItemKind.SERIES) {
             buttonLabel = getString(R.string.lbl_play_next_up);
