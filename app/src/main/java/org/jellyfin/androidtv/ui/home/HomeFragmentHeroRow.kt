@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.compose.runtime.Immutable
 import androidx.leanback.widget.Row
 import androidx.leanback.widget.RowPresenter
@@ -281,7 +282,9 @@ class HomeHeroRowPresenter(
 		// Only a focus holder: it takes the keys and draws nothing. What it controls is drawn by the
 		// home screen in the fixed block above the rows, so the rows can scroll under it. One pixel
 		// tall so the first row of cards sits where it does with or without a hero.
-		val view = View(parent.context).apply {
+		// A ViewGroup, not a plain View: leanback's RowPresenter casts the row view to ViewGroup to
+		// attach its header (hero.62 crashed on start with a plain View).
+		val view = FrameLayout(parent.context).apply {
 			isFocusable = true
 			isFocusableInTouchMode = true
 			layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
