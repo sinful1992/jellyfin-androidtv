@@ -61,9 +61,49 @@ class StartupTraceTests : FunSpec({
 
 	test("source: the watchdog times pings with uptime, which stops during standby") {
 		val source = java.io.File("src/main/java/org/jellyfin/androidtv/util/StartupTrace.kt").readText()
-		val watchdog = source.substringAfter("private fun startWatchdog()")
-		watchdog.contains("SystemClock.uptimeMillis()") shouldBe true
+		val watchdog = source.substringAfter("private fun createWatchdog()")
+		watchdog.contains("clock = SystemClock::uptimeMillis") shouldBe true
 		watchdog.contains("now()") shouldBe false
+	}
+
+	/** A fake clock that moves only when the watchdog waits; the ping is answered after [answerAt] ms, or never. */
+	class FakePing(val answerAt: Long = Long.MAX_VALUE) {
+		var t = 0L
+		val waits = mutableListOf<Long>()
+		fun await(ms: Long): Boolean {
+			waits += ms
+			if (waits.size > 100) error("watchdog spins: ${waits.take(10)}")
+			val until = t + maxOf(ms, 0)
+			if (until >= answerAt) { t = answerAt; return true }
+			t = until
+			return false
+		}
+	}
+
+	val idleStack = listOf(StackTraceElement("android.os.MessageQueue", "nativePollOnce", "MessageQueue.java", -2))
+	val busyStack = listOf(StackTraceElement("android.graphics.Bitmap", "nativeCompress", "Bitmap.java", -2))
+
+	test("a ping held while main is idle (sync barrier) waits a full second per check and logs nothing (linus review)") {
+		val ping = FakePing(answerAt = 5_300)
+		val logged = mutableListOf<Long>()
+		val checks = StartupTrace.awaitPing(ping::await, { ping.t }, { idleStack }, { late, _ -> logged += late })
+		logged shouldBe emptyList()
+		checks shouldBe 5
+		ping.waits shouldBe listOf(700L, 1_000L, 1_000L, 1_000L, 1_000L, 1_000L)
+	}
+
+	test("a stuck main thread is logged at 0.7 s and then every second until the ping runs") {
+		val ping = FakePing(answerAt = 3_000)
+		val logged = mutableListOf<Long>()
+		StartupTrace.awaitPing(ping::await, { ping.t }, { busyStack }, { late, _ -> logged += late })
+		logged shouldBe listOf(700L, 1_700L, 2_700L)
+	}
+
+	test("a ping answered in time logs nothing and makes no checks") {
+		val ping = FakePing(answerAt = 20)
+		val logged = mutableListOf<Long>()
+		StartupTrace.awaitPing(ping::await, { ping.t }, { busyStack }, { late, _ -> logged += late }) shouldBe 0
+		logged shouldBe emptyList()
 	}
 
 	test("a stall is reported at 700 ms and then every second") {

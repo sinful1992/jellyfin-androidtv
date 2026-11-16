@@ -125,27 +125,52 @@ object StartupTrace {
 	 */
 	fun nextReportAt(reports: Int) = STALL_MS + reports * STALL_REPEAT_MS
 
-	private fun startWatchdog() = synchronized(lock) {
-		if (watchdog != null) return
+	/**
+	 * Waits for one ping to be answered. [await] waits up to the given ms and says whether the ping ran; [clock]
+	 * is uptime, not elapsed time: it stops while the TV is in standby, which would otherwise read as one stall
+	 * as long as the standby on every wake (linus review). A check that finds the main thread idle in its
+	 * message queue (a ping held behind a sync barrier, or the watchdog itself late) logs nothing but still
+	 * counts, so the next check is a full [STALL_REPEAT_MS] later instead of at once (linus review: it spun).
+	 * Returns how many checks were made.
+	 */
+	fun awaitPing(
+		await: (Long) -> Boolean,
+		clock: () -> Long,
+		frames: () -> List<StackTraceElement>,
+		log: (late: Long, frames: List<StackTraceElement>) -> Unit,
+	): Int {
+		val sentAt = clock()
+		var checks = 0
+		while (!await(nextReportAt(checks) - (clock() - sentAt))) {
+			val late = clock() - sentAt
+			if (late < nextReportAt(checks)) continue
+			val stack = frames()
+			if (!isIdle(stack)) log(late, stack)
+			checks++
+		}
+		return checks
+	}
+
+	private fun startWatchdog() {
+		synchronized(lock) {
+			if (watchdog != null) return
+			watchdog = createWatchdog()
+		}
+	}
+
+	private fun createWatchdog(): Thread {
 		val mainLooper = Looper.getMainLooper()
 		val main = Handler(mainLooper)
-		watchdog = Thread({
+		return Thread({
 			while (true) {
-				// Uptime, not elapsed time: it stops while the TV is in standby, which would otherwise read as
-				// one stall as long as the standby on every wake (linus review).
 				val answered = CountDownLatch(1)
-				val sentAt = SystemClock.uptimeMillis()
 				main.post { answered.countDown() }
-				var reports = 0
-				while (!answered.await(nextReportAt(reports) - (SystemClock.uptimeMillis() - sentAt), TimeUnit.MILLISECONDS)) {
-					val late = SystemClock.uptimeMillis() - sentAt
-					if (late < nextReportAt(reports)) continue
-					val frames = mainLooper.thread.stackTrace.toList()
-					// A main thread waiting for messages is idle: the watchdog itself was the late one.
-					if (isIdle(frames)) continue
-					Log.i(TAG, formatStall(late, pid(), runTime(), frames))
-					reports++
-				}
+				awaitPing(
+					await = { ms -> answered.await(ms, TimeUnit.MILLISECONDS) },
+					clock = SystemClock::uptimeMillis,
+					frames = { mainLooper.thread.stackTrace.toList() },
+					log = { late, frames -> Log.i(TAG, formatStall(late, pid(), runTime(), frames)) },
+				)
 				SystemClock.sleep(PING_INTERVAL_MS)
 			}
 		}, "JFStartupWatchdog").apply {
