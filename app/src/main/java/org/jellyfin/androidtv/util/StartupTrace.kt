@@ -114,6 +114,11 @@ object StartupTrace {
 		frames.take(STALL_FRAMES).joinTo(this, "|") { "${it.className}.${it.methodName}:${it.lineNumber}" }
 	}
 
+	/** The main thread is waiting in its message queue, not stuck in anything. */
+	fun isIdle(frames: List<StackTraceElement>): Boolean = frames.firstOrNull()?.let {
+		it.className == "android.os.MessageQueue" && it.methodName == "nativePollOnce"
+	} == true
+
 	/**
 	 * When the next report of one stall is due: the first at [STALL_MS] late, then every [STALL_REPEAT_MS].
 	 * [reports] is how many were already logged for this stall.
@@ -126,14 +131,19 @@ object StartupTrace {
 		val main = Handler(mainLooper)
 		watchdog = Thread({
 			while (true) {
+				// Uptime, not elapsed time: it stops while the TV is in standby, which would otherwise read as
+				// one stall as long as the standby on every wake (linus review).
 				val answered = CountDownLatch(1)
-				val sentAt = now()
+				val sentAt = SystemClock.uptimeMillis()
 				main.post { answered.countDown() }
 				var reports = 0
-				while (!answered.await(nextReportAt(reports) - (now() - sentAt), TimeUnit.MILLISECONDS)) {
-					val late = now() - sentAt
+				while (!answered.await(nextReportAt(reports) - (SystemClock.uptimeMillis() - sentAt), TimeUnit.MILLISECONDS)) {
+					val late = SystemClock.uptimeMillis() - sentAt
 					if (late < nextReportAt(reports)) continue
-					Log.i(TAG, formatStall(late, pid(), runTime(), mainLooper.thread.stackTrace.toList()))
+					val frames = mainLooper.thread.stackTrace.toList()
+					// A main thread waiting for messages is idle: the watchdog itself was the late one.
+					if (isIdle(frames)) continue
+					Log.i(TAG, formatStall(late, pid(), runTime(), frames))
 					reports++
 				}
 				SystemClock.sleep(PING_INTERVAL_MS)

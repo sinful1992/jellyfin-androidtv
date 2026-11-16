@@ -44,6 +44,28 @@ class StartupTraceTests : FunSpec({
 			"stall dur=800 pid=9 run_t=-1 at="
 	}
 
+	test("a main thread waiting in its message queue is idle, not stalled (fake stall after standby, linus review)") {
+		val idle = listOf(
+			StackTraceElement("android.os.MessageQueue", "nativePollOnce", "MessageQueue.java", -2),
+			StackTraceElement("android.os.MessageQueue", "next", "MessageQueue.java", 335),
+			StackTraceElement("android.os.Looper", "loop", "Looper.java", 183),
+		)
+		StartupTrace.isIdle(idle) shouldBe true
+	}
+
+	test("a main thread busy in app code or blocked on a write is a stall") {
+		StartupTrace.isIdle(listOf(StackTraceElement("android.graphics.Bitmap", "nativeCompress", "Bitmap.java", -2))) shouldBe false
+		StartupTrace.isIdle(listOf(StackTraceElement("libcore.io.Linux", "writeBytes", "Linux.java", -2))) shouldBe false
+		StartupTrace.isIdle(emptyList()) shouldBe false
+	}
+
+	test("source: the watchdog times pings with uptime, which stops during standby") {
+		val source = java.io.File("src/main/java/org/jellyfin/androidtv/util/StartupTrace.kt").readText()
+		val watchdog = source.substringAfter("private fun startWatchdog()")
+		watchdog.contains("SystemClock.uptimeMillis()") shouldBe true
+		watchdog.contains("now()") shouldBe false
+	}
+
 	test("a stall is reported at 700 ms and then every second") {
 		StartupTrace.nextReportAt(0) shouldBe 700
 		StartupTrace.nextReportAt(1) shouldBe 1_700
