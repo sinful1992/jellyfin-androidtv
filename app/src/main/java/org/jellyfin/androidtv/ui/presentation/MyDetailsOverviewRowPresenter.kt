@@ -14,6 +14,7 @@ import org.jellyfin.androidtv.ui.DetailRowView
 import org.jellyfin.androidtv.ui.home.HeroMetaLine
 import org.jellyfin.androidtv.ui.home.homeHeroMetaOf
 import org.jellyfin.androidtv.ui.itemdetail.MyDetailsOverviewRow
+import org.jellyfin.androidtv.ui.itemdetail.detailsPremiumFormats
 import org.jellyfin.androidtv.util.InfoLayoutHelper
 import org.jellyfin.androidtv.util.MarkdownRenderer
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -31,6 +32,7 @@ class MyDetailsOverviewRowPresenter(
 		/** The details page's "Ends" time for the one-line meta, kept current by the page's clock. */
 		private var endsText by mutableStateOf<String?>(null)
 		private var metaItem by mutableStateOf<BaseItemDto?>(null)
+		private var metaFormats by mutableStateOf<List<String>>(emptyList())
 
 		/**
 		 * The one-line meta shown with the art: year, runtime, rating, stars, ends. Created once and
@@ -43,7 +45,7 @@ class MyDetailsOverviewRowPresenter(
 					val item = metaItem
 					if (item != null) {
 						val meta = homeHeroMetaOf(item)
-						HeroMetaLine(meta = meta, episodeName = null, trailing = endsText)
+						HeroMetaLine(meta = meta, episodeName = null, trailing = endsText, formats = metaFormats)
 					}
 				}
 			}
@@ -65,6 +67,11 @@ class MyDetailsOverviewRowPresenter(
 					binding.fdMainInfoRow.addView(metaView)
 				}
 				metaItem = row.item
+				// The chosen version's formats, so picking another version updates them.
+				metaFormats = detailsPremiumFormats(
+					row.item.mediaSources?.getOrNull(row.selectedMediaSourceIndex),
+					view.context::getString,
+				)
 				binding.fdGenreRow.text = row.item.genres?.take(DETAILS_GENRES_WITH_ART)?.joinToString(", ")
 			} else {
 				if (metaView.parent === binding.fdMainInfoRow) binding.fdMainInfoRow.removeView(metaView)

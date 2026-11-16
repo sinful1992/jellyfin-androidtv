@@ -284,7 +284,13 @@ private fun HeroTitle(
  * 8:45"). Missing parts are left out, not blanked. Shared with the details page.
  */
 @Composable
-internal fun HeroMetaLine(meta: HomeHeroMeta, episodeName: String?, trailing: String? = null) {
+internal fun HeroMetaLine(
+	meta: HomeHeroMeta,
+	episodeName: String?,
+	trailing: String? = null,
+	/** Format tags (Dolby Vision, TrueHD Atmos, 4K) drawn as outlined chips after the stars. */
+	formats: List<String> = emptyList(),
+) {
 	Row(
 		horizontalArrangement = Arrangement.spacedBy(11.dp),
 		verticalAlignment = Alignment.CenterVertically,
@@ -322,6 +328,17 @@ internal fun HeroMetaLine(meta: HomeHeroMeta, episodeName: String?, trailing: St
 				Spacer(Modifier.width(4.dp))
 				Text(text = String.format(Locale.ROOT, "%.1f", stars), color = Color.White, style = MetaStyle)
 			}
+		}
+		formats.forEach { format ->
+			Text(
+				text = format,
+				color = Color(0xFFE6E6E6),
+				style = TextStyle(fontSize = 10.5.sp, fontWeight = FontWeight.W500),
+				maxLines = 1,
+				modifier = Modifier
+					.border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(3.dp))
+					.padding(horizontal = 4.5.dp, vertical = 1.dp),
+			)
 		}
 		trailing?.let { Text(text = it, color = TextDim, style = MetaStyle, maxLines = 1) }
 	}
