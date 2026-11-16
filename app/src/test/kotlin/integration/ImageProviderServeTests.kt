@@ -15,6 +15,9 @@ import java.io.File
 import java.util.Collections
 import java.util.concurrent.Executors
 
+/** The thread name without the " @coroutine#N" that kotlinx debug mode adds. */
+private fun thread() = Thread.currentThread().name.substringBefore(" @")
+
 class ImageProviderServeTests : FunSpec({
 	val executor = Executors.newSingleThreadExecutor { Thread(it, "launcher-pictures") }
 	val uncaught = Collections.synchronizedList(mutableListOf<Throwable>())
@@ -30,8 +33,8 @@ class ImageProviderServeTests : FunSpec({
 		val events = Collections.synchronizedList(mutableListOf<String>())
 		val job = serveImage(
 			scope = scope,
-			load = { gate.await(); events += "load:" + Thread.currentThread().name; "picture" },
-			write = { events += "write $it:" + Thread.currentThread().name },
+			load = { gate.await(); events += "load:" + thread(); "picture" },
+			write = { events += "write $it:" + thread() },
 			close = { events += "close" },
 		)
 		// The caller is back while the picture is still loading.
