@@ -4,6 +4,7 @@ import android.widget.ImageView
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -74,6 +75,23 @@ enum class HomeHeroFocus {
 
 /** Height of the fixed info block between the toolbar and the rows. The rows scroll under it. */
 val HomeHeroPanelHeight = 250.dp
+
+private val HeroPanelBottomPadding = 12.dp
+private val HeroButtonsGap = 14.dp
+private val HeroButtonHeight = 36.dp
+
+/** The bottom of the info block that holds only the Play/Details buttons: empty while a card row is selected. */
+val HomeHeroButtonStrip = HeroPanelBottomPadding + HeroButtonsGap + HeroButtonHeight
+
+/**
+ * How far the rows reach up into [HomeHeroButtonStrip]. A selected card row puts its title there,
+ * so the focused card's name below it stays on screen; the hero is placed this much lower, so the
+ * hero screen looks the same. Kept under the strip, so a row title never covers the info text.
+ */
+val HomeRowsOverlap = 56.dp
+
+/** How long the hero's dots and buttons take to come back on the way up from the rows. */
+private const val ControlsFadeInMillis = 250
 
 /** How far the info block's text may run. Past this a line is scanned, not read. */
 private val HeroMeasure = 410.dp
@@ -183,14 +201,21 @@ fun HomeHeroPanel(
 	focused: Boolean,
 	modifier: Modifier = Modifier,
 ) {
-	val controlsAlpha = if (heroActive && selection != null) 1f else 0f
+	// The rows scroll back down through the button strip on the way up to the hero, so the buttons
+	// fade in behind them instead of appearing under a row title; on the way down they go at once.
+	val controlsShown = heroActive && selection != null
+	val controlsAlpha by animateFloatAsState(
+		targetValue = if (controlsShown) 1f else 0f,
+		animationSpec = if (controlsShown) tween(ControlsFadeInMillis) else snap(),
+		label = "home hero controls",
+	)
 
 	Column(
 		modifier = modifier
 			.fillMaxWidth()
 			.height(HomeHeroPanelHeight)
 			.padding(horizontal = dimensionResource(androidx.leanback.R.dimen.lb_browse_padding_start))
-			.padding(top = 4.dp, bottom = 12.dp),
+			.padding(top = 4.dp, bottom = HeroPanelBottomPadding),
 	) {
 		Box(modifier = Modifier.height(11.dp).alpha(controlsAlpha)) {
 			if (selection != null && selection.count > 1) {
@@ -214,7 +239,7 @@ fun HomeHeroPanel(
 			if (shown != null) HeroInfo(item = shown)
 		}
 
-		Spacer(Modifier.height(14.dp))
+		Spacer(Modifier.height(HeroButtonsGap))
 
 		Row(
 			horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -452,7 +477,7 @@ private fun HeroButton(
 				scaleX = scale
 				scaleY = scale
 			}
-			.height(36.dp)
+			.height(HeroButtonHeight)
 			.background(container, RoundedCornerShape(18.dp))
 			.padding(PaddingValues(horizontal = 17.dp)),
 	) {

@@ -21,6 +21,8 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Dp
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.AndroidFragment
 import androidx.fragment.compose.content
@@ -73,7 +75,8 @@ class HomeFragment : Fragment() {
 				Column {
 					MainToolbar(MainToolbarActiveButton.Home)
 
-					panel()
+					// The rows start inside the info block's empty button strip, and draw over it.
+					Box(modifier = Modifier.overlapBottom(HomeRowsOverlap)) { panel() }
 
 					HomeRows(
 						rowsFocusRequester = rowsFocusRequester,
@@ -182,5 +185,13 @@ class HomeFragment : Fragment() {
 				notificationRepository.updateServerNotifications(server)
 			}
 			.launchIn(viewLifecycleOwner.lifecycleScope)
+	}
+}
+
+/** Lays the content out [overlap] shorter than it measures, so what follows starts over its bottom. */
+private fun Modifier.overlapBottom(overlap: Dp) = layout { measurable, constraints ->
+	val placeable = measurable.measure(constraints)
+	layout(placeable.width, (placeable.height - overlap.roundToPx()).coerceAtLeast(0)) {
+		placeable.place(0, 0)
 	}
 }

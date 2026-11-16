@@ -67,6 +67,7 @@ import org.jellyfin.sdk.model.api.LibraryChangedMessage
 import org.jellyfin.sdk.model.api.UserDataChangedMessage
 import org.koin.android.ext.android.inject
 import timber.log.Timber
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -120,22 +121,27 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			setPadding(paddingLeft, 0, paddingRight, paddingBottom)
 		}
 		rowTitleHeight = verticalGridView?.let(::measureRowTitle) ?: 0
+		rowsOverlap = (HomeRowsOverlap.value * resources.displayMetrics.density).roundToInt()
 		alignSelectedRow(heroSelected = true)
 	}
 
 	/** Height of a row's title above its cards, measured from leanback's own header view. */
 	private var rowTitleHeight = 0
+
+	/** [HomeRowsOverlap] in pixels: how far this list starts above the bottom of the info block. */
+	private var rowsOverlap = 0
 	private var alignedForHero: Boolean? = null
 
 	/**
 	 * Leanback lines a row up by its cards, so a selected row at the top of the list had its title
 	 * above the list's edge, clipped away. A card row is placed one title lower so its title shows;
-	 * the hero row (one pixel, no title) stays at the top so the first row's title shows under it.
+	 * the hero row (one pixel, no title) sits [rowsOverlap] down, below the info block, so the first
+	 * row's title shows under it where it did before the list reached up into the button strip.
 	 */
 	private fun alignSelectedRow(heroSelected: Boolean) {
 		if (alignedForHero == heroSelected) return
 		alignedForHero = heroSelected
-		setAlignment(homeRowAlignment(heroSelected, rowTitleHeight))
+		setAlignment(homeRowAlignment(heroSelected, rowTitleHeight, rowsOverlap))
 	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -475,8 +481,8 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 private const val HERO_FOCUS_FRAMES = 30
 
 /** Where the selected row's cards sit from the top of the list: under their title, or at 0 for the hero. */
-internal fun homeRowAlignment(heroSelected: Boolean, rowTitleHeight: Int): Int =
-	if (heroSelected) 0 else rowTitleHeight.coerceAtLeast(0)
+internal fun homeRowAlignment(heroSelected: Boolean, rowTitleHeight: Int, rowsOverlap: Int): Int =
+	if (heroSelected) rowsOverlap.coerceAtLeast(0) else rowTitleHeight.coerceAtLeast(0)
 
 private fun measureRowTitle(parent: ViewGroup): Int {
 	val header = CustomRowHeaderPresenter().onCreateViewHolder(parent).view
