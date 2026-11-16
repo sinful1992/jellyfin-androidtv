@@ -54,6 +54,7 @@ import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.composable.AsyncImage
+import org.jellyfin.androidtv.util.StartupTrace
 import org.jellyfin.androidtv.util.apiclient.getUrl
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -154,6 +155,7 @@ fun HomeBackdrop(
 					url = shown.getUrl(api, maxWidth = width, maxHeight = artHeight),
 					scaleType = ImageView.ScaleType.CENTER_CROP,
 					modifier = Modifier.fillMaxSize(),
+					onLoaded = { StartupTrace.phase("hero_image") },
 				)
 			}
 		}

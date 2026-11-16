@@ -100,7 +100,7 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
     private final Lazy<UserViewsRepository> userViewsRepository = inject(UserViewsRepository.class);
     private Context context;
 
-    private boolean isCurrentlyRetrieving() {
+    public boolean isCurrentlyRetrieving() {
         synchronized (currentlyRetrievingSemaphore) {
             return currentlyRetrieving;
         }

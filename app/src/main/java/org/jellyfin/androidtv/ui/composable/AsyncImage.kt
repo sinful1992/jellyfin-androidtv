@@ -30,6 +30,7 @@ fun AsyncImage(
 	aspectRatio: Float = 1f,
 	blurHashResolution: Int = 32,
 	scaleType: ImageView.ScaleType? = null,
+	onLoaded: (() -> Unit)? = null,
 ) {
 	// Only the important properties are added to AsyncImageState
 	var state by remember { mutableStateOf<AsyncImageState?>(null) }
@@ -57,6 +58,7 @@ fun AsyncImage(
 					aspectRatio = aspectRatio.toDouble(),
 					blurHashResolution = blurHashResolution,
 					keepCurrentImage = upgrade,
+					onLoaded = onLoaded,
 				)
 			}
 		},

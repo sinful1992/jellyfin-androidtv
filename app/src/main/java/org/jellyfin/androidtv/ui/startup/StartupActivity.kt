@@ -42,6 +42,7 @@ import org.jellyfin.androidtv.ui.startup.fragment.SelectServerFragment
 import org.jellyfin.androidtv.ui.startup.fragment.ServerFragment
 import org.jellyfin.androidtv.ui.startup.fragment.SplashFragment
 import org.jellyfin.androidtv.ui.startup.fragment.StartupToolbarFragment
+import org.jellyfin.androidtv.util.StartupTrace
 import org.jellyfin.androidtv.util.applyTheme
 import org.jellyfin.androidtv.util.createBundle
 import org.jellyfin.sdk.api.client.ApiClient
@@ -86,6 +87,7 @@ class StartupActivity : FragmentActivity() {
 	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {
+		StartupTrace.startupActivityCreated()
 		applyTheme()
 
 		super.onCreate(savedInstanceState)
@@ -115,11 +117,13 @@ class StartupActivity : FragmentActivity() {
 		.onEach { session ->
 			if (session != null) {
 				Timber.i("Found a session in the session repository, waiting for the currentUser in the application class.")
+				StartupTrace.phase("session_ready")
 
 				showSplash()
 
 				val currentUser = userRepository.currentUser.first { it != null }
 				Timber.i("CurrentUser changed to ${currentUser?.id} while waiting for startup.")
+				StartupTrace.phase("user_ready")
 
 				lifecycleScope.launch {
 					openNextActivity()

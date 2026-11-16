@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import coil3.ImageLoader
 import coil3.asImage
 import coil3.request.ImageRequest
+import coil3.request.SuccessResult
 import coil3.request.crossfade
 import coil3.request.target
 import coil3.request.transformations
@@ -76,6 +77,7 @@ class AsyncImageView @JvmOverloads constructor(
 		aspectRatio: Double = 1.0,
 		blurHashResolution: Int = 32,
 		keepCurrentImage: Boolean = false,
+		onLoaded: (() -> Unit)? = null,
 	) = doOnAttach {
 		// Cancel the previous load if still running
 		loadJob?.cancel()
@@ -119,7 +121,8 @@ class AsyncImageView @JvmOverloads constructor(
 				}.build()
 			}
 
-			imageLoader.enqueue(request).job.await()
+			val result = imageLoader.enqueue(request).job.await()
+			if (onLoaded != null && url != null && result is SuccessResult) withContext(Dispatchers.Main) { onLoaded() }
 		}
 	}
 }

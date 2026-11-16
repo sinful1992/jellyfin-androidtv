@@ -34,6 +34,7 @@ import org.jellyfin.androidtv.ui.navigation.startNavigation
 import org.jellyfin.androidtv.ui.screensaver.InAppScreensaver
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
 import org.jellyfin.androidtv.ui.startup.StartupActivity
+import org.jellyfin.androidtv.util.StartupTrace
 import org.jellyfin.androidtv.util.applyTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -46,6 +47,8 @@ class MainActivity : FragmentActivity() {
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
 
 	override fun onCreate(savedInstanceState: Bundle?) {
+		StartupTrace.activityCreated()
+		StartupTrace.phase("main_activity")
 		applyTheme()
 
 		super.onCreate(savedInstanceState)

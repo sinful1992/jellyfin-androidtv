@@ -59,6 +59,9 @@ import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
 import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.KeyProcessor
 import org.jellyfin.androidtv.util.PlaybackHelper
+import org.jellyfin.androidtv.util.StartupRowsTrace
+import org.jellyfin.androidtv.util.StartupTrace
+import org.jellyfin.androidtv.util.apiclient.EmptyResponse
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.sockets.subscribe
@@ -207,6 +210,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				nowPlaying.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				for (row in rows) row.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
+				traceFirstAnswers(adapter as MutableObjectAdapter<Row>)
 
 				// Wire up Live TV sibling rows so the On Now row removes the buttons row when empty
 				@Suppress("UNCHECKED_CAST")
@@ -252,6 +256,27 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 
 		// Subscribe to Audio messages
 		mediaManager.addAudioEventListener(this)
+	}
+
+	/** Start-up phases `home_first_row` and `home_rows_done` (task 171), from the rows' first answers. */
+	@Suppress("DEPRECATION")
+	private fun traceFirstAnswers(rowsAdapter: MutableObjectAdapter<Row>) {
+		val rowAdapters = (0 until rowsAdapter.size()).mapNotNull { i -> (rowsAdapter.get(i) as? ListRow)?.adapter as? ItemRowAdapter }
+		val trace = StartupRowsTrace(
+			expected = rowAdapters.size,
+			onFirstWithItems = { StartupTrace.phase("home_first_row") },
+			onAll = { StartupTrace.phase("home_rows_done") },
+		)
+		for (rowAdapter in rowAdapters) {
+			if (!rowAdapter.isCurrentlyRetrieving) {
+				trace.answered(rowAdapter.size() > 0)
+				continue
+			}
+			rowAdapter.setRetrieveFinishedListener(object : EmptyResponse(lifecycle) {
+				override fun onResponse() = trace.answered(rowAdapter.size() > 0)
+				override fun onError(exception: Exception) = trace.answered(false)
+			})
+		}
 	}
 
 	override fun onKey(v: View?, keyCode: Int, event: KeyEvent?): Boolean {
