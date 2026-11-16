@@ -165,6 +165,8 @@ android {
 	testOptions.unitTests.all {
 		it.useJUnitPlatform()
 	}
+	// Robolectric view tests (task 168) read the app's layouts, drawables and colour selectors.
+	testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 base.archivesName.set("jellyfin-androidtv-v${project.getVersionName()}")
@@ -257,4 +259,7 @@ dependencies {
 	testImplementation(libs.kotest.runner.junit5)
 	testImplementation(libs.kotest.assertions)
 	testImplementation(libs.mockk)
+	testImplementation(libs.junit4)
+	testRuntimeOnly(libs.junit.vintage.engine)
+	testImplementation(libs.robolectric)
 }
