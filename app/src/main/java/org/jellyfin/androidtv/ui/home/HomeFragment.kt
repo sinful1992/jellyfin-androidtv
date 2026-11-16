@@ -144,10 +144,14 @@ class HomeFragment : Fragment() {
 
 		var shown by remember { mutableStateOf<BaseItemDto?>(null) }
 		var info by remember { mutableStateOf<BaseItemDto?>(null) }
+		val heroWasActive = remember { booleanArrayOf(false) }
 		LaunchedEffect(target?.id, heroActive) {
-			// Also on the hero dots: holding Left/Right repeats the key, and each step would
-			// otherwise start its own full-screen picture and logo request.
-			delay(FollowFocusDelay)
+			// Rows wait for the focus to rest, and so do steps along the hero dots (holding Left/Right
+			// repeats the key, and each step would start its own picture and logo request). Arriving
+			// on the hero, or the first title at start, shows at once: Play is already lit for it.
+			val dotStep = heroActive && heroWasActive[0]
+			heroWasActive[0] = heroActive
+			if (info != null && (!heroActive || dotStep)) delay(FollowFocusDelay)
 			shown = homeHeroNextShown(target, shown)
 			info = homeHeroNextInfo(target, info)
 		}
