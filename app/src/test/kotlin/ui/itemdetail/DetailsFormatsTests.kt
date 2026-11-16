@@ -26,7 +26,7 @@ private val names = mapOf(
 )
 private val label: (Int) -> String = { names.getValue(it) }
 
-private fun video(width: Int = 1920, height: Int = 1080, range: VideoRangeType? = VideoRangeType.SDR) = mockk<MediaStream> {
+private fun video(width: Int = 1920, height: Int = 1080, range: VideoRangeType = VideoRangeType.SDR) = mockk<MediaStream> {
 	every { type } returns MediaStreamType.VIDEO
 	every { this@mockk.width } returns width
 	every { this@mockk.height } returns height
@@ -66,6 +66,8 @@ class DetailsFormatsTests : FunSpec({
 		detailsPremiumFormats(source(video(), audio("eac3", "Dolby Digital Plus + Dolby Atmos")), label) shouldBe listOf("DD+ Atmos")
 		detailsPremiumFormats(source(video(), audio("dts", "DTS:X")), label) shouldBe listOf("DTS:X")
 		detailsPremiumFormats(source(video(), audio("dts", "DTS-HD MA")), label) shouldBe listOf("DTS-HD")
+		detailsPremiumFormats(source(video(), audio("dts", "DTS-HD MA + DTS:X")), label) shouldBe listOf("DTS:X")
+		detailsPremiumFormats(source(video(), audio("dts", "DTS-HD HRA")), label).shouldBeEmpty()
 	}
 
 	test("plain DTS core and EAC3 without Atmos are ordinary") {
@@ -97,10 +99,11 @@ class DetailsFormatsTests : FunSpec({
 	test("no version, no streams, or a vertical 4K phone clip") {
 		detailsPremiumFormats(null, label).shouldBeEmpty()
 		detailsPremiumFormats(source(), label).shouldBeEmpty()
-		detailsPremiumFormats(source(video(2160, 3840, null)), label) shouldBe listOf("4K")
+		detailsPremiumFormats(source(video(2160, 3840, VideoRangeType.UNKNOWN)), label) shouldBe listOf("4K")
+		detailsPremiumFormats(source(video(1440, 2560)), label).shouldBeEmpty()
 	}
 
 	test("8K") {
-		detailsPremiumFormats(source(video(7680, 4320, null)), label) shouldBe listOf("8K")
+		detailsPremiumFormats(source(video(7680, 4320, VideoRangeType.UNKNOWN)), label) shouldBe listOf("8K")
 	}
 })

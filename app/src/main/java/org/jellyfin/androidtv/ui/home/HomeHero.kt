@@ -288,9 +288,33 @@ internal fun HeroMetaLine(
 	meta: HomeHeroMeta,
 	episodeName: String?,
 	trailing: String? = null,
-	/** Format tags (Dolby Vision, TrueHD Atmos, 4K) drawn as outlined chips after the stars. */
+	/**
+	 * Format tags (Dolby Vision, TrueHD Atmos, 4K), drawn as outlined chips on a line of their own
+	 * under the facts: on one line with an episode, rating and Ends they run past the text column.
+	 */
 	formats: List<String> = emptyList(),
 ) {
+	if (formats.isEmpty()) HeroFactsLine(meta, episodeName, trailing)
+	else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+		HeroFactsLine(meta, episodeName, trailing)
+		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+			formats.forEach { format ->
+				Text(
+					text = format,
+					color = Color(0xFFE6E6E6),
+					style = TextStyle(fontSize = 10.5.sp, fontWeight = FontWeight.W500),
+					maxLines = 1,
+					modifier = Modifier
+						.border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(3.dp))
+						.padding(horizontal = 4.5.dp, vertical = 1.dp),
+				)
+			}
+		}
+	}
+}
+
+@Composable
+private fun HeroFactsLine(meta: HomeHeroMeta, episodeName: String?, trailing: String?) {
 	Row(
 		horizontalArrangement = Arrangement.spacedBy(11.dp),
 		verticalAlignment = Alignment.CenterVertically,
@@ -328,17 +352,6 @@ internal fun HeroMetaLine(
 				Spacer(Modifier.width(4.dp))
 				Text(text = String.format(Locale.ROOT, "%.1f", stars), color = Color.White, style = MetaStyle)
 			}
-		}
-		formats.forEach { format ->
-			Text(
-				text = format,
-				color = Color(0xFFE6E6E6),
-				style = TextStyle(fontSize = 10.5.sp, fontWeight = FontWeight.W500),
-				maxLines = 1,
-				modifier = Modifier
-					.border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(3.dp))
-					.padding(horizontal = 4.5.dp, vertical = 1.dp),
-			)
 		}
 		trailing?.let { Text(text = it, color = TextDim, style = MetaStyle, maxLines = 1) }
 	}

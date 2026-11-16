@@ -21,7 +21,7 @@ fun detailsPremiumFormats(mediaSource: MediaSourceInfo?, label: (Int) -> String)
 
 	return listOfNotNull(
 		video?.let(::resolutionTag),
-		video?.videoRangeType?.let { rangeTag(it) }?.let(label),
+		video?.let { rangeTag(it.videoRangeType) }?.let(label),
 		audio?.let { audioTag(it) }?.let(label),
 	)
 }
@@ -34,11 +34,15 @@ private fun List<MediaStream>.defaultAudio(defaultIndex: Int?): MediaStream? {
 }
 
 private fun resolutionTag(video: MediaStream): String? {
+	// By the long and short side, so a portrait phone clip is judged the same as landscape:
+	// 2160x3840 is 4K, 1440x2560 is not.
 	val width = video.width ?: 0
 	val height = video.height ?: 0
+	val long = maxOf(width, height)
+	val short = minOf(width, height)
 	return when {
-		width >= 7600 || height >= 4300 -> "8K"
-		width >= 3800 || height >= 2000 -> "4K"
+		long >= 7600 || short >= 4300 -> "8K"
+		long >= 3800 || short >= 2000 -> "4K"
 		else -> null
 	}
 }
@@ -68,7 +72,8 @@ private fun audioTag(audio: MediaStream): Int? {
 			else -> R.string.dolby_atmos
 		}
 		profile.contains("DTS:X", ignoreCase = true) -> R.string.dts_x
-		profile.contains("DTS-HD", ignoreCase = true) || profile.contains("DTS:HD", ignoreCase = true) -> R.string.dts_hd
+		// Lossless DTS-HD Master Audio only; DTS-HD High Resolution is lossy and stays out.
+		profile.contains("DTS-HD MA", ignoreCase = true) || profile.contains("DTS:HD MA", ignoreCase = true) -> R.string.dts_hd
 		codec == "TRUEHD" -> R.string.truehd
 		else -> null
 	}
