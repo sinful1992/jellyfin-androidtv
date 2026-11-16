@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text and icon of a details pill button: dark on the white focused pill, white otherwise. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="#111111" android:state_focused="true" />
+    <item android:color="#FFFFFF" />
+</selector>

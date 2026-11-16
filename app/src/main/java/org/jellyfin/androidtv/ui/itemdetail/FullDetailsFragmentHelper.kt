@@ -100,6 +100,19 @@ fun FullDetailsFragment.showDetailsMenu(
 	if (goToSeriesButton?.isVisible == false) {
 		item(getString(R.string.lbl_goto_series)) { gotoSeries() }
 	}
+
+	if (mWatchedToggleButton?.isVisible == false) {
+		val playedStringRes = when (baseItemDto.userData?.played) {
+			true -> R.string.lbl_mark_unwatched
+			else -> R.string.mark_watched
+		}
+
+		item(getString(playedStringRes)) { togglePlayed() }
+	}
+
+	if (deleteButton?.isVisible == false) {
+		item(getString(R.string.lbl_delete)) { deleteItem() }
+	}
 }.showIfNotEmpty()
 
 fun FullDetailsFragment.toggleFavorite() {
@@ -112,7 +125,7 @@ fun FullDetailsFragment.toggleFavorite() {
 			favorite = !(mBaseItem.userData?.isFavorite ?: false)
 		)
 		mBaseItem = mBaseItem.copyWithUserData(userData)
-		favButton.isActivated = userData.isFavorite
+		favButton?.isActivated = userData.isFavorite
 		dataRefreshService.lastFavoriteUpdate = Instant.now()
 	}
 }
@@ -127,7 +140,7 @@ fun FullDetailsFragment.togglePlayed() {
 			played = !(mBaseItem.userData?.played ?: false)
 		)
 		mBaseItem = mBaseItem.copyWithUserData(userData)
-		mWatchedToggleButton.isActivated = userData.played
+		mWatchedToggleButton?.isActivated = userData.played
 
 		// Adjust resume
 		mResumeButton?.apply {

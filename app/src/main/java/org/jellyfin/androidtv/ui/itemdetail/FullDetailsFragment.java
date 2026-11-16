@@ -758,7 +758,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         navigationRepository.getValue().navigate(Destinations.INSTANCE.itemDetails(mBaseItem.getSeriesId()));
     }
 
-    private void deleteItem() {
+    void deleteItem() {
         Timber.i("Showing item delete confirmation");
         new AlertDialog.Builder(requireContext())
                 .setTitle(getString(R.string.item_delete_confirm_title))
@@ -787,6 +787,15 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
 
     private void addButtons(int buttonSize) {
         BaseItemDto baseItem = mBaseItem;
+        // Rebuilt for every item, so nothing from the previous item can reach the More menu.
+        mVersionsButton = null;
+        mWatchedToggleButton = null;
+        favButton = null;
+        shuffleButton = null;
+        goToSeriesButton = null;
+        queueButton = null;
+        deleteButton = null;
+        trailerButton = null;
         String buttonLabel;
         if (baseItem.getType() == BaseItemKind.SERIES) {
             buttonLabel = getString(R.string.lbl_play_next_up);
@@ -805,7 +814,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         });
 
         if (BaseItemExtensionsKt.canPlay(baseItem)) {
-            mDetailsOverviewRow.addAction(mResumeButton);
+            addAction(mResumeButton);
             boolean isSeries = baseItem.getType() == BaseItemKind.SERIES;
             boolean isStarted = baseItem.getUserData().getPlayedPercentage() != null && baseItem.getUserData().getPlayedPercentage() > 0;
 
@@ -815,7 +824,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                     play(mBaseItem, 0, false);
                 }
             });
-            mDetailsOverviewRow.addAction(playButton);
+            addAction(playButton);
 
             if (isSeries && (!isStarted || baseItem.getUserData().getPlayed())) {
                 FullDetailsFragmentHelperKt.getNextUpEpisode(this, nextUpEpisode -> {
@@ -838,7 +847,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                         addItemToQueue();
                     }
                 });
-                mDetailsOverviewRow.addAction(queueButton);
+                addAction(queueButton);
             }
 
             if (Utils.getSafeValue(mBaseItem.isFolder(), false) || baseItem.getType() == BaseItemKind.MUSIC_ARTIST) {
@@ -848,7 +857,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                         play(mBaseItem, 0, true);
                     }
                 });
-                mDetailsOverviewRow.addAction(shuffleButton);
+                addAction(shuffleButton);
             }
 
             if (baseItem.getType() == BaseItemKind.MUSIC_ARTIST) {
@@ -858,7 +867,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                         playbackHelper.getValue().playInstantMix(requireContext(), baseItem);
                     }
                 });
-                mDetailsOverviewRow.addAction(imix);
+                addAction(imix);
             }
         }
         //Video versions button
@@ -874,7 +883,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                     }
                 }
             });
-            mDetailsOverviewRow.addAction(mVersionsButton);
+            addAction(mVersionsButton);
         }
 
         if (TrailerUtils.hasPlayableTrailers(requireContext(), mBaseItem)) {
@@ -885,7 +894,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 }
             });
 
-            mDetailsOverviewRow.addAction(trailerButton);
+            addAction(trailerButton);
         }
 
         org.jellyfin.sdk.model.api.UserItemDataDto userData = mBaseItem.getUserData();
@@ -893,7 +902,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
             if (mBaseItem.getType() != BaseItemKind.MUSIC_ARTIST && mBaseItem.getType() != BaseItemKind.PERSON) {
                 mWatchedToggleButton = TextUnderButton.create(requireContext(), R.drawable.ic_watch, buttonSize, 0, getString(R.string.lbl_watched), markWatchedListener);
                 mWatchedToggleButton.setActivated(userData.getPlayed());
-                mDetailsOverviewRow.addAction(mWatchedToggleButton);
+                addAction(mWatchedToggleButton);
             }
 
             //Favorite
@@ -904,7 +913,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 }
             });
             favButton.setActivated(userData.isFavorite());
-            mDetailsOverviewRow.addAction(favButton);
+            addAction(favButton);
         }
 
         if (mBaseItem.getType() == BaseItemKind.EPISODE && mBaseItem.getSeriesId() != null) {
@@ -914,7 +923,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                     gotoSeries();
                 }
             });
-            mDetailsOverviewRow.addAction(goToSeriesButton);
+            addAction(goToSeriesButton);
         }
 
         boolean deletableItem = false;
@@ -930,7 +939,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                     deleteItem();
                 }
             });
-            mDetailsOverviewRow.addAction(deleteButton);
+            addAction(deleteButton);
         }
 
         //Now, create a more button to show if needed
@@ -942,8 +951,14 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         });
 
         moreButton.setVisibility(View.GONE);
-        mDetailsOverviewRow.addAction(moreButton);
+        addAction(moreButton);
         showMoreButtonIfNeeded();
+    }
+
+    /** Every details button is drawn as a pill. */
+    private void addAction(TextUnderButton button) {
+        button.setPill();
+        mDetailsOverviewRow.addAction(button);
     }
 
     private void handleResumeButtonAndFocus(BaseItemDto nextUpEpisode) {
@@ -996,6 +1011,15 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
     int collapsedOptions = 0;
 
     void showMoreButtonIfNeeded() {
+        // Watched, favourite, go to series and delete always live in the More menu: the page
+        // keeps Play, Trailer and More on the art and nothing else competes with them.
+        boolean menuOnly = false;
+        for (TextUnderButton button : new TextUnderButton[]{mWatchedToggleButton, favButton, goToSeriesButton, deleteButton}) {
+            if (button == null) continue;
+            button.setVisibility(View.GONE);
+            menuOnly = true;
+        }
+
         int visibleOptions = mDetailsOverviewRow.getVisibleActions();
 
         List<TextUnderButton> actionsList = new ArrayList<>();
@@ -1003,8 +1027,6 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
         if (queueButton != null) actionsList.add(queueButton);
         if (trailerButton != null) actionsList.add(trailerButton);
         if (shuffleButton != null) actionsList.add(shuffleButton);
-        if (favButton != null) actionsList.add(favButton);
-        if (goToSeriesButton != null) actionsList.add(goToSeriesButton);
 
         // reverse the list so the less important actions are hidden first
         Collections.reverse(actionsList);
@@ -1024,7 +1046,7 @@ public class FullDetailsFragment extends Fragment implements View.OnKeyListener 
                 collapsedOptions++;
             }
         }
-        moreButton.setVisibility(collapsedOptions > 0 ? View.VISIBLE : View.GONE);
+        moreButton.setVisibility(collapsedOptions > 0 || menuOnly ? View.VISIBLE : View.GONE);
     }
 
 

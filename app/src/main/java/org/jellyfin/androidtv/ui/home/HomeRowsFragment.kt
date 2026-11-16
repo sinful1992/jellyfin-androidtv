@@ -18,6 +18,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -57,6 +60,7 @@ import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.sockets.subscribe
+import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.LibraryChangedMessage
 import org.jellyfin.sdk.model.api.UserDataChangedMessage
 import org.koin.android.ext.android.inject
@@ -96,6 +100,25 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	private val notificationsRow by lazy { NotificationsHomeFragmentRow(lifecycleScope, notificationsRepository) }
 	private val nowPlaying by lazy { HomeFragmentNowPlayingRow(lifecycleScope, playbackManager, mediaManager) }
 	private val hero by lazy { HomeFragmentHeroRow(lifecycleScope, api, navigationRepository, playbackHelper) }
+
+	private val _focusedItem = MutableStateFlow<BaseItemDto?>(null)
+
+	/** The item on the selected card, or null while the hero (or a row with no item) is selected. */
+	val focusedItem: StateFlow<BaseItemDto?> = _focusedItem.asStateFlow()
+
+	/** The hero row once loaded. The home screen draws it; the row in this list only holds the focus. */
+	val heroRow: StateFlow<HomeHeroRow?> get() = hero.rowState
+
+	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+		super.onViewCreated(view, savedInstanceState)
+
+		// The info block sits above this list, so the selected row goes to the top of the list and the
+		// rows before it scroll out of the list's own bounds, where the list clips them.
+		verticalGridView?.apply {
+			setPadding(paddingLeft, 0, paddingRight, paddingBottom)
+		}
+		setAlignment(0)
+	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -150,6 +173,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 					staticHeight = HOME_CARD_HEIGHT,
 					uniformAspect = false,
 					fixedAspectRatio = ImageHelper.ASPECT_RATIO_16_9.toFloat(),
+					quiet = true,
 				)
 
 				// Add rows in order
@@ -306,7 +330,12 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	 * window is a fraction of a second, and the alternative is opening on a card every time.
 	 */
 	private fun onHeroAdded() {
-		if (selectedPosition > 1) return
+		if (selectedPosition > 1) {
+			// The viewer is further down and stays there, so the top of the screen keeps following
+			// their card rather than switching to the hero they are not on.
+			hero.row?.setSelected(false)
+			return
+		}
 
 		// Leanback holds the selection as a number, and the number did not change: it was already 0
 		// and the rows simply moved down underneath it. So it believes the top row is selected
@@ -384,6 +413,8 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			// screen and moving off the hero scrolls it up without taking it away. See
 			// HomeHeroRow.selected.
 			hero.row?.setSelected(row is HomeHeroRow)
+
+			_focusedItem.value = if (row is ListRow && item is BaseRowItem) item.baseItem else null
 
 			if (row !is ListRow || item !is BaseRowItem) {
 				currentItem = null

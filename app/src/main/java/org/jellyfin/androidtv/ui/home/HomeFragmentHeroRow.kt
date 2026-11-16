@@ -5,17 +5,9 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.findViewTreeCompositionContext
 import androidx.leanback.widget.Row
 import androidx.leanback.widget.RowPresenter
 import androidx.lifecycle.LifecycleCoroutineScope
-import androidx.lifecycle.findViewTreeLifecycleOwner
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.findViewTreeSavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,6 +105,15 @@ class HomeHeroRow(items: List<BaseItemDto>) : Row() {
 	}
 
 	/**
+	 * Which of the hero's controls the keys belong to, and whether the hero has the focus at all.
+	 *
+	 * Held on the row rather than the view holder: the row's view is only the focus holder, and the
+	 * controls are drawn by the home screen above the rows (see [HomeHeroPanel]), which reads these.
+	 */
+	val focus = MutableStateFlow(HomeHeroFocus.Play)
+	val focused = MutableStateFlow(false)
+
+	/**
 	 * Move [delta] places along the shortlist, wrapping round at either end.
 	 *
 	 * Wrapping because the strip is short enough to be walked from one end to the other, and a key
@@ -171,8 +172,16 @@ class HomeFragmentHeroRow(
 	private val navigationRepository: NavigationRepository,
 	private val playbackHelper: PlaybackHelper,
 ) : HomeFragmentRow {
+	private val _rowState = MutableStateFlow<HomeHeroRow?>(null)
+
+	/** The hero row once it exists, for the home screen to draw. */
+	val rowState: StateFlow<HomeHeroRow?> = _rowState.asStateFlow()
+
 	var row: HomeHeroRow? = null
-		private set
+		private set(value) {
+			field = value
+			_rowState.value = value
+		}
 
 	override fun addToRowsAdapter(context: Context, cardPresenter: CardPresenter, rowsAdapter: MutableObjectAdapter<Row>) {
 		refresh(rowsAdapter)
@@ -269,19 +278,13 @@ class HomeHeroRowPresenter(
 	override fun onSelectLevelChanged(holder: ViewHolder) = Unit
 
 	override fun createRowViewHolder(parent: ViewGroup): ViewHolder {
-		val view = ComposeView(parent.context).apply {
-			setParentCompositionContext(parent.findViewTreeCompositionContext())
-			setViewTreeLifecycleOwner(parent.findViewTreeLifecycleOwner())
-			setViewTreeSavedStateRegistryOwner(parent.findViewTreeSavedStateRegistryOwner())
+		// Only a focus holder: it takes the keys and draws nothing. What it controls is drawn by the
+		// home screen in the fixed block above the rows, so the rows can scroll under it. One pixel
+		// tall so the first row of cards sits where it does with or without a hero.
+		val view = View(parent.context).apply {
 			isFocusable = true
 			isFocusableInTouchMode = true
-
-			// The row goes into a vertical list, so it takes the width it is handed and asks for
-			// the height its content needs.
-			layoutParams = ViewGroup.LayoutParams(
-				ViewGroup.LayoutParams.MATCH_PARENT,
-				ViewGroup.LayoutParams.WRAP_CONTENT,
-			)
+			layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
 		}
 
 		return HeroViewHolder(view)
@@ -302,33 +305,18 @@ class HomeHeroRowPresenter(
 		viewHolder.bind(null)
 	}
 
-	private inner class HeroViewHolder(composeView: ComposeView) : ViewHolder(composeView) {
+	private inner class HeroViewHolder(view: View) : ViewHolder(view) {
 		private val _row = MutableStateFlow<HomeHeroRow?>(null)
-		private val _focus = MutableStateFlow(HomeHeroFocus.Play)
-		private val _focused = MutableStateFlow(false)
+
+		// Stand-ins while unbound, so the key handling below never has to ask whether there is a row.
+		private val idleFocus = MutableStateFlow(HomeHeroFocus.Play)
+		private val idleFocused = MutableStateFlow(false)
+		private val _focus get() = _row.value?.focus ?: idleFocus
+		private val _focused get() = _row.value?.focused ?: idleFocused
 
 		init {
-			composeView.setContent {
-				val row by _row.collectAsState()
-				val focus by _focus.collectAsState()
-				val focused by _focused.collectAsState()
-
-				val currentRow = row
-				if (currentRow != null) {
-					val selection by currentRow.selection.collectAsState()
-					val selected by currentRow.selected.collectAsState()
-
-					HomeHero(
-						selection = selection,
-						focus = focus,
-						focused = focused,
-						expanded = selected,
-					)
-				}
-			}
-
 			_focused.value = view.isFocused
-			composeView.onFocusChangeListener = View.OnFocusChangeListener { _, focused ->
+			view.onFocusChangeListener = View.OnFocusChangeListener { _, focused ->
 				_focused.value = focused
 				// Coming back to the hero from a row below should offer the thing it is there to
 				// offer, not whatever was left highlighted last time. Which title is on show is
@@ -336,7 +324,7 @@ class HomeHeroRowPresenter(
 				if (!focused) _focus.value = HomeHeroFocus.Play
 			}
 
-			composeView.setOnKeyListener { _, keyCode, event -> onKey(keyCode, event) }
+			view.setOnKeyListener { _, keyCode, event -> onKey(keyCode, event) }
 		}
 
 		private fun onKey(keyCode: Int, event: KeyEvent): Boolean = when (keyCode) {

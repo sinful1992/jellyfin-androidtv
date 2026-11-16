@@ -40,21 +40,25 @@ import org.koin.compose.koinInject
 @Stable
 fun ItemCardBaseItemOverlay(
 	item: BaseItemDto,
+	/** False for a quiet card: progress only, no favourite, recording or watched badges. */
+	badges: Boolean = true,
 	footer: (@Composable () -> Unit)? = null,
 ) = Box(
 	modifier = Modifier
 		.fillMaxSize()
 		.padding(Tokens.Space.spaceXs)
 ) {
-	StateIndicator(
-		item = item,
-		modifier = Modifier.align(Alignment.TopStart),
-	)
+	if (badges) {
+		StateIndicator(
+			item = item,
+			modifier = Modifier.align(Alignment.TopStart),
+		)
 
-	WatchIndicator(
-		item = item,
-		modifier = Modifier.align(Alignment.TopEnd)
-	)
+		WatchIndicator(
+			item = item,
+			modifier = Modifier.align(Alignment.TopEnd)
+		)
+	}
 
 	Column(
 		modifier = Modifier.align(Alignment.BottomCenter),

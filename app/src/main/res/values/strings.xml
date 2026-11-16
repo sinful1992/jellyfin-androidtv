@@ -235,6 +235,7 @@
     <string name="bitrate_mbit">%1$,.0f Mbit/s</string>
     <string name="bitrate_kbit">%1$,.0f Kbit/s</string>
     <string name="mark_watched">Mark watched</string>
+    <string name="lbl_mark_unwatched">Mark unwatched</string>
     <string name="mark_watched_message">The item didn\'t appear to play as long as its duration. Mark watched?</string>
     <string name="no_player">No player</string>
     <string name="no_player_message">It doesn\'t appear you have a video capable app installed.  This option requires you install a 3rd party application for playing video content.</string>

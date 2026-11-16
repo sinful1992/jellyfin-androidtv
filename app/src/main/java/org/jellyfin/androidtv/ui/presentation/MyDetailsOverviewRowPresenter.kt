@@ -1,14 +1,22 @@
 package org.jellyfin.androidtv.ui.presentation
 
 import android.view.ViewGroup
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.leanback.widget.RowPresenter
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.DetailRowView
+import org.jellyfin.androidtv.ui.home.HeroMetaLine
+import org.jellyfin.androidtv.ui.home.homeHeroMetaOf
 import org.jellyfin.androidtv.ui.itemdetail.MyDetailsOverviewRow
 import org.jellyfin.androidtv.util.InfoLayoutHelper
 import org.jellyfin.androidtv.util.MarkdownRenderer
+import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 
 class MyDetailsOverviewRowPresenter(
@@ -20,11 +28,49 @@ class MyDetailsOverviewRowPresenter(
 	) : RowPresenter.ViewHolder(detailRowView) {
 		private val binding get() = detailRowView.binding
 
+		/** The details page's "Ends" time for the one-line meta, kept current by the page's clock. */
+		private var endsText by mutableStateOf<String?>(null)
+		private var metaItem by mutableStateOf<BaseItemDto?>(null)
+
+		/**
+		 * The one-line meta shown with the art: year, runtime, rating, stars, ends. Created once and
+		 * reused, so a rebind does not start a new composition.
+		 */
+		private val metaView by lazy {
+			ComposeView(view.context).apply {
+				setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+				setContent {
+					val item = metaItem
+					if (item != null) {
+						val meta = homeHeroMetaOf(item)
+						HeroMetaLine(meta = meta, episodeName = null, trailing = endsText)
+					}
+				}
+			}
+		}
+
 		fun setItem(row: MyDetailsOverviewRow) {
 			setTitle(row.item.name)
 
-			InfoLayoutHelper.addInfoRow(view.context, row.item, row.item.mediaSources?.getOrNull(row.selectedMediaSourceIndex), binding.fdMainInfoRow, false)
-			binding.fdGenreRow.text = row.item.genres?.joinToString(" / ")
+			val withArt = row.backdropUrl != null
+			val endsLabel = view.context.getString(R.string.lbl_ends)
+			endsText = row.infoItem3?.takeIf { it.label == endsLabel }?.value?.let { "$endsLabel $it" }
+
+			if (withArt) {
+				// Replaces the row of chips (tomato score, full date, codec badges) with one line.
+				if (metaView.parent !== binding.fdMainInfoRow) {
+					binding.fdMainInfoRow.removeAllViews()
+					(metaView.parent as? ViewGroup)?.removeView(metaView)
+					binding.fdMainInfoRow.addView(metaView)
+				}
+				metaItem = row.item
+				binding.fdGenreRow.text = row.item.genres?.take(DETAILS_GENRES_WITH_ART)?.joinToString(", ")
+			} else {
+				if (metaView.parent === binding.fdMainInfoRow) binding.fdMainInfoRow.removeView(metaView)
+				metaItem = null
+				InfoLayoutHelper.addInfoRow(view.context, row.item, row.item.mediaSources?.getOrNull(row.selectedMediaSourceIndex), binding.fdMainInfoRow, false)
+				binding.fdGenreRow.text = row.item.genres?.joinToString(" / ")
+			}
 
 			binding.infoTitle1.text = row.infoItem1?.label
 			binding.infoValue1.text = row.infoItem1?.value
@@ -38,6 +84,7 @@ class MyDetailsOverviewRowPresenter(
 			setArtwork(row)
 
 			setSummary(row.summary)
+			binding.fdSummaryText.maxLines = if (withArt) DETAILS_SUMMARY_LINES_WITH_ART else DETAILS_SUMMARY_LINES
 
 			if (row.item.type == BaseItemKind.PERSON) {
 				binding.fdSummaryText.maxLines = 9
@@ -64,6 +111,22 @@ class MyDetailsOverviewRowPresenter(
 			val backdrop = row.backdropUrl
 			val logo = row.logoUrl.takeIf { backdrop != null }
 			val episode = row.item.type == BaseItemKind.EPISODE
+
+			// With art the text runs from the page's left margin: the Directed by / Runs / Ends gutter
+			// goes, and Ends moves into the meta line.
+			binding.guideMainStart.setGuidelineBegin(
+				resources.getDimensionPixelSize(
+					if (backdrop != null) R.dimen.details_main_start_with_art else R.dimen.details_main_start
+				)
+			)
+			for (info in listOf(
+				binding.infoTitle1, binding.infoValue1,
+				binding.infoTitle2, binding.infoValue2,
+				binding.infoTitle3, binding.infoValue3,
+			)) info.isVisible = backdrop == null
+			binding.fdButtonRow.showDividers =
+				if (backdrop != null) android.widget.LinearLayout.SHOW_DIVIDER_MIDDLE
+				else android.widget.LinearLayout.SHOW_DIVIDER_NONE
 
 			binding.fdBackdrop.isVisible = backdrop != null
 			if (backdrop != null) binding.fdBackdrop.load(backdrop)
@@ -107,6 +170,7 @@ class MyDetailsOverviewRowPresenter(
 		}
 
 		fun setInfoValue3(text: String?) {
+			if (endsText != null) endsText = text?.let { "${view.context.getString(R.string.lbl_ends)} $it" }
 			binding.infoValue3.text = text
 		}
 	}
@@ -134,3 +198,7 @@ class MyDetailsOverviewRowPresenter(
 
 	override fun onSelectLevelChanged(holder: RowPresenter.ViewHolder) = Unit
 }
+
+private const val DETAILS_GENRES_WITH_ART = 3
+private const val DETAILS_SUMMARY_LINES_WITH_ART = 4
+private const val DETAILS_SUMMARY_LINES = 6

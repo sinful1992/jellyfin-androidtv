@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -82,6 +83,12 @@ class CardPresenter @JvmOverloads constructor(
 	 * silhouette to read along, at the cost of cropping artwork that is not that shape.
 	 */
 	val fixedAspectRatio: Float? = null,
+	/**
+	 * A card that shows only its picture and progress: no watched, favourite or count badges, and
+	 * its name only while it has the focus. For the home screen, where the art above already says
+	 * what the focused card is and a row of badges is noise.
+	 */
+	val quiet: Boolean = false,
 ) : Presenter() {
 	constructor(showInfo: Boolean, imageType: ImageType, staticHeight: Int) : this(showInfo, imageType, staticHeight, false)
 	constructor(showInfo: Boolean, staticHeight: Int) : this(showInfo, ImageType.POSTER, staticHeight)
@@ -134,6 +141,7 @@ class CardPresenter @JvmOverloads constructor(
 					staticHeight = staticHeight,
 					uniformAspect = uniformAspect,
 					fixedAspectRatio = fixedAspectRatio,
+					quiet = quiet,
 				)
 			}
 
@@ -338,6 +346,7 @@ private fun CardViewHolderContent(
 	staticHeight: Int,
 	uniformAspect: Boolean,
 	fixedAspectRatio: Float?,
+	quiet: Boolean = false,
 ) {
 	val context = LocalContext.current
 	val localDensity = LocalDensity.current
@@ -409,10 +418,11 @@ private fun CardViewHolderContent(
 				}
 			},
 			overlay = {
-				val showInfo = !usePreview && item.showCardInfoOverlay
+				val showInfo = !usePreview && item.showCardInfoOverlay && (!quiet || focused)
 				item.baseItem?.let { baseItem ->
 					ItemCardBaseItemOverlay(
 						item = baseItem,
+						badges = !quiet,
 						footer = {
 							if (showInfo && title != null) {
 								val focusModifier = if (focused) Modifier.titleMarquee() else Modifier
@@ -445,7 +455,10 @@ private fun CardViewHolderContent(
 	}
 
 	if (usePreview) {
-		val focusModifier = if (focused) Modifier.titleMarquee() else Modifier
+		// A quiet card keeps the space its labels take, so the row's height never changes under the
+		// focus, and only shows them while focused.
+		val labelAlpha = if (quiet && !focused) 0f else 1f
+		val focusModifier = (if (focused) Modifier.titleMarquee() else Modifier).alpha(labelAlpha)
 
 		ItemPreview(
 			card = { card() },
