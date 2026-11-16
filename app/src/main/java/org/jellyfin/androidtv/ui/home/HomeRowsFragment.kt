@@ -374,10 +374,21 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 
 				// The row is laid out a frame or two after the insert reaches the adapter, and its
 				// view can exist before it is attached; a focus request then does nothing. Keep
-				// trying until the hero really holds the focus, for at most HERO_FOCUS_FRAMES frames.
+				// trying until the hero really holds the focus, for at most HERO_FOCUS_FRAMES frames,
+				// and stop the moment the viewer has gone further down themselves.
 				val hero = getRowViewHolder(0)?.view
-				val taken = hero != null && hero.isAttachedToWindow && (hero.hasFocus() || hero.requestFocus())
-				if (taken || ++frames >= HERO_FOCUS_FRAMES) grid.viewTreeObserver.removeOnPreDrawListener(this)
+				val step = heroStartFocusStep(
+					selectedPosition = selectedPosition,
+					heroReady = hero != null && hero.isAttachedToWindow,
+					heroHasFocus = hero?.hasFocus() == true,
+					frames = frames++,
+				)
+				val done = when (step) {
+					HeroStartFocus.Take -> hero?.requestFocus() == true
+					HeroStartFocus.Wait -> false
+					HeroStartFocus.Stop -> true
+				}
+				if (done) grid.viewTreeObserver.removeOnPreDrawListener(this)
 				return true
 			}
 		})
@@ -396,6 +407,12 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 
 		Timber.i("Refresh item ${item.getFullName(requireContext())}")
 		adapter.refreshItem(api, this, item)
+	}
+
+	override fun onDestroyView() {
+		// A new list gets its alignment set afresh.
+		alignedForHero = null
+		super.onDestroyView()
 	}
 
 	override fun onDestroy() {
@@ -468,4 +485,19 @@ private fun measureRowTitle(parent: ViewGroup): Int {
 		View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
 	)
 	return header.measuredHeight
+}
+
+internal enum class HeroStartFocus { Take, Wait, Stop }
+
+/**
+ * One frame of putting the focus on a newly added hero at start: stop once the hero has it, once
+ * the viewer has moved past the first card row themselves, or after [HERO_FOCUS_FRAMES] frames;
+ * wait while its row is not attached yet; otherwise take it.
+ */
+internal fun heroStartFocusStep(selectedPosition: Int, heroReady: Boolean, heroHasFocus: Boolean, frames: Int): HeroStartFocus = when {
+	heroHasFocus -> HeroStartFocus.Stop
+	selectedPosition > 1 -> HeroStartFocus.Stop
+	frames >= HERO_FOCUS_FRAMES -> HeroStartFocus.Stop
+	!heroReady -> HeroStartFocus.Wait
+	else -> HeroStartFocus.Take
 }
