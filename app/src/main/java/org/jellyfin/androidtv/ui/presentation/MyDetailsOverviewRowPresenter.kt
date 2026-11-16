@@ -54,7 +54,8 @@ class MyDetailsOverviewRowPresenter(
 
 			val withArt = row.backdropUrl != null
 			val endsLabel = view.context.getString(R.string.lbl_ends)
-			endsText = row.infoItem3?.takeIf { it.label == endsLabel }?.value?.let { "$endsLabel $it" }
+			// A title with no runtime (a series, a folder) would end "now": no Ends for it.
+			endsText = row.infoItem3?.takeIf { it.label == endsLabel && (row.item.runTimeTicks ?: 0L) > 0L }?.value?.let { "$endsLabel $it" }
 
 			if (withArt) {
 				// Replaces the row of chips (tomato score, full date, codec badges) with one line.
