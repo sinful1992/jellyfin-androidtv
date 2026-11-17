@@ -59,6 +59,7 @@ import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
 import org.jellyfin.androidtv.util.ImageHelper
 import org.jellyfin.androidtv.util.KeyProcessor
 import org.jellyfin.androidtv.util.PlaybackHelper
+import org.jellyfin.androidtv.util.NavTrace
 import org.jellyfin.androidtv.util.StartupRowsTrace
 import org.jellyfin.androidtv.util.StartupTrace
 import org.jellyfin.androidtv.util.apiclient.EmptyResponse
@@ -295,9 +296,10 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		}
 
 		if (!justLoaded) {
+			traceBackDrawn()
 			//Re-retrieve anything that needs it but delay slightly so we don't take away gui landing
 			refreshCurrentItem()
-			refreshRows()
+			refreshRows(traceBack = NavTrace.homeRowsPending())
 			refreshHero()
 		} else {
 			justLoaded = false
@@ -330,7 +332,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		nowPlaying.update(requireContext(), adapter as MutableObjectAdapter<Row>)
 	}
 
-	private fun refreshRows(force: Boolean = false, delayed: Boolean = true) {
+	private fun refreshRows(force: Boolean = false, delayed: Boolean = true, traceBack: Boolean = false) {
 		lifecycleScope.launch(Dispatchers.IO) {
 			if (delayed) delay(1.5.seconds)
 
@@ -338,11 +340,45 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			// the refresh then competes with the player for the network. Coming back runs it again.
 			if (delayed && !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
 
+			var fired = 0
+			val pending = mutableListOf<ItemRowAdapter>()
 			repeat(adapter.size()) { i ->
-				val rowAdapter = (adapter[i] as? ListRow)?.adapter as? ItemRowAdapter
-				if (force) rowAdapter?.Retrieve()
-				else rowAdapter?.ReRetrieveIfNeeded()
+				val rowAdapter = (adapter[i] as? ListRow)?.adapter as? ItemRowAdapter ?: return@repeat
+				if (force) {
+					rowAdapter.Retrieve()
+					fired++
+				} else if (rowAdapter.ReRetrieveIfNeeded()) {
+					fired++
+				}
+				if (rowAdapter.isCurrentlyRetrieving) pending.add(rowAdapter)
 			}
+			if (traceBack) withContext(Dispatchers.Main) { traceBackRows(fired, pending) }
+		}
+	}
+
+	/** `JFNav home_back_drawn` (task 176): the first frame of the rows after a Back to Home. */
+	private fun traceBackDrawn() {
+		val rows = view ?: return
+		rows.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+			override fun onPreDraw(): Boolean {
+				rows.viewTreeObserver.removeOnPreDrawListener(this)
+				NavTrace.homeDrawn()
+				return true
+			}
+		})
+	}
+
+	/** `JFNav home_back_rows` (task 176): once the row refreshes this Back started have answered. */
+	private fun traceBackRows(fired: Int, pending: List<ItemRowAdapter>) {
+		val trace = StartupRowsTrace(expected = pending.size, onFirstWithItems = {}, onAll = { NavTrace.homeRows(fired) })
+		for (rowAdapter in pending) {
+			// The answer can land between the check above and this listener: count each row once.
+			val once = java.util.concurrent.atomic.AtomicBoolean(false)
+			rowAdapter.setRetrieveFinishedListener(object : EmptyResponse(lifecycle) {
+				override fun onResponse() { if (once.compareAndSet(false, true)) trace.answered(true) }
+				override fun onError(exception: Exception) { if (once.compareAndSet(false, true)) trace.answered(false) }
+			})
+			if (!rowAdapter.isCurrentlyRetrieving && once.compareAndSet(false, true)) trace.answered(true)
 		}
 	}
 

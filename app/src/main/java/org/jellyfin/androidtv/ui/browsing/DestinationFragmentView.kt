@@ -14,6 +14,7 @@ import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentTransaction
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.util.NavTrace
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
 import org.jellyfin.androidtv.ui.navigation.layout.isEmptyNavHost
@@ -119,6 +120,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 
 		// Read & set previous entry
 		val entry = history.last()
+		NavTrace.back(currentEntry.name.simpleName, entry.name.simpleName)
 		activateHistoryEntry(entry, transaction)
 
 		return true
