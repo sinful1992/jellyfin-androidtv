@@ -298,6 +298,12 @@ class VideoPlayerFragment : Fragment() {
 	override fun onStop() {
 		super.onStop()
 
+		// Leaving the player (Back, or the queue ran out): hand the display back now. onDestroy is
+		// only reached once the page is gone from the screen, and the TV kept the film's refresh
+		// rate until then (task 176). A stop for an HDMI re-sync or the TV going off is not a removal,
+		// so a mode switch in flight is left alone.
+		if (isRemoving) displayModeSwitcher?.reset()
+
 		stopped = true
 		pendingStartJob?.cancel()
 		pendingStartJob = null

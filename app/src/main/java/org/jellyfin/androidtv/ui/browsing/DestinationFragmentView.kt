@@ -16,6 +16,7 @@ import androidx.fragment.app.FragmentTransaction
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.home.HomeFragment
 import org.jellyfin.androidtv.ui.itemdetail.FullDetailsFragment
+import org.jellyfin.androidtv.ui.player.video.VideoPlayerFragment
 import org.jellyfin.androidtv.util.NavTrace
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
@@ -124,7 +125,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 		// Read & set previous entry
 		val entry = history.last()
 		NavTrace.back(navLabel(currentEntry.name), navLabel(entry.name), toHome = entry.name == HomeFragment::class.java)
-		activateHistoryEntry(entry, transaction)
+		activateHistoryEntry(entry, transaction, animate = backFades(currentEntry.name))
 
 		return true
 	}
@@ -161,6 +162,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 	private fun activateHistoryEntry(
 		entry: HistoryEntry,
 		transaction: FragmentTransaction,
+		animate: Boolean = true,
 	) {
 		var fragment = entry.fragment
 
@@ -189,7 +191,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 		transaction.apply {
 			// Set options
 			setReorderingAllowed(true)
-			setCustomAnimations(R.anim.fade_in, R.anim.fade_out, R.anim.fade_in, R.anim.fade_out)
+			if (animate) setCustomAnimations(R.anim.fade_in, R.anim.fade_out, R.anim.fade_in, R.anim.fade_out)
 
 			// Detach current fragment
 			fragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTENT)?.let(::detach)
@@ -246,3 +248,11 @@ private fun navLabel(page: Class<out Fragment>): String = when (page) {
 	FullDetailsFragment::class.java -> "details"
 	else -> "other"
 }
+
+/**
+ * Whether a Back away from [leaving] cross-fades (task 176). Not from the video player: a removed page
+ * stays on screen until its fade-out ends, and the player's video surface stayed black over the page
+ * already drawn under it for ~7 s on the Shield (USER #12973), with the film's display mode held until
+ * the fragment was finally destroyed.
+ */
+internal fun backFades(leaving: Class<out Fragment>): Boolean = leaving != VideoPlayerFragment::class.java
