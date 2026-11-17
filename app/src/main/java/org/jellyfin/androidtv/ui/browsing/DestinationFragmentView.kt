@@ -14,6 +14,8 @@ import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentTransaction
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.ui.home.HomeFragment
+import org.jellyfin.androidtv.ui.itemdetail.FullDetailsFragment
 import org.jellyfin.androidtv.util.NavTrace
 import org.jellyfin.androidtv.ui.navigation.NavigationAction
 import org.jellyfin.androidtv.ui.navigation.layout.BlackScreenHeal
@@ -78,6 +80,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 		get() = isEmptyNavHost(history.size)
 
 	fun navigate(action: NavigationAction.NavigateFragment) {
+		NavTrace.navigated()
 		if (history.isEmpty()) removeRestoredFragments()
 
 		val entry = HistoryEntry(action.destination.fragment.java, action.destination.arguments)
@@ -120,7 +123,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 
 		// Read & set previous entry
 		val entry = history.last()
-		NavTrace.back(currentEntry.name.simpleName, entry.name.simpleName)
+		NavTrace.back(navLabel(currentEntry.name), navLabel(entry.name), toHome = entry.name == HomeFragment::class.java)
 		activateHistoryEntry(entry, transaction)
 
 		return true
@@ -235,4 +238,11 @@ class DestinationFragmentView @JvmOverloads constructor(
 			if (history.isNotEmpty()) activateHistoryEntry(history.last(), fragmentManager.beginTransaction())
 		}
 	}
+}
+
+/** A fixed label for `JFNav` lines: release builds rename the fragment classes (task 176, linus review). */
+private fun navLabel(page: Class<out Fragment>): String = when (page) {
+	HomeFragment::class.java -> "home"
+	FullDetailsFragment::class.java -> "details"
+	else -> "other"
 }
