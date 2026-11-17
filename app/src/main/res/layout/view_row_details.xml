@@ -68,10 +68,11 @@
         <org.jellyfin.androidtv.ui.AsyncImageView
             android:id="@+id/fdBackdrop"
             android:layout_width="@dimen/details_backdrop_width"
-            android:layout_height="@dimen/details_backdrop_height"
+            android:layout_height="0dp"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/fdButtonRow"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
