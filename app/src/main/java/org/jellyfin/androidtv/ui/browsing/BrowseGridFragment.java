@@ -242,6 +242,9 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         binding.rowsFragment.addView(mGridViewHolder.view);
 
         updateAdapter();
+
+        // Focus the grid by default
+        mGridView.requestFocus();
     }
 
     /**
@@ -737,6 +740,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                 }
                 mLetterButton.setVisibility(!isCollectionMovies() && ItemSortBy.SORT_NAME.equals(mAdapter.getSortBy()) ? View.VISIBLE : View.GONE);
                 if (mAdapter.getItemsLoaded() == 0) {
+                    binding.toolBar.requestFocus();
                     mGridView.setFocusable(false);
                     mHandler.postDelayed(() -> {
                         if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))

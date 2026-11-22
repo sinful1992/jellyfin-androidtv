@@ -27,6 +27,7 @@ import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.util.AndroidVersion
 import org.koin.android.ext.android.inject
 import timber.log.Timber
+import java.io.FileNotFoundException
 import java.io.IOException
 
 class ImageProvider : ContentProvider() {
@@ -34,14 +35,20 @@ class ImageProvider : ContentProvider() {
 
 	override fun onCreate(): Boolean = true
 
-	override fun getType(uri: Uri) = null
+	override fun getType(uri: Uri) = MIME_TYPE
 	override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?) = null
-	override fun insert(uri: Uri, values: ContentValues?) = null
-	override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
-	override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?) = 0
+	override fun insert(uri: Uri, values: ContentValues?): Uri = throw UnsupportedOperationException("Images are read-only")
+	override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int =
+		throw UnsupportedOperationException("Images are read-only")
+	override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int =
+		throw UnsupportedOperationException("Images are read-only")
 
 	override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
-		val src = requireNotNull(uri.getQueryParameter("src")).toUri()
+		if (mode != "r") throw FileNotFoundException("Images can only be opened for reading")
+		// The provider is exported: any app on the device can ask for a picture, so only load web images and
+		// bundled resources, never a file:// or content:// address that would read the app's own storage.
+		val src = allowedImageSource(uri.getQueryParameter("src"))?.toUri()
+			?: throw FileNotFoundException("Unsupported image source")
 		val context = requireNotNull(context)
 
 		val (read, write) = ParcelFileDescriptor.createPipe()
@@ -91,6 +98,7 @@ class ImageProvider : ContentProvider() {
 
 	companion object {
 		private const val COMPRESSION_QUALITY = 95
+		private const val MIME_TYPE = "image/webp"
 
 		/**
 		 * The tallest picture the launcher gets, in pixels. The launcher's rows are 1080p at most, and a
@@ -136,4 +144,22 @@ internal fun <T : Any> serveImage(
 	} finally {
 		runCatching { close() }
 	}
+}
+
+private val ALLOWED_IMAGE_SCHEMES = setOf("http", "https", "android.resource")
+
+/**
+ * The image address [ImageProvider.openFile] may load, or null to refuse it: only http, https and
+ * android.resource addresses with a host (upstream d8be4505e). The scheme is matched case-insensitively.
+ * Parsed by hand, not with a strict URI parser, so a picture URL with an unusual character still loads.
+ */
+internal fun allowedImageSource(src: String?): String? {
+	if (src.isNullOrBlank()) return null
+	val schemeEnd = src.indexOf("://")
+	if (schemeEnd <= 0) return null
+	if (src.substring(0, schemeEnd).lowercase() !in ALLOWED_IMAGE_SCHEMES) return null
+	val rest = src.substring(schemeEnd + 3)
+	val authority = rest.substringBefore('/').substringBefore('?').substringBefore('#')
+	if (authority.isBlank() || authority.any { it.isWhitespace() }) return null
+	return src
 }

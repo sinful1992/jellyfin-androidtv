@@ -5,6 +5,8 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+- Upstream sync (task 189, USER #13631): merged upstream master dc49f2eb0 onto hero.67. Brings: an empty library grid (e.g. the unwatched eye on a fully watched library) moves focus to the toolbar instead of crashing (10d01122a); opening a Movies/Shows library and the library display settings load the library preferences without blocking the main thread (8420a066b, ee1a09e37; Live TV stays out of the smart-screen case, the fork removed Live TV); AGP 9.5.1, Gradle 9.9.1, kotest 6.2.7, mockk 1.14.12, Weblate.
+- Launcher pictures (ImageProvider): kept the fork's 480 px / two-at-a-time version (task 171) over upstream's rewrite d8be4505e, and took upstream's safety checks: the provider is exported, so it now refuses any source but http/https/android.resource with a host (before, any app could make it load a file:// or content:// address), refuses write modes, and reports image/webp. Tests: ImageProviderSourceTests (6).
 
 ## [v0.20.0-hero.67](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.67) (2026-11-17)
 - Details page: the cast row (or seasons/episodes row) starts right under the buttons again. The picture behind a page with art was a fixed 470 dp tall, and leanback sizes a row by its tallest child, so every details row with art was at least 470 dp high: the first row sat that far down with an empty gap above it, whatever the text. The picture now ends at the bottom of the button row (USER #12936, task 176). Tests: DetailRowViewHeightTests (5; 4 fail on the old layout).
