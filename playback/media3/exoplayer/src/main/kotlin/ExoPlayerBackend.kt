@@ -26,6 +26,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -232,7 +233,21 @@ class ExoPlayerBackend(
 				enableFloatOutput: Boolean,
 				enableAudioOutputPlaybackParams: Boolean,
 			): AudioSink? {
-				val sink = super.buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParams)
+				// Amlogic boxes: TrueHD is packed into MAT here, since the box's own encoder drops out at splices.
+				// Every other device builds exactly the sink it always had.
+				val sink = if (TrueHdMatOutput.isAmlogic()) {
+					val matOutput = TrueHdMatOutput()
+					TrueHdMatAudioSink(
+						DefaultAudioSink.Builder(context)
+							.setEnableFloatOutput(enableFloatOutput)
+							.setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+							.setAudioOutputProvider(matOutput.provider(context))
+							.build(),
+						matOutput,
+					)
+				} else {
+					super.buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParams)
+				}
 				return when {
 					sink == null || exoPlayerOptions.dtsHdOutput == DtsHdOutput.FULL -> sink
 					else -> DtsCoreAudioSink(sink, exoPlayerOptions.dtsHdOutput, DtsHdFallback(context))
