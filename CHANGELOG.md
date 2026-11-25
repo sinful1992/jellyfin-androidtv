@@ -4,6 +4,9 @@ Builds of this fork (sinful1992/jellyfin-androidtv) on top of upstream Jellyfin 
 Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
+## Unreleased
+- Full screen on plain-Android boxes (Ugoos SK4, task 195, USER #14117/#14126): the app now hides the status bar and the navigation bar while it is in front, and hides them again when a dialog or the keyboard closes (swipe shows them for a moment). Before, the clock bar stayed on top during play and the picture sat below it. Android TV devices show no bars, so nothing changes there. MainActivity and StartupActivity; ExternalPlayerActivity untouched. Tests: SystemBarsTests (3).
+
 ## [v0.20.0-hero.68](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.68) (2026-11-22)
 - Upstream sync (task 189, USER #13631): merged upstream master dc49f2eb0 onto hero.67. Brings: an empty library grid (e.g. the unwatched eye on a fully watched library) moves focus to the toolbar instead of crashing (10d01122a); opening a Movies/Shows library and the library display settings load the library preferences without blocking the main thread (8420a066b, ee1a09e37; Live TV stays out of the smart-screen case, the fork removed Live TV); AGP 9.5.1, Gradle 9.9.1, kotest 6.2.7, mockk 1.14.12, Weblate.
 - Launcher pictures (ImageProvider): kept the fork's 480 px / two-at-a-time version (task 171) over upstream's rewrite d8be4505e, and took upstream's safety checks: the provider is exported, so it now refuses any source but http/https/android.resource with a host (before, any app could make it load a file:// or content:// address), refuses write modes, and reports image/webp. Tests: ImageProviderSourceTests (6).

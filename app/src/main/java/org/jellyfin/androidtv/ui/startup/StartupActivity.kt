@@ -32,6 +32,7 @@ import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.data.eventhandling.SocketHandler
 import org.jellyfin.androidtv.databinding.ActivityStartupBinding
 import org.jellyfin.androidtv.integration.LeanbackChannelWorker
+import org.jellyfin.androidtv.ui.SystemBars
 import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.browsing.MainActivity
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncherHelper
@@ -95,6 +96,7 @@ class StartupActivity : FragmentActivity() {
 		binding.background.setContent { AppBackground() }
 		binding.screensaver.isVisible = false
 		setContentView(binding.root)
+		SystemBars.hide(SystemBars.controllerOf(this))
 
 		if (!intent.getBooleanExtra(EXTRA_HIDE_SPLASH, false)) showSplash()
 
@@ -106,6 +108,12 @@ class StartupActivity : FragmentActivity() {
 		super.onResume()
 
 		applyTheme()
+	}
+
+	override fun onWindowFocusChanged(hasFocus: Boolean) {
+		super.onWindowFocusChanged(hasFocus)
+
+		SystemBars.onFocusChanged(SystemBars.controllerOf(this), hasFocus)
 	}
 
 	private fun onPermissionsGranted() = sessionRepository.state

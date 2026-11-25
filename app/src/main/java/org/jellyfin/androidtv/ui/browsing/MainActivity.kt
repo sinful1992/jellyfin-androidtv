@@ -21,6 +21,7 @@ import org.acra.ACRA
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
+import org.jellyfin.androidtv.ui.SystemBars
 import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideLocalInteractionTracker
@@ -93,6 +94,8 @@ class MainActivity : FragmentActivity() {
 				}
 			}
 		}
+
+		SystemBars.hide(SystemBars.controllerOf(this))
 	}
 
 	override fun onResume() {
@@ -109,6 +112,8 @@ class MainActivity : FragmentActivity() {
 
 	override fun onWindowFocusChanged(hasFocus: Boolean) {
 		super.onWindowFocusChanged(hasFocus)
+
+		SystemBars.onFocusChanged(SystemBars.controllerOf(this), hasFocus)
 
 		focusHealTrigger(hasFocus)?.let { BlackScreenHeal.schedule(window.decorView, it) }
 	}
