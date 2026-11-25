@@ -26,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import org.jellyfin.androidtv.ui.HideSystemBarsInDialog
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.interactionTracker
 
@@ -59,6 +60,8 @@ fun DialogBase(
 				decorFitsSystemWindows = false
 			),
 		) {
+			HideSystemBarsInDialog()
+
 			Box(
 				modifier = modifier
 					.fillMaxSize()

@@ -5,6 +5,7 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+- Settings panel and in-app screensaver full screen too (task 195, USER #14184): these are Compose dialogs with their own window, so hero.69's activity-level hide missed them and the clock bar showed over them on the SK4. DialogBase now hides the bars in its own window, and again when that window regains focus (keyboard or a popup over it closed). Outside a dialog (preview, test host) it does nothing. Tests: SystemBarsTests (+4).
 - Full screen on plain-Android boxes (Ugoos SK4, task 195, USER #14117/#14126): the app now hides the status bar and the navigation bar while it is in front, and hides them again when a dialog or the keyboard closes (swipe shows them for a moment). Before, the clock bar stayed on top during play and the picture sat below it. Android TV devices show no bars, so nothing changes there. MainActivity and StartupActivity; ExternalPlayerActivity untouched. Tests: SystemBarsTests (3).
 
 ## [v0.20.0-hero.68](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.68) (2026-11-22)
