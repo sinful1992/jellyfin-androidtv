@@ -176,8 +176,9 @@ class TrueHdMatTests : FunSpec({
 	}
 
 	test("packer: output just behind input at a splice is not a seek with the signed offset (Kodi drops there)") {
-		val behind = listOf(Thd.Splice(atUnit = 1600, inputJump = 1556, outputJump = 1556 - 40 * 6))
-		val data = Thd.stream(6000, outputLead = 0, splices = behind)
+		// Output 8 samples behind the input before the join, 40 ahead after it (like the film's 8:49 join).
+		val behind = listOf(Thd.Splice(atUnit = 1600, inputJump = 1556, outputJump = 1556 + 48))
+		val data = Thd.stream(6000, outputLead = -8, splices = behind)
 		packAll(TrueHdMatPacker(signedOffset = true), data).first shouldBe 0
 		(packAll(TrueHdMatPacker(signedOffset = false), data).first > 0).shouldBeTrue()
 	}
