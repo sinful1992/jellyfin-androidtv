@@ -42,12 +42,21 @@
         </intent>
     </queries>
 
+    <!--
+        enableOnBackInvokedCallback=false keeps the KEYCODE_BACK key events (task 198). With targetSdk 36 on
+        Android 16+ the system turns predictive back on by default and takes Back before the views (ViewRootImpl
+        NativePreImeInputStage), so the player overlay, MainActivity.onKeyDown/onKeyUp and Leanback onKey never see
+        it and Back acts only on key up through the back callbacks. That is not the Back the app was built and tested
+        with (Android 14 and older never had this). Google calls the opt-out temporary: moving every Back path to
+        OnBackPressedCallback / BackHandler is the lasting fix.
+    -->
     <application
         android:name=".JellyfinApplication"
         android:allowBackup="true"
         android:appCategory="video"
         android:banner="@mipmap/app_banner"
         android:dataExtractionRules="@xml/backup_rules"
+        android:enableOnBackInvokedCallback="false"
         android:fullBackupContent="@xml/backup_content"
         android:icon="@mipmap/app_icon"
         android:label="@string/app_name"
