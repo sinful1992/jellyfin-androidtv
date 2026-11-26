@@ -5,6 +5,7 @@ Version `0.20.0-hero.N`, versionCode `2000NN`, tag `v0.20.0-hero.N`.
 Every commit that changes `app/` adds its line here, under `Unreleased` until the build is tagged.
 
 ## Unreleased
+- Back leaves the player again (task 196): Back down closed the controls, but Back up, judged against the frame drawn before the close, restarted their timer and brought them straight back, so every Back was used up closing controls that reopened. Only key down acts on the overlay now. Upstream code, the same in hero.71. Tests: PlayerOverlayKeyTests (10, the key decision as a plain function).
 
 ## [v0.20.0-hero.72](https://github.com/sinful1992/jellyfin-androidtv/releases/tag/v0.20.0-hero.72) (2026-11-26)
 - Smoother Home scrolling on the Ugoos SK4 (task 195, hero.72b test build): the two dark shades over the Home backdrop (from the left behind the words, from the bottom behind the rows) are now drawn together in one offscreen layer that the GPU keeps, instead of two full-screen gradients worked out again on every frame of a row scroll. On the SK4's Mali-G310 the two gradients were about 13 of a frame's 21 ms of GPU drawing (a probe with the shades switched off drew in 8 ms, #14438). With the layer, box, 3 runs of the row scroll: GPU median 13 / 10 / 6 ms, janky 2.4-4.5 % (#14465; warm runs, no cold A/B against hero.71). Tests: none, drawing only, measured on the box.

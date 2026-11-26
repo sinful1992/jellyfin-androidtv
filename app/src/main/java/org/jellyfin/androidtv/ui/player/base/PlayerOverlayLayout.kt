@@ -107,30 +107,33 @@ fun PlayerOverlayLayout(
 		.focusRequester(focusRequester)
 		.focusable()
 		.onPreviewKeyEvent {
-			// Reset hide timer on key presses
-			if (visibilityState.visible) visibilityState.show()
+			val action = playerOverlayKeyAction(
+				isKeyDown = it.type == KeyEventType.KeyDown,
+				key = it.key,
+				isSystem = it.nativeKeyEvent.isSystem,
+				visible = visibilityState.visible,
+				hasOnSelect = onSelect != null,
+			)
 
-			// Otherwise, only act on key down
-			if (it.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-
-			val isSelect = it.key == Key.DirectionCenter || it.key == Key.Enter
-
-			if (it.key == Key.Back && visibilityState.visible) {
-				visibilityState.hide()
-				true
-			} else if (isSelect && onSelect != null && !visibilityState.visible) {
-				// Select acts on what is playing rather than opening the controls so the same
-				// action can be gone and found in them. This has to be tested before the catch-all
-				// below, which counts select among the keys that only open the controls and would
-				// otherwise swallow it — leaving no press that pauses at all.
-				onSelect()
-				visibilityState.show()
-				true
-			} else if (!it.nativeKeyEvent.isSystem && !visibilityState.visible) {
-				visibilityState.show()
-				true
-			} else {
-				false
+			when (action) {
+				PlayerOverlayKeyAction.Ignore -> false
+				PlayerOverlayKeyAction.Hide -> {
+					visibilityState.hide()
+					true
+				}
+				PlayerOverlayKeyAction.SelectAndShow -> {
+					onSelect?.invoke()
+					visibilityState.show()
+					true
+				}
+				PlayerOverlayKeyAction.Show -> {
+					visibilityState.show()
+					true
+				}
+				PlayerOverlayKeyAction.RestartTimer -> {
+					visibilityState.show()
+					false
+				}
 			}
 		}
 		.onKeyEvent {
@@ -222,6 +225,46 @@ fun PlayerOverlayLayout(
 				}
 			}
 		}
+	}
+}
+
+internal enum class PlayerOverlayKeyAction {
+	/** Not ours: let the key go on to whatever is focused, or out of the player. */
+	Ignore,
+	Hide,
+	SelectAndShow,
+	Show,
+	/** Not ours either, but it counts as activity while the controls are up. */
+	RestartTimer,
+}
+
+/**
+ * What the overlay does with a key, from the key and the state the overlay was last drawn with.
+ *
+ * Only key down acts. The visible flag here is read from the last composition, and a Back up
+ * that arrives before the next frame (adb input sends down and up within a few ms) still sees
+ * the controls as up: restarting their timer on it put them straight back after Back closed them,
+ * so Back never closed the controls and never left the player (task 196).
+ */
+internal fun playerOverlayKeyAction(
+	isKeyDown: Boolean,
+	key: Key,
+	isSystem: Boolean,
+	visible: Boolean,
+	hasOnSelect: Boolean,
+): PlayerOverlayKeyAction {
+	if (!isKeyDown) return PlayerOverlayKeyAction.Ignore
+
+	val isSelect = key == Key.DirectionCenter || key == Key.Enter
+
+	return when {
+		key == Key.Back && visible -> PlayerOverlayKeyAction.Hide
+		// Select acts on what is playing rather than opening the controls. It has to be tested
+		// before the catch-all below, which would otherwise swallow it.
+		isSelect && hasOnSelect && !visible -> PlayerOverlayKeyAction.SelectAndShow
+		!isSystem && !visible -> PlayerOverlayKeyAction.Show
+		visible -> PlayerOverlayKeyAction.RestartTimer
+		else -> PlayerOverlayKeyAction.Ignore
 	}
 }
 
