@@ -201,7 +201,7 @@ class TrueHdMatTests : FunSpec({
 		"forward just over 2 frames" to 1_960,
 		"forward 200 ms" to 9_600,
 		"forward 1 s" to 48_000,
-		"back 1 unit" to -40,
+		"back 1 unit" to -80, // a step of -40
 		"back 50 ms" to -2_400,
 		"back 1 s" to -48_000,
 	)
