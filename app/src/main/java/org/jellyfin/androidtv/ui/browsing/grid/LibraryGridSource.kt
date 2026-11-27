@@ -45,7 +45,13 @@ fun apiGridFetcher(api: ApiClient): GridFetcher = object : GridFetcher {
 		loadMoviesWithSets(api, query, descending)
 }
 
-data class LibraryGridState(
+/**
+ * Not a data class on purpose: MutableStateFlow drops a value that equals the current one, and a
+ * data class would compare every item (BaseItemDtoBaseRowItem compares whole DTOs) on each update, and
+ * drop a replaced item that equals the old one although the grid's card binds by instance.
+ * Every state is its own value (identity equality).
+ */
+class LibraryGridState(
 	/** Loaded so far; index == grid position. Never mutated: every change is a new list. */
 	val items: List<BaseRowItem> = emptyList(),
 	/** TotalRecordCount of the newest answer; -1 before the first answer of this generation. */
@@ -58,6 +64,17 @@ data class LibraryGridState(
 	val error: Throwable? = null,
 ) {
 	val fullyLoaded: Boolean get() = totalItems >= 0 && items.size >= totalItems
+
+	fun copy(
+		items: List<BaseRowItem> = this.items,
+		totalItems: Int = this.totalItems,
+		loading: Boolean = this.loading,
+		generation: Int = this.generation,
+		error: Throwable? = this.error,
+	) = LibraryGridState(items, totalItems, loading, generation, error)
+
+	override fun toString() =
+		"LibraryGridState(items=${items.size}, totalItems=$totalItems, loading=$loading, generation=$generation, error=$error)"
 }
 
 /**
