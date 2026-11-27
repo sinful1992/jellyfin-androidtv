@@ -80,7 +80,15 @@ class TrueHdMatPacker(private val signedOffset: Boolean = true) {
 			outputTimingValid = true
 		}
 
-		if (prevFrameTimeValid) space = ((frameTime - prevFrameTime) and 0xFFFF) * bytesPerSample
+		if (prevFrameTimeValid) {
+			val step = (frameTime - prevFrameTime) and 0xFFFF
+			// A step back, or far beyond what a variable bit rate moves the input timing (27-63 samples per 40 sample
+			// unit in films), is a break in the input timing alone: the output timing goes on, so the audio does too.
+			// Padding it out would put up to seconds of nothing in the stream (Ratatouille 1:40:51: +1880 samples, 38.8 ms
+			// that a Sony HT-A7000 answered with a ~1 s drop) and clear the state when it passes 5 frames, dropping
+			// units. Take one unit's room instead, as at a splice (ffmpeg's spdifenc pads nothing on "unusual frame timing").
+			space = (if (step > frameSamples * MAX_STEP_UNITS) frameSamples else step) * bytesPerSample
+		}
 		if (space < prevMatFrameSize) space = (prevMatFrameSize + bytesPerSample - 1) / bytesPerSample * bytesPerSample
 		padding += space - prevMatFrameSize
 
@@ -194,6 +202,9 @@ class TrueHdMatPacker(private val signedOffset: Boolean = true) {
 	companion object {
 		const val MAT_SIZE = 61440
 		const val BURST_HEADER = 8
+
+		/** The largest input timing step, in units, still taken as the stream's own pacing. */
+		const val MAX_STEP_UNITS = 4
 		private const val LIMIT = MAT_SIZE - 24
 		private const val MIDDLE = 30708 + BURST_HEADER
 
