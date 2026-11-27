@@ -105,9 +105,16 @@ fun AsyncImage(
 		placeholder = kept ?: blurHashPainter ?: placeholderPainter,
 		error = kept ?: placeholderPainter,
 		onSuccess = { state ->
-			loaded = LoadedImage(url, state.painter)
+			// The url of the load that finished, not the one composed now: a card rebound to another
+			// item can still get its old load's result, and keeping that as "loaded" would show the
+			// old poster during the new item's quality upgrade.
+			val loadedUrl = state.result.request.data as? String
+			if (loadedUrl != null) loaded = LoadedImage(loadedUrl, state.painter)
 			onLoaded?.invoke()
 		},
+		// Decode for how the image is drawn: a cropped card fills its box (the old ImageView target
+		// took FILL from CENTER_CROP), not fits inside it and then gets stretched soft.
+		contentScale = contentScale,
 	)
 
 	Image(
