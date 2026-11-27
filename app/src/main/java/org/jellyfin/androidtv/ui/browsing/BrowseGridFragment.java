@@ -238,6 +238,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private void ensureComposeGrid() {
         if (mComposeGrid != null && !mDirty) return;
 
+        if (mComposeGrid != null) mComposeGrid.detach();
         mComposeGrid = new ComposeGridHost(this, mRowDef.getQuery(), true, mRowDef.getPreferParentThumb(), mRowDef.isStaticHeight(), api.getValue());
         FilterOptions filters = new FilterOptions();
         filters.setFavoriteOnly(libraryPreferences.get(LibraryPreferences.Companion.getFilterFavoritesOnly()));

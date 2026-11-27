@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -182,7 +183,8 @@ class ComposeGridHost(
 		container.removeAllViews()
 		container.addView(view)
 
-		viewOwner.lifecycleScope.launch {
+		answers?.cancel()
+		answers = viewOwner.lifecycleScope.launch {
 			source.state
 				.filter(::isNewAnswer)
 				.map { AnswerKey(it.generation, it.items.size, it.totalItems, it.error) }
@@ -227,6 +229,14 @@ class ComposeGridHost(
 				onRemoved()
 			}
 		}
+	}
+
+	private var answers: Job? = null
+
+	/** Stops telling the fragment about answers: this host was replaced (new card size or settings). */
+	fun detach() {
+		answers?.cancel()
+		answers = null
 	}
 
 	private data class AnswerKey(val generation: Int, val itemsLoaded: Int, val totalItems: Int, val error: Throwable?)
