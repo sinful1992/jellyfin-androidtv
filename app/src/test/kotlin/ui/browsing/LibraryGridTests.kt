@@ -8,6 +8,7 @@ import org.jellyfin.androidtv.ui.GridButton
 import org.jellyfin.androidtv.ui.browsing.grid.LibraryGridState
 import org.jellyfin.androidtv.ui.browsing.grid.centerScrollDistance
 import org.jellyfin.androidtv.ui.browsing.grid.restoreIndex
+import org.jellyfin.androidtv.ui.browsing.grid.retryFocus
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.jellyfin.androidtv.ui.presentation.BoundCard
 import org.jellyfin.androidtv.ui.presentation.gridBinding
@@ -100,5 +101,26 @@ class LibraryGridTests : FunSpec({
 
 	test("answer: a failed first fetch is told too, as the old retrieve-finished listener did") {
 		isNewAnswer(state(total = -1, error = RuntimeException("offline"))) shouldBe true
+	}
+
+	test("focus: a first false is retried after a frame, and the second try takes") {
+		val answers = ArrayDeque(listOf(false, true))
+		var frames = 0
+		retryFocus(10, { answers.removeFirst() }, { frames++ }) shouldBe true
+		frames shouldBe 1
+	}
+
+	test("focus: a card that never takes the focus gives up after the attempts, one frame each") {
+		var tries = 0
+		var frames = 0
+		retryFocus(10, { tries++; false }, { frames++ }) shouldBe false
+		tries shouldBe 10
+		frames shouldBe 10
+	}
+
+	test("focus: a card that takes it at once waits no frame") {
+		var frames = 0
+		retryFocus(10, { true }, { frames++ }) shouldBe true
+		frames shouldBe 0
 	}
 })

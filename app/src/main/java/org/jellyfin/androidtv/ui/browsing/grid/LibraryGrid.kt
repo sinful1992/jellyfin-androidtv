@@ -26,6 +26,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -217,15 +218,31 @@ fun LibraryGrid(
  */
 private suspend fun focusIndex(state: LazyGridState, requesters: Map<Int, FocusRequester>, index: Int) {
 	if (index < 0) return
-	requesters[index]?.let { if (it.requestFocusSafely()) return }
+	val tryFocus = { requesters[index]?.requestFocusOrFalse() ?: false }
+	if (tryFocus()) return
 
 	state.scrollToItem(index)
-	repeat(FocusWaitFrames) {
-		requesters[index]?.let { if (it.requestFocusSafely()) return }
-		withFrameNanos { }
-	}
+	retryFocus(FocusWaitFrames, tryFocus) { withFrameNanos { } }
 }
 
 private const val FocusWaitFrames = 10
 
-private fun FocusRequester.requestFocusSafely(): Boolean = runCatching { requestFocus() }.isSuccess
+/**
+ * Tries [tryFocus] up to [attempts] times, waiting [nextFrame] after each miss; true once it took.
+ * A miss is a false answer: the card is not composed yet, or its node could not take the focus.
+ */
+internal suspend fun retryFocus(attempts: Int, tryFocus: () -> Boolean, nextFrame: suspend () -> Unit): Boolean {
+	repeat(attempts) {
+		if (tryFocus()) return true
+		nextFrame()
+	}
+	return false
+}
+
+/**
+ * The Boolean form of requestFocus: the plain requestFocus() returns Unit even when nothing took the
+ * focus, which would end the wait above on a miss (linus, review of b64eeba07). Not yet attached
+ * (an exception) is a miss too.
+ */
+private fun FocusRequester.requestFocusOrFalse(): Boolean =
+	runCatching { requestFocus(FocusDirection.Enter) }.getOrDefault(false)
