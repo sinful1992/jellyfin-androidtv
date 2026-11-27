@@ -105,6 +105,9 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private Presenter mGridPresenter;
     private Presenter.ViewHolder mGridViewHolder;
     private BaseGridView mGridView;
+    // The Compose grid (task 200): Movies in a vertical grid. Every other library keeps the leanback one.
+    private ComposeGridHost mComposeGrid;
+    private boolean mComposeGridScrolling = false;
     private int mSelectedPosition = -1;
     private int mGridHeight = -1;
     private int mGridWidth = -1;
@@ -221,7 +224,133 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         mGridView = null;
     }
 
+    /** Movies in a vertical grid use the Compose grid (task 200); other libraries keep leanback's. */
+    private boolean useComposeGrid() {
+        return mGridDirection == GridDirection.VERTICAL
+                && mFolder.getCollectionType() == CollectionType.MOVIES
+                && mRowDef != null && mRowDef.getQueryType() == QueryType.Items;
+    }
+
+    private boolean composeActive() {
+        return mComposeGrid != null && useComposeGrid();
+    }
+
+    private void ensureComposeGrid() {
+        if (mComposeGrid != null && !mDirty) return;
+
+        mComposeGrid = new ComposeGridHost(this, mRowDef.getQuery(), true, mRowDef.getPreferParentThumb(), mRowDef.isStaticHeight(), api.getValue());
+        FilterOptions filters = new FilterOptions();
+        filters.setFavoriteOnly(libraryPreferences.get(LibraryPreferences.Companion.getFilterFavoritesOnly()));
+        filters.setUnwatchedOnly(libraryPreferences.get(LibraryPreferences.Companion.getFilterUnwatchedOnly()));
+        mComposeGrid.setFilterOptions(filters);
+        mComposeGrid.setSort(getSortOption(libraryPreferences.get(LibraryPreferences.Companion.getSortBy())));
+        mDirty = false;
+    }
+
+    private void createComposeGrid() {
+        ensureComposeGrid();
+        mGridView = null;
+        int columns = ((VerticalGridPresenter) mGridPresenter).getNumberOfColumns();
+        ComposeGridLayout layout = new ComposeGridLayout(columns, mCardHeight, mImageType,
+                mGridItemSpacingHorizontal, mGridItemSpacingVertical, mGridPaddingLeft, mGridPaddingTop);
+        mComposeGrid.show(binding.rowsFragment, getViewLifecycleOwner(), layout, new ComposeGridCallbacks() {
+            @Override
+            public void onItemFocused(int index, @NonNull BaseRowItem item) {
+                onComposeItemFocused(index, item);
+            }
+
+            @Override
+            public void onItemClicked(@NonNull BaseRowItem item) {
+                itemLauncher.getValue().launch(item, mComposeGrid.getLaunchAdapter(), requireContext());
+            }
+
+            @Override
+            public void onItemLongClicked(@NonNull BaseRowItem item) {
+                if (mActivity != null) mActivity.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MENU));
+            }
+
+            @Override
+            public void onScrollingChanged(boolean scrolling) {
+                mComposeGridScrolling = scrolling;
+            }
+
+            @Override
+            public void onAnswer(int itemsLoaded, int totalItems) {
+                onComposeAnswer(itemsLoaded, totalItems);
+            }
+        });
+    }
+
+    private void onComposeItemFocused(int index, BaseRowItem item) {
+        if (binding == null) return;
+        mSelectedPosition = index;
+        updateCounter(index + 1);
+        mHandler.removeCallbacks(mDelayedSetItem);
+        mCurrentItem = item;
+        binding.title.setText(item.getName(requireContext()));
+        binding.infoRow.setVisibility(View.INVISIBLE);
+        mHandler.postDelayed(mDelayedSetItem, VIEW_SELECT_UPDATE_DELAY);
+    }
+
+    /** As the leanback grid's retrieve-finished listener (buildAdapter). */
+    private void onComposeAnswer(int itemsLoaded, int totalItems) {
+        if (binding == null) return;
+        setStatusText(mFolder.getName());
+        if (mCurrentItem == null) {
+            setItem(null);
+            updateCounter(totalItems > 0 ? 1 : 0);
+        }
+        if (mLetterButton != null) mLetterButton.setVisibility(ItemSortBy.SORT_NAME.equals(currentSortBy()) ? View.VISIBLE : View.GONE);
+        if (itemsLoaded == 0) {
+            binding.toolBar.requestFocus();
+            mHandler.postDelayed(() -> {
+                if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED) || binding == null)
+                    return;
+
+                binding.title.setText(mFolder.getName());
+            }, 500);
+        }
+    }
+
+    private FilterOptions currentFilters() {
+        if (composeActive()) return mComposeGrid.getFilterOptions();
+        return mAdapter != null ? mAdapter.getFilters() : null;
+    }
+
+    private String currentStartLetter() {
+        if (composeActive()) return mComposeGrid.getStartLetter();
+        return mAdapter != null ? mAdapter.getStartLetter() : null;
+    }
+
+    private ItemSortBy currentSortBy() {
+        if (composeActive()) return mComposeGrid.getSortBy();
+        return mAdapter != null ? mAdapter.getSortBy() : null;
+    }
+
+    private void applySort(SortOption option) {
+        if (composeActive()) {
+            mComposeGrid.setSort(option);
+        } else {
+            mAdapter.setSortBy(option);
+            mAdapter.Retrieve();
+        }
+    }
+
+    private void applyFilters(FilterOptions filters) {
+        if (composeActive()) {
+            mComposeGrid.setFilterOptions(filters);
+        } else {
+            mAdapter.setFilters(filters);
+            mAdapter.Retrieve();
+        }
+    }
+
     private void createGrid() {
+        if (useComposeGrid()) {
+            createComposeGrid();
+            return;
+        }
+
         mGridViewHolder = mGridPresenter.onCreateViewHolder(binding.rowsFragment);
         if (mGridViewHolder instanceof HorizontalGridPresenter.ViewHolder) {
             mGridView = ((HorizontalGridPresenter.ViewHolder) mGridViewHolder).getGridView();
@@ -375,7 +504,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
     public void setStatusText(String folderName) {
         String text = getString(R.string.lbl_showing) + " ";
-        FilterOptions filters = mAdapter.getFilters();
+        FilterOptions filters = currentFilters();
         if (filters == null || (!filters.isFavoriteOnly() && !filters.isUnwatchedOnly())) {
             text += getString(R.string.lbl_all_items);
         } else {
@@ -383,13 +512,14 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                     (filters.isFavoriteOnly() ? getString(R.string.lbl_favorites) : "");
         }
 
-        if (mAdapter.getStartLetter() != null) {
-            text += " " + getString(R.string.lbl_starting_with) + " " + mAdapter.getStartLetter();
+        String startLetter = currentStartLetter();
+        if (startLetter != null) {
+            text += " " + getString(R.string.lbl_starting_with) + " " + startLetter;
         }
 
         text += " " + getString(R.string.lbl_from) + " '" + folderName + "'";
         if (!isCollectionMovies()) {
-            text += " " + getString(R.string.lbl_sorted_by) + " " + getSortOption(mAdapter.getSortBy()).name;
+            text += " " + getString(R.string.lbl_sorted_by) + " " + getSortOption(currentSortBy()).name;
         }
 
         binding.statusText.setText(text);
@@ -414,7 +544,10 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             };
 
     public void updateCounter(int position) {
-        if (mAdapter != null) {
+        if (binding == null) return;
+        if (composeActive()) {
+            binding.counter.setText(MessageFormat.format("{0} | {1}", position, mComposeGrid.getTotalItems()));
+        } else if (mAdapter != null) {
             binding.counter.setText(MessageFormat.format("{0} | {1}", position, mAdapter.getTotalItems()));
         }
     }
@@ -670,7 +803,16 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
         if (!justLoaded) {
             //Re-retrieve anything that needs it but delay slightly so we don't take away gui landing
-            if (mAdapter != null) {
+            if (composeActive()) {
+                // The library grid has no re-retrieve triggers (setupQueries), so only the item that
+                // was opened is loaded again, as the leanback path ends up doing.
+                mHandler.postDelayed(() -> {
+                    if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
+                        return;
+
+                    if (composeActive() && mComposeGrid.getItemsLoaded() > 0) refreshCurrentItem();
+                }, 500);
+            } else if (mAdapter != null) {
                 mHandler.postDelayed(() -> {
                     if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED))
                         return;
@@ -766,6 +908,12 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     }
 
     public void loadGrid() {
+        if (useComposeGrid()) {
+            ensureComposeGrid();
+            mComposeGrid.start();
+            return;
+        }
+
         if (mCardPresenter == null || mAdapter == null || mDirty) {
             buildAdapter();
         }
@@ -792,10 +940,10 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
     private void updateDisplayPrefs() {
         CoroutineUtils.runOnLifecycle(getLifecycle(), (coroutineScope, continuation) -> {
-            libraryPreferences.set(LibraryPreferences.Companion.getFilterFavoritesOnly(), mAdapter.getFilters().isFavoriteOnly());
-            libraryPreferences.set(LibraryPreferences.Companion.getFilterUnwatchedOnly(), mAdapter.getFilters().isUnwatchedOnly());
-            libraryPreferences.set(LibraryPreferences.Companion.getSortBy(), mAdapter.getSortBy());
-            libraryPreferences.set(LibraryPreferences.Companion.getSortOrder(), getSortOption(mAdapter.getSortBy()).order);
+            libraryPreferences.set(LibraryPreferences.Companion.getFilterFavoritesOnly(), currentFilters().isFavoriteOnly());
+            libraryPreferences.set(LibraryPreferences.Companion.getFilterUnwatchedOnly(), currentFilters().isUnwatchedOnly());
+            libraryPreferences.set(LibraryPreferences.Companion.getSortBy(), currentSortBy());
+            libraryPreferences.set(LibraryPreferences.Companion.getSortOrder(), getSortOption(currentSortBy()).order);
             return libraryPreferences.commit(continuation);
         });
     }
@@ -821,8 +969,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                 sortMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                     @Override
                     public boolean onMenuItemClick(MenuItem item) {
-                        mAdapter.setSortBy(Objects.requireNonNull(sortOptions.get(item.getItemId())));
-                        mAdapter.Retrieve();
+                        applySort(Objects.requireNonNull(sortOptions.get(item.getItemId())));
                         item.setChecked(true);
                         updateDisplayPrefs();
                         return true;
@@ -838,19 +985,18 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
         if (mRowDef.getQueryType() == QueryType.Items || isCollectionMovies()) {
             mUnwatchedButton = new ImageButton(requireContext(), null, 0, R.style.Button_Icon);
-            updateUnwatchedButton(mAdapter.getFilters().isUnwatchedOnly());
+            updateUnwatchedButton(currentFilters().isUnwatchedOnly());
             mUnwatchedButton.setMaxHeight(size);
             mUnwatchedButton.setAdjustViewBounds(true);
             mUnwatchedButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    FilterOptions filters = mAdapter.getFilters();
+                    FilterOptions filters = currentFilters();
                     if (filters == null) filters = new FilterOptions();
 
                     filters.setUnwatchedOnly(!filters.isUnwatchedOnly());
                     updateUnwatchedButton(filters.isUnwatchedOnly());
-                    mAdapter.setFilters(filters);
-                    mAdapter.Retrieve();
+                    applyFilters(filters);
                     updateDisplayPrefs();
                 }
             });
@@ -859,19 +1005,18 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
         mFavoriteButton = new ImageButton(requireContext(), null, 0, R.style.Button_Icon);
         mFavoriteButton.setImageResource(R.drawable.ic_heart);
-        mFavoriteButton.setActivated(mAdapter.getFilters().isFavoriteOnly());
+        mFavoriteButton.setActivated(currentFilters().isFavoriteOnly());
         mFavoriteButton.setMaxHeight(size);
         mFavoriteButton.setAdjustViewBounds(true);
         mFavoriteButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                FilterOptions filters = mAdapter.getFilters();
+                FilterOptions filters = currentFilters();
                 if (filters == null) filters = new FilterOptions();
 
                 filters.setFavoriteOnly(!filters.isFavoriteOnly());
                 mFavoriteButton.setActivated(filters.isFavoriteOnly());
-                mAdapter.setFilters(filters);
-                mAdapter.Retrieve();
+                applyFilters(filters);
                 updateDisplayPrefs();
             }
         });
@@ -926,8 +1071,12 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
             alphaPicker = new AlphaPickerView(requireContext(), null);
             alphaPicker.setOnAlphaSelected(letter -> {
-                mAdapter.setStartLetter(letter.toString());
-                loadGrid();
+                if (composeActive()) {
+                    mComposeGrid.setStartLetter(letter.toString());
+                } else {
+                    mAdapter.setStartLetter(letter.toString());
+                    loadGrid();
+                }
                 dismiss();
                 return null;
             });
@@ -937,8 +1086,9 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
         public void show() {
             popupWindow.showAtLocation(binding.rowsFragment, Gravity.TOP, binding.rowsFragment.getLeft(), binding.rowsFragment.getTop());
-            if (mAdapter.getStartLetter() != null && !mAdapter.getStartLetter().isEmpty()) {
-                alphaPicker.focus(mAdapter.getStartLetter().charAt(0));
+            String startLetter = currentStartLetter();
+            if (startLetter != null && !startLetter.isEmpty()) {
+                alphaPicker.focus(startLetter.charAt(0));
             }
         }
 
@@ -968,6 +1118,22 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private void refreshCurrentItem() {
         if (mCurrentItem == null) return;
         Timber.i("Refresh item \"%s\"", mCurrentItem.getFullName(requireContext()));
+        if (composeActive()) {
+            mComposeGrid.refreshItem(api.getValue(), this, mCurrentItem, refreshed -> {
+                FilterOptions filters = currentFilters();
+                if (filters == null) return true;
+                return !((filters.isFavoriteOnly() && !refreshed.isFavorite()) || (filters.isUnwatchedOnly() && refreshed.isPlayed()));
+            }, () -> {
+                // Off the card that goes, as the leanback path does, so the focus never lands nowhere.
+                if (binding != null) binding.toolBar.requestFocus();
+                return kotlin.Unit.INSTANCE;
+            }, () -> {
+                mCurrentItem = null;
+                updateCounter(0);
+                return kotlin.Unit.INSTANCE;
+            });
+            return;
+        }
         ItemRowAdapterHelperKt.refreshItem(mAdapter, api.getValue(), this, mCurrentItem, () -> {
             //Now - if filtered make sure we still pass
             if (mAdapter.getFilters() == null) return null;
@@ -999,11 +1165,15 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
 
             // Fill the info row once the grid has stopped sliding, not on a frame of the slide: a
             // new info line is a layout change, and the grid's cards all answer it (task 198).
-            if (mGridView != null && BrowseGridHeaderKt.headerWaitsForRest(mGridView.getScrollState())) {
+            boolean sliding = composeActive()
+                    ? mComposeGridScrolling
+                    : mGridView != null && BrowseGridHeaderKt.headerWaitsForRest(mGridView.getScrollState());
+            if (sliding) {
                 mHandler.postDelayed(this, HEADER_REST_POLL);
                 return;
             }
 
+            if (binding == null) return;
             setItem(mCurrentItem);
             binding.infoRow.setVisibility(View.VISIBLE);
         }

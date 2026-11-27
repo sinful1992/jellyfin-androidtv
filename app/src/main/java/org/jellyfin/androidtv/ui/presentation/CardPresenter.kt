@@ -435,6 +435,41 @@ private fun BaseRowItem.getArtworkDisplayConfig(imageType: ImageType, uniformAsp
 /** How long the focus rests on a card before its image is loaded again at full quality. */
 private val FullQualityFocusDelay = 300.milliseconds
 
+/**
+ * One card of the Compose library grid (LibraryGrid): the same body the leanback grid's cards draw,
+ * without the pool, the stagger or the held size, which only the leanback grid needs.
+ *
+ * The binding is kept while [item] is the same instance and replaced when it is a new one: items
+ * compare by id, so a refreshed item (new watched state, same id) must still give a new binding.
+ */
+@Composable
+internal fun GridCardContent(
+	item: BaseRowItem,
+	focused: Boolean,
+	imageType: ImageType,
+	staticHeight: Int,
+) {
+	val holder = remember { arrayOfNulls<BoundCard>(1) }
+	val bound = gridBinding(holder, item)
+
+	CardViewHolderContent(
+		bound = bound,
+		focused = focused,
+		showInfo = false,
+		imageType = imageType,
+		staticHeight = staticHeight,
+		uniformAspect = true,
+		fixedAspectRatio = null,
+	)
+}
+
+/** The binding in [holder] while it is for this very [item] instance, else a new one stored there. */
+internal fun gridBinding(holder: Array<BoundCard?>, item: BaseRowItem): BoundCard {
+	val current = holder[0]
+	if (current != null && current.item === item) return current
+	return BoundCard(item).also { holder[0] = it }
+}
+
 @Composable
 @Stable
 private fun CardViewHolderContent(
