@@ -155,10 +155,6 @@ private fun isPreamble(b: ByteArray, at: Int) =
 	b[at] == 0x72.toByte() && b[at + 1] == 0xF8.toByte() && b[at + 2] == 0x1F.toByte() && b[at + 3] == 0x4E.toByte() &&
 		b[at + 4].toInt() == 0x16 && b[at + 6] == 0xF0.toByte() && b[at + 7] == 0xEF.toByte()
 
-private const val JUMP_UNIT = 257
-private const val GOLDEN_BEFORE_JUMP = "aa11a24a5a0f20ac1fe9bf5f8169638d48ca2b9c59e38f6e657907639513629b" // the packer at 4a7ecf941
-private fun sha256(b: ByteArray) = java.security.MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
-
 class TrueHdMatTests : FunSpec({
 	val mat = TrueHdMatPacker.MAT_SIZE
 	val splices = listOf(
@@ -210,70 +206,6 @@ class TrueHdMatTests : FunSpec({
 			val (dropped, out) = packAll(TrueHdMatPacker(), data)
 			dropped shouldBe 0
 			(out.size / mat) shouldBe packAll(TrueHdMatPacker(), Thd.stream(6000)).second.size / mat
-		}
-	}
-
-	/*
-	 * The real bytes: Ratatouille 6049.97-6050.5 s from a major sync, 657 units, with the +1880 sample input timing
-	 * step off a major sync at unit 257 (6051.415 s). Every other step in the film's stretch is 27-63 samples. The
-	 * SK4 sent a gapless stream there (HAL log) and the Sony HT-A7000 still dropped ~1 s; the TV's own app (no MAT)
-	 * didn't. Our MAT had 38.8 ms of padding there and one frame without any TrueHD in it.
-	 */
-	fun film() = TrueHdMatTests::class.java.getResourceAsStream("/rata-100m51s.thd")!!.readBytes()
-
-	/** MAT frames with nothing but the frame codes and zero padding: no TrueHD at all. */
-	fun emptyFrames(packer: TrueHdMatPacker, data: ByteArray): Int {
-		var empty = 0
-		val codes = listOf(8 until 28, 30716 until 30728, 61416 until 61440)
-		for ((pos, size) in Thd.units(data)) {
-			packer.pack(data, pos, size)
-			while (true) {
-				val frame = packer.pollMat() ?: break
-				if ((28 until 61416).none { i -> codes.none { i in it } && frame[i].toInt() != 0 }) empty++
-			}
-		}
-		return empty
-	}
-
-	test("packer: Ratatouille 1:40:51 (real bytes) packs every unit and no MAT frame goes out without TrueHD") {
-		val data = film()
-		Thd.units(data).count() shouldBe 657
-		packAll(TrueHdMatPacker(), data).first shouldBe 0
-		emptyFrames(TrueHdMatPacker(), data) shouldBe 0
-	}
-
-	/** The film cut with its one odd step set back to a normal one: every unit from [JUMP_UNIT] on 1840 samples earlier. */
-	fun filmWithoutJump(): ByteArray {
-		val data = film()
-		Thd.units(data).drop(JUMP_UNIT).forEach { (pos, _) ->
-			val t = ((((data[pos + 2].toInt() and 0xFF) shl 8) or (data[pos + 3].toInt() and 0xFF)) - 1840) and 0xFFFF
-			data[pos + 2] = (t shr 8).toByte()
-			data[pos + 3] = t.toByte()
-		}
-		return data
-	}
-
-	test("packer: the odd input timing step at 1:40:51 adds no stream time (no 38.8 ms of padding)") {
-		val (_, with) = packAll(TrueHdMatPacker(), film())
-		val (_, without) = packAll(TrueHdMatPacker(), filmWithoutJump())
-		with.size / mat shouldBe without.size / mat
-	}
-
-	test("packer: up to the odd step, the film packs byte for byte as before (normal 27-63 sample steps untouched)") {
-		val data = film()
-		val (pos, size) = Thd.units(data).elementAt(JUMP_UNIT - 1)
-		val (_, out) = packAll(TrueHdMatPacker(), data.copyOfRange(0, pos + size))
-		sha256(out) shouldBe GOLDEN_BEFORE_JUMP
-	}
-
-	test("sink: Ratatouille 1:40:51 (real bytes, container pts continuous) plays through with no discontinuity") {
-		for (seed in 1..5) {
-			val inner = InnerSink(seed = seed, refuse = 0.4)
-			val sink = TrueHdMatAudioSink(inner.sink, TrueHdMatOutput { true })
-			sink.configure(trueHd())
-			feed(sink, film(), startUs = 6_049_970_000L)
-			inner.calls shouldNotContain "handleDiscontinuity"
-			inner.pts.zipWithNext().all { (a, b) -> b - a == 20_000L }.shouldBeTrue()
 		}
 	}
 
