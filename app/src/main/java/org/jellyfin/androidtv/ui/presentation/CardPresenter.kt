@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -111,6 +112,9 @@ class CardPresenter @JvmOverloads constructor(
 		return CardViewHolder(view)
 	}
 
+	/** Counts binds, so the cards of one entering row get different [BodyStagger] delays. */
+	private var bindCount = 0
+
 	override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
 		if (viewHolder !is CardViewHolder) return
 		if (item !is BaseRowItem) return
@@ -150,7 +154,7 @@ class CardPresenter @JvmOverloads constructor(
 		}
 
 		fun bind(item: BaseRowItem) {
-			_item.value = BoundCard(item)
+			_item.value = BoundCard(item, bodyDelayFrames = bodyDelayFor(bindCount++))
 			_focused.value = view.isFocused
 		}
 
@@ -171,9 +175,31 @@ class CardPresenter @JvmOverloads constructor(
  * chapters of one film share and grid buttons lack, so a StateFlow of items would drop the second of
  * two such binds, and a card kept across unbind (task 198) would go on showing the first.
  */
-internal class BoundCard(val item: BaseRowItem) {
+internal class BoundCard(val item: BaseRowItem, val bodyDelayFrames: Int = 0) {
 	override fun equals(other: Any?) = this === other
 	override fun hashCode() = System.identityHashCode(this)
+}
+
+/**
+ * Frames each card waits before composing its picture and overlay, in bind order. A row of cards
+ * comes in on one scroll frame; composing all their pictures there took 35-58 ms on the SK4 Pro
+ * (task 199). Spread over three frames, each frame gets about a third. The card's size, labels and
+ * focus ring come at once, so nothing moves when the body arrives.
+ */
+internal val BodyStagger = intArrayOf(1, 2, 3)
+
+internal fun bodyDelayFor(bindIndex: Int) = BodyStagger[Math.floorMod(bindIndex, BodyStagger.size)]
+
+/** True once [bound]'s card has waited its [BoundCard.bodyDelayFrames]; resets on each new bind. */
+@Composable
+internal fun rememberBodyReady(bound: BoundCard?): Boolean {
+	var ready by remember(bound) { mutableStateOf(bound == null || bound.bodyDelayFrames <= 0) }
+	LaunchedEffect(bound) {
+		if (bound == null || ready) return@LaunchedEffect
+		repeat(bound.bodyDelayFrames) { withFrameNanos { } }
+		ready = true
+	}
+	return ready
 }
 
 private data class BaseRowItemDisplayConfig(
@@ -400,18 +426,27 @@ private fun CardViewHolderContent(
 		}
 	}
 
+	val bodyReady = rememberBodyReady(bound)
+
 	val card = @Composable {
 		ItemCard(
 			image = {
-				if (image != null) {
+				if (!bodyReady) {
+					// The card's surface only, until its turn (BodyStagger).
+				} else if (image != null) {
 					val api = koinInject<ApiClient>()
-					AsyncImage(
-						url = image.getUrl(
+					val maxWidth = with(localDensity) { size.width.roundToPx() }
+					val maxHeight = with(localDensity) { size.height.roundToPx() }
+					val url = remember(bound, image, fullQuality, maxWidth, maxHeight, api) {
+						image.getUrl(
 							api,
-							maxWidth = with(localDensity) { size.width.roundToPx() },
-							maxHeight = with(localDensity) { size.height.roundToPx() },
+							maxWidth = maxWidth,
+							maxHeight = maxHeight,
 							quality = if (fullQuality) ImageQuality.FULL else ImageQuality.PREVIEW,
-						),
+						)
+					}
+					AsyncImage(
+						url = url,
 						blurHash = image.blurHash,
 						aspectRatio = aspectRatio,
 						scaleType = displayConfig.scaleType ?: ImageView.ScaleType.CENTER_CROP,
@@ -435,7 +470,8 @@ private fun CardViewHolderContent(
 					)
 				}
 			},
-			overlay = {
+			overlay = overlay@{
+				if (!bodyReady) return@overlay
 				val showInfo = !usePreview && item.showCardInfoOverlay && (!quiet || focused)
 				item.baseItem?.let { baseItem ->
 					ItemCardBaseItemOverlay(

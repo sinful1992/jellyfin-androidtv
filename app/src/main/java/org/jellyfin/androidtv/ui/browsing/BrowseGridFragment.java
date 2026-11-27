@@ -234,6 +234,9 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             mGridView.setGravity(Gravity.CENTER_HORIZONTAL);
             mGridView.setPadding(mGridPaddingLeft, mGridPaddingTop, mGridPaddingLeft, mGridPaddingTop); // prevent initial card cutoffs
             mGridView.setOnKeyInterceptListener(this::wrapAcrossLines);
+            // Lay out one more line beyond each edge, so a line of cards is attached while it is still
+            // off screen and their staggered pictures (CardPresenter BodyStagger) arrive unseen.
+            mGridView.setExtraLayoutSpace(getResources().getDisplayMetrics().heightPixels / 4);
         }
         mGridView.setHorizontalSpacing(mGridItemSpacingHorizontal);
         mGridView.setVerticalSpacing(mGridItemSpacingVertical);
