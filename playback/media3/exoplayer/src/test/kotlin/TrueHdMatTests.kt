@@ -9,6 +9,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.ranges.shouldBeIn
 import io.kotest.matchers.shouldBe
 import java.io.ByteArrayOutputStream
 import java.lang.reflect.Proxy
@@ -25,7 +26,9 @@ private object Thd {
 	const val SYNC_EVERY = 16
 	const val UNIT_US = 2500.0 / 3 // 40 samples at 48 kHz
 
-	class Splice(val atUnit: Int, val inputJump: Int, val outputJump: Int)
+	/** A jump at [atUnit]. [sync]: the unit is a major sync carrying the new output timing (a disc join); false is a
+	 * jump in the input timing alone, mid-stream, with the next major sync carrying the output timing as usual. */
+	class Splice(val atUnit: Int, val inputJump: Int, val outputJump: Int, val sync: Boolean = true)
 
 	fun stream(units: Int, frameStart: Int = 1000, outputLead: Int = 200, splices: List<Splice> = emptyList()): ByteArray {
 		val out = ByteArrayOutputStream()
@@ -37,7 +40,7 @@ private object Thd {
 				frame += splice.inputJump
 				output += splice.outputJump
 			}
-			out.write(unit(frame and 0xFFFF, if (i % SYNC_EVERY == 0 || splice != null) output and 0xFFFF else -1))
+			out.write(unit(frame and 0xFFFF, if (i % SYNC_EVERY == 0 || splice?.sync == true) output and 0xFFFF else -1))
 			frame += 40
 			output += 40
 		}
@@ -153,6 +156,9 @@ private fun isPreamble(b: ByteArray, at: Int) =
 	b[at] == 0x72.toByte() && b[at + 1] == 0xF8.toByte() && b[at + 2] == 0x1F.toByte() && b[at + 3] == 0x4E.toByte() &&
 		b[at + 4].toInt() == 0x16 && b[at + 6] == 0xF0.toByte() && b[at + 7] == 0xEF.toByte()
 
+private const val GOLDEN_RATATOUILLE = "0d5b3a60cfa0ae4bbd7170444dd0334291fa2e0c828fdd7cb8a0c36e562eb9c0" // the packer at 4a7ecf941
+private fun sha256(b: ByteArray) = java.security.MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
+
 class TrueHdMatTests : FunSpec({
 	val mat = TrueHdMatPacker.MAT_SIZE
 	val splices = listOf(
@@ -181,6 +187,69 @@ class TrueHdMatTests : FunSpec({
 		val data = Thd.stream(6000, outputLead = -8, splices = behind)
 		packAll(TrueHdMatPacker(signedOffset = true), data).first shouldBe 0
 		(packAll(TrueHdMatPacker(signedOffset = false), data).first > 0).shouldBeTrue()
+	}
+
+	/*
+	 * Task 199: jumps in the input timing alone, mid-stream (the output timing goes on). The reference is FFmpeg's
+	 * IEC 61937 muxer after 2db563fac2 ("preserve TrueHD MAT padding across branches", trac #9569/#10948, mpv #13943):
+	 * the padding a jump asks for is kept up to two MAT frames (122 848 bytes), because dropping it causes dropouts on
+	 * receivers; a jump beyond that, or back, is unusual timing and gets no padding. Every unit is kept either way:
+	 * the old packer cleared its state past five frames of padding and dropped units until the next major sync.
+	 */
+	val keptJumps = listOf("forward 5 ms" to 240, "forward 30 ms" to 1_440, "forward 39 ms (Ratatouille 1:40:51)" to 1_840)
+	val unusualJumps = listOf(
+		"forward just over 2 frames" to 1_960,
+		"forward 200 ms" to 9_600,
+		"forward 1 s" to 48_000,
+		"back 1 unit" to -80, // a step of -40
+		"back 50 ms" to -2_400,
+		"back 1 s" to -48_000,
+	)
+	val plainFrames = packAll(TrueHdMatPacker(), Thd.stream(6000)).second.size / mat
+	fun jumped(at: Int, jump: Int) = Thd.stream(6000, splices = listOf(Thd.Splice(atUnit = at, inputJump = jump, outputJump = 0, sync = false)))
+
+	for ((name, jump) in keptJumps) for (at in listOf(1600, 1607)) {
+		test("packer: an input timing jump up to 2 frames ($name, unit $at) keeps every unit and its padding") {
+			val (dropped, out) = packAll(TrueHdMatPacker(), jumped(at, jump))
+			dropped shouldBe 0
+			(out.size / mat - plainFrames) shouldBeIn (jump / 960)..(jump / 960 + 1)
+		}
+	}
+
+	for ((name, jump) in unusualJumps) for (at in listOf(1600, 1607)) {
+		test("packer: an unusual input timing jump ($name, unit $at) keeps every unit and adds no padding") {
+			val (dropped, out) = packAll(TrueHdMatPacker(), jumped(at, jump))
+			dropped shouldBe 0
+			(out.size / mat - plainFrames) shouldBeIn 0..1
+		}
+	}
+
+	test("packer: an input timing jump across the 16 bit wrap keeps every unit") {
+		val data = Thd.stream(6000, frameStart = 0xFFFF - 40 * 1500, splices = listOf(Thd.Splice(1600, 3_000, 0, sync = false)))
+		packAll(TrueHdMatPacker(), data).first shouldBe 0
+	}
+
+	test("sink: a mid-stream input timing jump of any size reports no discontinuity and keeps pts at 20 ms steps") {
+		for ((_, jump) in keptJumps + unusualJumps) {
+			val inner = InnerSink(seed = 3, refuse = 0.3)
+			val sink = TrueHdMatAudioSink(inner.sink, TrueHdMatOutput { true })
+			sink.configure(trueHd())
+			feed(sink, jumped(1600, jump), startUs = 100_000_000L)
+			inner.calls shouldNotContain "handleDiscontinuity"
+			inner.pts.zipWithNext().all { (a, b) -> b - a == 20_000L }.shouldBeTrue()
+		}
+	}
+
+	/*
+	 * The real bytes: Ratatouille from the major sync before 1:40:51 (657 units, the film's +1880 sample step off a major
+	 * sync at unit 257). Its padding is under two frames, so it packs exactly as before, as FFmpeg 2db563fac2 does.
+	 */
+	test("packer: Ratatouille 1:40:51 (real bytes) packs every unit, byte for byte as before") {
+		val data = TrueHdMatTests::class.java.getResourceAsStream("/rata-100m51s.thd")!!.readBytes()
+		Thd.units(data).count() shouldBe 657
+		val (dropped, out) = packAll(TrueHdMatPacker(), data)
+		dropped shouldBe 0
+		sha256(out) shouldBe GOLDEN_RATATOUILLE
 	}
 
 	test("packer: junk and short units are refused without output") {
