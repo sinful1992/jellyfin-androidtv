@@ -86,7 +86,8 @@ class TrueHdMatPacker(private val signedOffset: Boolean = true) {
 			// A jump in the input timing alone is padded up to two MAT frames, as FFmpeg does since 2db563fac2 (dropping
 			// that padding causes dropouts on receivers). One further, or back, is unusual timing: no padding, as FFmpeg,
 			// instead of padding up to seconds of nothing or clearing the state and dropping units until a major sync.
-			if (step >= 0x8000 || space - prevMatFrameSize > MAX_JUMP_PADDING) space = frameSamples * bytesPerSample
+			// TEST (task 199 #14979): a forward step over MAX_STEP_UNITS units gets one unit's room, no padding.
+			if (step >= 0x8000 || step > frameSamples * MAX_STEP_UNITS) space = frameSamples * bytesPerSample
 		}
 		if (space < prevMatFrameSize) space = (prevMatFrameSize + bytesPerSample - 1) / bytesPerSample * bytesPerSample
 		padding += space - prevMatFrameSize
@@ -202,8 +203,8 @@ class TrueHdMatPacker(private val signedOffset: Boolean = true) {
 		const val MAT_SIZE = 61440
 		const val BURST_HEADER = 8
 
-		/** FFmpeg spdifenc's limit for the padding an input timing jump may ask for: two MAT frames (2 x 61424 bytes). */
-		private const val MAX_JUMP_PADDING = 2 * 61_424
+		/** TEST: the largest input timing step, in units, still taken as the stream's own pacing (films: 27-63 per 40). */
+		const val MAX_STEP_UNITS = 4
 		private const val LIMIT = MAT_SIZE - 24
 		private const val MIDDLE = 30708 + BURST_HEADER
 
