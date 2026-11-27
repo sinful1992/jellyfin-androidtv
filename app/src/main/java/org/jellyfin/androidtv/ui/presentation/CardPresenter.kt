@@ -154,8 +154,13 @@ class CardPresenter @JvmOverloads constructor(
 			_focused.value = view.isFocused
 		}
 
+		/**
+		 * Keeps the last item: a card back in the pool stays composed and card-sized, so its next bind
+		 * recomposes it with new values instead of building every node again. Clearing it emptied the
+		 * card (0x0) and the next bind rebuilt it and grew it back, which is a layout the whole grid
+		 * answers: 11 cards on the frame a new row slid in, 27-46 ms on the SK4 Pro (task 198).
+		 */
 		fun unbind() {
-			_item.value = null
 			_focused.value = false
 		}
 	}
