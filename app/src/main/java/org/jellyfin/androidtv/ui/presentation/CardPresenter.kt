@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -31,6 +33,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.leanback.widget.Presenter
 import androidx.lifecycle.findViewTreeLifecycleOwner
@@ -112,7 +115,15 @@ class CardPresenter @JvmOverloads constructor(
 		return CardViewHolder(view)
 	}
 
-	/** Counts binds, so the cards of one entering row get different [BodyStagger] delays. */
+	/**
+	 * Lets a card that comes in from the pool compose its body (picture, labels, badges) 1-3 frames
+	 * after its bind, keeping its last size meanwhile (see [BodyStagger]). For a grid that lays out
+	 * a line beyond its edges (BrowseGridFragment), so the late bodies come in off screen; a row on
+	 * Home would show them arriving at its edge, so it stays off there.
+	 */
+	var staggerBody: Boolean = false
+
+	/** Counts staggered binds, so the cards of one entering line get different [BodyStagger] delays. */
 	private var bindCount = 0
 
 	override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
@@ -131,6 +142,7 @@ class CardPresenter @JvmOverloads constructor(
 	private inner class CardViewHolder(composeView: ComposeView) : ViewHolder(composeView) {
 		private val _item = MutableStateFlow<BoundCard?>(null)
 		private val _focused = MutableStateFlow(false)
+		private val memo = CardSizeMemo()
 
 		init {
 			composeView.setContent {
@@ -146,6 +158,7 @@ class CardPresenter @JvmOverloads constructor(
 					uniformAspect = uniformAspect,
 					fixedAspectRatio = fixedAspectRatio,
 					quiet = quiet,
+					memo = memo,
 				)
 			}
 
@@ -154,7 +167,15 @@ class CardPresenter @JvmOverloads constructor(
 		}
 
 		fun bind(item: BaseRowItem) {
-			_item.value = BoundCard(item, bodyDelayFrames = bodyDelayFor(bindCount++))
+			val hold = if (view.width > 0 && view.height > 0) IntSize(view.width, view.height) else null
+			val delay = bodyDelayFrames(
+				stagger = staggerBody,
+				onScreen = view.isAttachedToWindow,
+				previousId = _item.value?.item?.itemId,
+				newId = item.itemId,
+				hasSize = hold != null,
+			) { bodyDelayFor(bindCount++) }
+			_item.value = BoundCard(item = item, bodyDelayFrames = delay, holdSize = hold)
 			_focused.value = view.isFocused
 		}
 
@@ -175,20 +196,57 @@ class CardPresenter @JvmOverloads constructor(
  * chapters of one film share and grid buttons lack, so a StateFlow of items would drop the second of
  * two such binds, and a card kept across unbind (task 198) would go on showing the first.
  */
-internal class BoundCard(val item: BaseRowItem, val bodyDelayFrames: Int = 0) {
+internal class BoundCard(
+	val item: BaseRowItem,
+	val bodyDelayFrames: Int = 0,
+	/** The card's size in px from its last bind, kept while the body waits. */
+	val holdSize: IntSize? = null,
+) {
 	override fun equals(other: Any?) = this === other
 	override fun hashCode() = System.identityHashCode(this)
 }
 
+/** How many times a card was composed as a held, empty box, and the last size held (tests read them). */
+@androidx.annotation.VisibleForTesting
+internal var heldBodies = 0
+
+@androidx.annotation.VisibleForTesting
+internal var lastHeldSize: IntSize? = null
+
+/** The card size ([DpSize] of the artwork box) the holder's last full composition used. */
+internal class CardSizeMemo {
+	var cardSize: DpSize? = null
+}
+
 /**
- * Frames each card waits before composing its picture and overlay, in bind order. A row of cards
- * comes in on one scroll frame; composing all their pictures there took 35-58 ms on the SK4 Pro
- * (task 199). Spread over three frames, each frame gets about a third. The card's size, labels and
- * focus ring come at once, so nothing moves when the body arrives.
+ * Frames each card waits before composing its body, in bind order. A line of cards comes in on one
+ * scroll frame; composing all of them there took 35-58 ms of the SK4 Pro's main thread (task 199).
+ * Spread over three frames, each frame gets about a third. Meanwhile the card keeps the exact pixel
+ * size of its last bind, and only when its new artwork box is the same size as the last one, so the
+ * grid never lays out again when the body arrives.
  */
 internal val BodyStagger = intArrayOf(1, 2, 3)
 
 internal fun bodyDelayFor(bindIndex: Int) = BodyStagger[Math.floorMod(bindIndex, BodyStagger.size)]
+
+/**
+ * How many frames a bind waits for its body. Only a card from the pool or cache in a staggered
+ * presenter waits: one on screen (a refresh, DiffUtil change) or bound again to the same item (new
+ * data after details or playback) keeps its picture up, and one that never had a size has nothing
+ * to hold. [next] is asked only when the card waits, so refreshes don't move the bind order.
+ */
+internal inline fun bodyDelayFrames(
+	stagger: Boolean,
+	onScreen: Boolean,
+	previousId: java.util.UUID?,
+	newId: java.util.UUID?,
+	hasSize: Boolean,
+	next: () -> Int,
+): Int {
+	if (!stagger || onScreen || !hasSize) return 0
+	if (previousId != null && previousId == newId) return 0
+	return next()
+}
 
 /** True once [bound]'s card has waited its [BoundCard.bodyDelayFrames]; resets on each new bind. */
 @Composable
@@ -388,6 +446,7 @@ private fun CardViewHolderContent(
 	uniformAspect: Boolean,
 	fixedAspectRatio: Float?,
 	quiet: Boolean = false,
+	memo: CardSizeMemo = remember { CardSizeMemo() },
 ) {
 	val context = LocalContext.current
 	val localDensity = LocalDensity.current
@@ -395,8 +454,6 @@ private fun CardViewHolderContent(
 
 	// Keyed on the binding, not the item: items compare by id, so two chapters of one film (or two
 	// grid buttons) are "equal", and a reused card would keep the first one's name and picture.
-	val title = remember(bound, context) { item?.getCardName(context) }
-	val subtitle = remember(bound, context) { item?.getSubText(context) }
 	val displayConfig = remember(bound, imageType, uniformAspect, fixedAspectRatio) {
 		item?.getDisplayConfig(imageType, uniformAspect, fixedAspectRatio)
 	}
@@ -414,6 +471,19 @@ private fun CardViewHolderContent(
 		else -> DpSize(150.dp * aspectRatio, 150.dp)
 	}
 
+	// Until its turn (BodyStagger), a card from the pool is an empty box of its last exact size, as
+	// long as its artwork box is the same size as last time; otherwise it is built at once.
+	val bodyReady = rememberBodyReady(bound)
+	val hold = bound.holdSize
+	if (!bodyReady && hold != null && memo.cardSize == size) {
+		SideEffect { heldBodies++; lastHeldSize = hold }
+		Box(Modifier.layout { _, _ -> layout(hold.width, hold.height) {} })
+		return
+	}
+	SideEffect { memo.cardSize = size }
+
+	val title = remember(bound, context) { item.getCardName(context) }
+	val subtitle = remember(bound, context) { item.getSubText(context) }
 	val usePreview = displayConfig.overrideShowInfo ?: showInfo
 
 	// Cards load at preview quality. One the focus rests on for a moment is loaded again at full
@@ -426,14 +496,10 @@ private fun CardViewHolderContent(
 		}
 	}
 
-	val bodyReady = rememberBodyReady(bound)
-
 	val card = @Composable {
 		ItemCard(
 			image = {
-				if (!bodyReady) {
-					// The card's surface only, until its turn (BodyStagger).
-				} else if (image != null) {
+				if (image != null) {
 					val api = koinInject<ApiClient>()
 					val maxWidth = with(localDensity) { size.width.roundToPx() }
 					val maxHeight = with(localDensity) { size.height.roundToPx() }
@@ -470,8 +536,7 @@ private fun CardViewHolderContent(
 					)
 				}
 			},
-			overlay = overlay@{
-				if (!bodyReady) return@overlay
+			overlay = {
 				val showInfo = !usePreview && item.showCardInfoOverlay && (!quiet || focused)
 				item.baseItem?.let { baseItem ->
 					ItemCardBaseItemOverlay(
