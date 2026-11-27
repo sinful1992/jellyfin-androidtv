@@ -128,6 +128,7 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private final double CARD_SPACING_PCT = 1.0; // 100% expressed as relative to the padding_left/top, which depends on the mCardFocusScale and AspectRatio
     private final double CARD_SPACING_HORIZONTAL_BANNER_PCT = 0.5; // 50% allow horizontal card overlapping for banners, otherwise spacing is too large
     private final int VIEW_SELECT_UPDATE_DELAY = 250; // delay in ms until we update the top-row info for a selected item
+    private static final int HEADER_REST_POLL = 50; // ms between checks for the grid to stop sliding
 
     private boolean mDirty = true; // CardHeight, RowDef or GridSize changed
 
@@ -991,7 +992,15 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         public void run() {
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
+            // Fill the info row once the grid has stopped sliding, not on a frame of the slide: a
+            // new info line is a layout change, and the grid's cards all answer it (task 198).
+            if (mGridView != null && BrowseGridHeaderKt.headerWaitsForRest(mGridView.getScrollState())) {
+                mHandler.postDelayed(this, HEADER_REST_POLL);
+                return;
+            }
+
             setItem(mCurrentItem);
+            binding.infoRow.setVisibility(View.VISIBLE);
         }
     };
 
@@ -1006,7 +1015,9 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
             } else {
                 mCurrentItem = (BaseRowItem) item;
                 binding.title.setText(mCurrentItem.getName(requireContext()));
-                binding.infoRow.removeAllViews();
+                // Hide the old item's info rather than remove it: INVISIBLE only redraws, while
+                // removing (and later re-creating) the info view lays the screen out twice per move.
+                binding.infoRow.setVisibility(View.INVISIBLE);
                 mHandler.postDelayed(mDelayedSetItem, VIEW_SELECT_UPDATE_DELAY);
 
                 if (!determiningPosterSize)
