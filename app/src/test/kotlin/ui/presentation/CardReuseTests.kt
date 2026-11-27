@@ -8,6 +8,7 @@ import org.jellyfin.androidtv.ui.GridButton
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Test
@@ -92,5 +93,29 @@ class CardReuseTests {
 		presenter.onBindViewHolder(holder, button(2))
 		frames()
 		assertFalse("rebind asked for a layout", holder.view.isLayoutRequested)
+	}
+
+	@Test
+	fun `two id-equal items are still two bindings`() {
+		val a = button(1)
+		val b = GridButtonBaseRowItem(GridButton(2, "Other"))
+		// Both have no item id, so BaseRowItem.equals calls them equal (so do chapters of one film).
+		assertEquals(a, b)
+		assertNotEquals(BoundCard(a), BoundCard(b))
+		assertNotEquals(BoundCard(a), BoundCard(a))
+	}
+
+	@Test
+	fun `a card's flow emits a rebind to an id-equal item, an item flow drops it`() {
+		val a = button(1)
+		val b = GridButtonBaseRowItem(GridButton(2, "Other"))
+
+		val items = kotlinx.coroutines.flow.MutableStateFlow<org.jellyfin.androidtv.ui.itemhandling.BaseRowItem?>(a)
+		items.value = b
+		assertTrue("item flow kept the first item", items.value === a)
+
+		val bound = kotlinx.coroutines.flow.MutableStateFlow<BoundCard?>(BoundCard(a))
+		bound.value = BoundCard(b)
+		assertTrue(bound.value?.item === b)
 	}
 }

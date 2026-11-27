@@ -125,16 +125,16 @@ class CardPresenter @JvmOverloads constructor(
 	}
 
 	private inner class CardViewHolder(composeView: ComposeView) : ViewHolder(composeView) {
-		private val _item = MutableStateFlow<BaseRowItem?>(null)
+		private val _item = MutableStateFlow<BoundCard?>(null)
 		private val _focused = MutableStateFlow(false)
 
 		init {
 			composeView.setContent {
-				val item by _item.collectAsState()
+				val bound by _item.collectAsState()
 				val focused by _focused.collectAsState()
 
 				CardViewHolderContent(
-					item = item,
+					bound = bound,
 					focused = focused,
 					showInfo = showInfo,
 					imageType = imageType,
@@ -150,7 +150,7 @@ class CardPresenter @JvmOverloads constructor(
 		}
 
 		fun bind(item: BaseRowItem) {
-			_item.value = item
+			_item.value = BoundCard(item)
 			_focused.value = view.isFocused
 		}
 
@@ -164,6 +164,16 @@ class CardPresenter @JvmOverloads constructor(
 			_focused.value = false
 		}
 	}
+}
+
+/**
+ * One bind of a card to [item]. Equal only to itself: [BaseRowItem.equals] compares item ids, which
+ * chapters of one film share and grid buttons lack, so a StateFlow of items would drop the second of
+ * two such binds, and a card kept across unbind (task 198) would go on showing the first.
+ */
+internal class BoundCard(val item: BaseRowItem) {
+	override fun equals(other: Any?) = this === other
+	override fun hashCode() = System.identityHashCode(this)
 }
 
 private data class BaseRowItemDisplayConfig(
@@ -344,7 +354,7 @@ private val FullQualityFocusDelay = 300.milliseconds
 @Composable
 @Stable
 private fun CardViewHolderContent(
-	item: BaseRowItem?,
+	bound: BoundCard?,
 	focused: Boolean,
 	showInfo: Boolean,
 	imageType: ImageType,
@@ -355,10 +365,13 @@ private fun CardViewHolderContent(
 ) {
 	val context = LocalContext.current
 	val localDensity = LocalDensity.current
+	val item = bound?.item
 
-	val title = remember(item, context) { item?.getCardName(context) }
-	val subtitle = remember(item, context) { item?.getSubText(context) }
-	val displayConfig = remember(item, imageType, uniformAspect, fixedAspectRatio) {
+	// Keyed on the binding, not the item: items compare by id, so two chapters of one film (or two
+	// grid buttons) are "equal", and a reused card would keep the first one's name and picture.
+	val title = remember(bound, context) { item?.getCardName(context) }
+	val subtitle = remember(bound, context) { item?.getSubText(context) }
+	val displayConfig = remember(bound, imageType, uniformAspect, fixedAspectRatio) {
 		item?.getDisplayConfig(imageType, uniformAspect, fixedAspectRatio)
 	}
 	if (item == null || displayConfig == null) return
@@ -379,8 +392,8 @@ private fun CardViewHolderContent(
 
 	// Cards load at preview quality. One the focus rests on for a moment is loaded again at full
 	// quality, over the preview, and keeps it: going back to the preview would only fetch again.
-	var fullQuality by remember(item) { mutableStateOf(false) }
-	LaunchedEffect(item, focused) {
+	var fullQuality by remember(bound) { mutableStateOf(false) }
+	LaunchedEffect(bound, focused) {
 		if (focused && !fullQuality) {
 			delay(FullQualityFocusDelay)
 			fullQuality = true
