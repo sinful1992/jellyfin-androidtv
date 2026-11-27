@@ -31,6 +31,7 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetAlbumArtistsRequest
 import org.jellyfin.sdk.model.api.request.GetArtistsRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
@@ -520,6 +521,51 @@ internal fun flattenCollectionMovies(setMovies: List<List<BaseItemDto>>): List<B
 	.distinctBy { it.id }
 
 /**
+ * The network part of [retrieveMoviesWithSets], for any caller (the adapter above, and the Compose
+ * grid's LibraryGridSource, task 200): the whole of [query] in name order with each box set's movies
+ * kept together. Runs on [Dispatchers.IO].
+ */
+suspend fun loadMoviesWithSets(api: ApiClient, query: GetItemsRequest, descending: Boolean): List<BaseItemDto> =
+	withContext(Dispatchers.IO) {
+		val shown = async {
+			api.itemsApi.getItems(
+				query.copy(
+					startIndex = null,
+					limit = null,
+					fields = query.fields.orEmpty() + ItemFields.SORT_NAME,
+				)
+			).content.items
+		}
+
+		val sets = api.itemsApi.getItems(
+			GetItemsRequest(
+				includeItemTypes = setOf(BaseItemKind.BOX_SET),
+				recursive = true,
+				sortBy = setOf(ItemSortBy.SORT_NAME),
+			)
+		).content.items
+
+		val setMembers = coroutineScope {
+			sets.map { set ->
+				async {
+					// One set that fails to load leaves its movies in plain name order.
+					set.id to runCatching {
+						api.itemsApi.getItems(
+							GetItemsRequest(
+								fields = setOf(ItemFields.SORT_NAME),
+								parentId = set.id,
+								includeItemTypes = setOf(BaseItemKind.MOVIE),
+							)
+						).content.items
+					}.onFailure { Timber.w(it, "Movies of set %s did not load", set.id) }.getOrDefault(emptyList())
+				}
+			}.awaitAll()
+		}.toMap(LinkedHashMap())
+
+		orderMoviesWithSets(shown.await(), setMembers, descending)
+	}
+
+/**
  * A movie library in name order with each box set's movies kept together; see [orderMoviesWithSets].
  * The order needs every movie at once, so the whole of [query] is loaded in one go, never paged, and
  * every set is asked for its movies, all at once, without the toolbar's filters.
@@ -527,44 +573,7 @@ internal fun flattenCollectionMovies(setMovies: List<List<BaseItemDto>>): List<B
 fun ItemRowAdapter.retrieveMoviesWithSets(api: ApiClient, query: GetItemsRequest, descending: Boolean) {
 	ProcessLifecycleOwner.get().lifecycleScope.launch {
 		runCatching {
-			val movies = withContext(Dispatchers.IO) {
-				val shown = async {
-					api.itemsApi.getItems(
-						query.copy(
-							startIndex = null,
-							limit = null,
-							fields = query.fields.orEmpty() + ItemFields.SORT_NAME,
-						)
-					).content.items
-				}
-
-				val sets = api.itemsApi.getItems(
-					GetItemsRequest(
-						includeItemTypes = setOf(BaseItemKind.BOX_SET),
-						recursive = true,
-						sortBy = setOf(ItemSortBy.SORT_NAME),
-					)
-				).content.items
-
-				val setMembers = coroutineScope {
-					sets.map { set ->
-						async {
-							// One set that fails to load leaves its movies in plain name order.
-							set.id to runCatching {
-								api.itemsApi.getItems(
-									GetItemsRequest(
-										fields = setOf(ItemFields.SORT_NAME),
-										parentId = set.id,
-										includeItemTypes = setOf(BaseItemKind.MOVIE),
-									)
-								).content.items
-							}.onFailure { Timber.w(it, "Movies of set %s did not load", set.id) }.getOrDefault(emptyList())
-						}
-					}.awaitAll()
-				}.toMap(LinkedHashMap())
-
-				orderMoviesWithSets(shown.await(), setMembers, descending)
-			}
+			val movies = loadMoviesWithSets(api, query, descending)
 
 			totalItems = movies.size
 			setItems(
@@ -630,9 +639,16 @@ fun setArtistsSorting(
 fun setItemsSorting(
 	request: GetItemsRequest,
 	sortOption: SortOption,
+) = setItemsSorting(request, sortOption.value, sortOption.order)
+
+/** [setItemsSorting] without the fragment's SortOption, for LibraryGridSource (task 200). */
+fun setItemsSorting(
+	request: GetItemsRequest,
+	sortBy: ItemSortBy,
+	sortOrder: SortOrder,
 ) = request.copy(
-	sortBy = setOf(sortOption.value, ItemSortBy.SORT_NAME),
-	sortOrder = setOf(sortOption.order)
+	sortBy = setOf(sortBy, ItemSortBy.SORT_NAME),
+	sortOrder = setOf(sortOrder)
 )
 
 fun setAlbumArtistsFilter(
