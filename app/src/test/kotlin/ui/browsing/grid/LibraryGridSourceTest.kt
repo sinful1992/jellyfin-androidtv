@@ -3,6 +3,7 @@ package org.jellyfin.androidtv.ui.browsing.grid
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.ui.itemhandling.BaseItemDtoBaseRowItem
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
@@ -534,6 +536,32 @@ class LibraryGridSourceTest : FunSpec({
 		f.source.replaceItem(0, 10, BaseItemDtoBaseRowItem(movie(44)))
 		f.source.replaceItem(0, -1, BaseItemDtoBaseRowItem(movie(44)))
 		f.state.items.names shouldBe listOf("m0", "m1", "m2", "m33", "m4", "m5", "m6", "m7", "m8", "m9")
+	}
+
+	test("replaceItem with an equal copy of an item still reaches collectors as that new instance") {
+		val f = Fixture()
+		f.source.start()
+		f.fetcher.last.reply(movies(0..9), total = 10)
+		val seen = mutableListOf<LibraryGridState>()
+		val collector = f.scope.launch { f.source.state.collect { seen += it } }
+		val refreshed = BaseItemDtoBaseRowItem(movie(3))
+		// Equal to the old item (same DTO), but a new instance: the card binds by instance.
+		(refreshed == f.state.items[3]) shouldBe true
+		f.source.replaceItem(0, 3, refreshed)
+		f.state.items[3] shouldBeSameInstanceAs refreshed
+		seen.size shouldBe 2
+		seen.last().items[3] shouldBeSameInstanceAs refreshed
+		collector.cancel()
+	}
+
+	test("a refresh answer with the same items still reaches collectors as new instances") {
+		val f = Fixture()
+		f.source.start()
+		f.fetcher.last.reply(movies(0..9), total = 10)
+		val before = f.state.items[0]
+		f.source.refresh()
+		f.fetcher.last.reply(movies(0..9), total = 10)
+		(f.state.items[0] === before) shouldBe false
 	}
 
 	test("removeItem shifts later items down and lowers the total; stale or outside does nothing") {
