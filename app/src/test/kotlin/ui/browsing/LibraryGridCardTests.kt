@@ -13,7 +13,32 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.MediaType
 import org.jellyfin.sdk.model.api.UserItemDataDto
+import org.jellyfin.androidtv.constant.ImageType
+import org.jellyfin.androidtv.ui.presentation.gridPreviewUrl
+import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.operations.Api
+import org.jellyfin.sdk.model.api.ImageType as SdkImageType
+import androidx.compose.ui.unit.Density
+import io.mockk.every
+import io.mockk.mockk
 import java.util.UUID
+import kotlin.reflect.KClass
+
+/** An ApiClient whose URLs are "<path>?<query>", with the query in a stable order (as JellyfinImageTests). */
+private fun fakeApi(): ApiClient = mockk<ApiClient>().also { api ->
+	every { api.getOrCreateApi(any<KClass<Api>>(), any()) } answers {
+		@Suppress("UNCHECKED_CAST")
+		(secondArg<(ApiClient) -> Api>()).invoke(api)
+	}
+	every { api.createUrl(any(), any(), any(), any()) } answers {
+		val query = thirdArg<Map<String, Any?>>()
+			.filterValues { it != null }
+			.toSortedMap()
+			.entries
+			.joinToString("&") { (key, value) -> "$key=$value" }
+		"${firstArg<String>()}?$query"
+	}
+}
 
 /**
  * Task 201: a lean grid poster paints the same badges and bar the full card's overlay
@@ -105,5 +130,21 @@ class LibraryGridCardTests : FunSpec({
 		isLeanGridItem(row(BaseItemKind.VIDEO)) shouldBe false
 		isLeanGridItem(row(BaseItemKind.PERSON)) shouldBe false
 		isLeanGridItem(GridButtonBaseRowItem(GridButton(1, "one"))) shouldBe false
+	}
+
+	test("ahead-built url: a lean poster's preview url at its card size; none for a full card") {
+		val api = fakeApi()
+		val film = BaseItemDtoBaseRowItem(
+			item(type = BaseItemKind.MOVIE).copy(imageTags = mapOf(SdkImageType.PRIMARY to "t"), primaryImageAspectRatio = 2.0 / 3.0),
+			staticHeight = true,
+		)
+		val url = gridPreviewUrl(film, ImageType.POSTER, staticHeight = 200, density = Density(1.5f), api = api)!!
+		// The card's size maths: 200 dp high at 2:3 on a 1.5x screen = 200 x 300 px, preview quality.
+		url shouldBe "/Items/{itemId}/Images/{imageType}?maxHeight=300&maxWidth=200&quality=60&tag=t"
+		val again = gridPreviewUrl(film, ImageType.POSTER, staticHeight = 200, density = Density(1.5f), api = api)
+		again shouldBe url
+		(gridPreviewUrl(film, ImageType.POSTER, staticHeight = 300, density = Density(1.5f), api = api) == url) shouldBe false
+		gridPreviewUrl(BaseItemDtoBaseRowItem(item(type = BaseItemKind.FOLDER)), ImageType.POSTER, 200, Density(1.5f), api) shouldBe null
+		gridPreviewUrl(GridButtonBaseRowItem(GridButton(1, "one")), ImageType.POSTER, 200, Density(1.5f), api) shouldBe null
 	}
 })

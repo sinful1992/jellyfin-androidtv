@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.Density
@@ -162,6 +163,9 @@ class ComposeGridHost(
 			setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
 			setContent {
 				val state by source.state.collectAsState()
+				// One instance for the view's life: a new reference on every state would make a new
+				// card env, and every composed card would recompose (linus, review).
+				val previewUrl = remember { source::previewUrl }
 
 				LibraryGrid(
 					items = state.items,
@@ -181,7 +185,7 @@ class ComposeGridHost(
 					onClick = callbacks::onItemClicked,
 					onLongClick = callbacks::onItemLongClicked,
 					onScrollingChanged = callbacks::onScrollingChanged,
-					cardEnv = rememberGridCardEnv(source::previewUrl),
+					cardEnv = rememberGridCardEnv(previewUrl),
 				)
 			}
 		}

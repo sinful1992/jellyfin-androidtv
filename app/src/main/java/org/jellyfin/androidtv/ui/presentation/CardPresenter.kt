@@ -525,9 +525,12 @@ internal fun gridPreviewUrl(item: BaseRowItem, imageType: ImageType, staticHeigh
 	val config = item.getDisplayConfig(imageType, uniformAspect = true, fixedAspectRatio = null)
 	val image = config.image ?: return null
 	val size = cardSize(item, config.cardAspectRatio(), staticHeight, fixedAspectRatio = null)
-	return with(density) {
-		image.getUrl(api, maxWidth = size.width.roundToPx(), maxHeight = size.height.roundToPx(), quality = ImageQuality.PREVIEW)
-	}
+	return previewUrlOf(image, size, density, api)
+}
+
+/** A card's preview url: the one maths both the card and the ahead-built url use, so Coil gets hits. */
+private fun previewUrlOf(image: JellyfinImage, size: DpSize, density: Density, api: ApiClient): String = with(density) {
+	image.getUrl(api, maxWidth = size.width.roundToPx(), maxHeight = size.height.roundToPx(), quality = ImageQuality.PREVIEW)
 }
 
 /**
@@ -574,8 +577,7 @@ private fun LeanGridCardContent(
 			val maxHeight = with(density) { size.height.roundToPx() }
 			val url = remember(bound, image, fullQuality, maxWidth, maxHeight, env) {
 				if (fullQuality) image.getUrl(env.api, maxWidth = maxWidth, maxHeight = maxHeight, quality = ImageQuality.FULL)
-				else env.previewUrl(baseItem.id)
-					?: image.getUrl(env.api, maxWidth = maxWidth, maxHeight = maxHeight, quality = ImageQuality.PREVIEW)
+				else env.previewUrl(baseItem.id) ?: previewUrlOf(image, size, density, env.api)
 			}
 			AsyncImage(
 				url = url,
