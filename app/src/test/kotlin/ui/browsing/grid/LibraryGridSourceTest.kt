@@ -7,6 +7,7 @@ import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -23,6 +24,7 @@ import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import java.util.UUID
+import kotlin.coroutines.CoroutineContext
 
 private fun movie(n: Int) = BaseItemDto(
 	id = UUID(0, n.toLong()),
@@ -64,17 +66,48 @@ private class FakeFetcher(val ignoreCancel: Boolean = false) : GridFetcher {
 		await(Call(query, null, null, sets = true, descending = descending)).items
 }
 
+
+/** Holds the URL builds until the test runs them, so a test can act while one is "in flight". */
+private class HeldDispatcher : CoroutineDispatcher() {
+	private val queue = ArrayDeque<Runnable>()
+	val pending get() = queue.size
+	override fun dispatch(context: CoroutineContext, block: Runnable) {
+		queue.addLast(block)
+	}
+
+	fun runAll() {
+		while (queue.isNotEmpty()) queue.removeFirst().run()
+	}
+}
+
+/** A builder that records what it was asked for: url = "u<n>" from the item's name "m<n>". */
+private class Builder(val fail: Set<String> = emptySet(), val none: Set<String> = emptySet(), val tag: String = "u") {
+	val asked = mutableListOf<BaseRowItem>()
+	val fn: (BaseRowItem) -> String? = { item ->
+		asked += item
+		val name = item.baseItem?.name.orEmpty()
+		when (name) {
+			in fail -> error("cannot build $name")
+			in none -> null
+			else -> tag + name.removePrefix("m")
+		}
+	}
+}
+
+private fun id(n: Int) = UUID(0, n.toLong())
+
 private class Fixture(
 	chunkSize: Int = 100,
 	keepSetsTogether: Boolean = false,
 	baseQuery: GetItemsRequest = GetItemsRequest(parentId = UUID(1, 1)),
 	ignoreCancel: Boolean = false,
 	transform: (BaseItemDto) -> BaseRowItem = { BaseItemDtoBaseRowItem(it) },
+	urlDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
 ) {
 	val fetcher = FakeFetcher(ignoreCancel)
 	// Unconfined: launches run at once and answers resume in the test's own call, so every step is deterministic.
 	val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-	val source = LibraryGridSource(baseQuery, chunkSize, keepSetsTogether, scope, fetcher, transform)
+	val source = LibraryGridSource(baseQuery, chunkSize, keepSetsTogether, scope, fetcher, transform, urlDispatcher)
 	val state get() = source.state.value
 }
 
@@ -617,5 +650,165 @@ class LibraryGridSourceTest : FunSpec({
 
 	test("chunkSize must be positive") {
 		shouldThrow<IllegalArgumentException> { Fixture(chunkSize = 0) }
+	}
+	test("preview URLs: no builder, no URLs, and the items are as before") {
+		val f = Fixture()
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		f.state.items.size shouldBe 5
+		f.source.previewUrl(id(0)) shouldBe null
+		f.source.previewUrl(null) shouldBe null
+	}
+
+	test("preview URLs: a builder set before start builds every item of the first answer") {
+		val f = Fixture()
+		val b = Builder()
+		f.source.setPreviewUrlBuilder(b.fn)
+		b.asked.size shouldBe 0
+		f.source.start()
+		f.fetcher.last.reply(movies(0..9))
+		(0..9).map { f.source.previewUrl(id(it)) } shouldBe (0..9).map { "u$it" }
+		b.asked.size shouldBe 10
+	}
+
+	test("preview URLs: the items are published at once, the URLs when they are built") {
+		val held = HeldDispatcher()
+		val f = Fixture(urlDispatcher = held)
+		f.source.setPreviewUrlBuilder(Builder().fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..9))
+		f.state.items.size shouldBe 10
+		f.state.loading shouldBe false
+		f.source.previewUrl(id(3)) shouldBe null
+		held.runAll()
+		f.source.previewUrl(id(3)) shouldBe "u3"
+	}
+
+	test("preview URLs: a builder set after the load builds the loaded items") {
+		val f = Fixture()
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		val b = Builder()
+		f.source.setPreviewUrlBuilder(b.fn)
+		f.source.previewUrl(id(4)) shouldBe "u4"
+		b.asked.size shouldBe 5
+	}
+
+	test("preview URLs: a next page builds only its own items") {
+		val f = Fixture(chunkSize = 10)
+		val b = Builder()
+		f.source.setPreviewUrlBuilder(b.fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..9), total = 20)
+		f.source.loadMore(9)
+		f.fetcher.last.reply(movies(10..19), total = 20)
+		b.asked.size shouldBe 20
+		f.source.previewUrl(id(15)) shouldBe "u15"
+		f.source.previewUrl(id(2)) shouldBe "u2"
+	}
+
+	test("preview URLs: replaceItem builds that item again from the new instance") {
+		val f = Fixture()
+		val b = Builder()
+		f.source.setPreviewUrlBuilder(b.fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		val fresh = BaseItemDtoBaseRowItem(movie(2))
+		f.source.replaceItem(0, 2, fresh)
+		b.asked.last() shouldBeSameInstanceAs fresh
+		b.asked.size shouldBe 6
+		f.source.previewUrl(id(2)) shouldBe "u2"
+	}
+
+	test("preview URLs: after replaceItem the old URL is gone until the new one is built") {
+		val held = HeldDispatcher()
+		val f = Fixture(urlDispatcher = held)
+		f.source.setPreviewUrlBuilder(Builder().fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		held.runAll()
+		f.source.previewUrl(id(2)) shouldBe "u2"
+		f.source.replaceItem(0, 2, BaseItemDtoBaseRowItem(movie(2)))
+		f.source.previewUrl(id(2)) shouldBe null
+		f.source.previewUrl(id(1)) shouldBe "u1"
+		held.runAll()
+		f.source.previewUrl(id(2)) shouldBe "u2"
+	}
+
+	test("preview URLs: a re-query drops them, and a build still running for the old generation is dropped") {
+		val held = HeldDispatcher()
+		val f = Fixture(urlDispatcher = held)
+		f.source.setPreviewUrlBuilder(Builder().fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		held.pending shouldBe 1
+		f.source.setSort(ItemSortBy.PREMIERE_DATE, SortOrder.DESCENDING)
+		held.runAll()
+		f.source.previewUrl(id(0)) shouldBe null
+		f.fetcher.last.reply(movies(5..6))
+		held.runAll()
+		f.source.previewUrl(id(5)) shouldBe "u5"
+		f.source.previewUrl(id(0)) shouldBe null
+	}
+
+	test("preview URLs: an item the builder fails on or has no URL for keeps the old path; the rest are built") {
+		val f = Fixture()
+		f.source.setPreviewUrlBuilder(Builder(fail = setOf("m1"), none = setOf("m3")).fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		f.source.previewUrl(id(1)) shouldBe null
+		f.source.previewUrl(id(3)) shouldBe null
+		listOf(0, 2, 4).map { f.source.previewUrl(id(it)) } shouldBe listOf("u0", "u2", "u4")
+	}
+
+	test("preview URLs: a null builder drops them; a new builder replaces the old URLs") {
+		val f = Fixture()
+		f.source.setPreviewUrlBuilder(Builder().fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..2))
+		f.source.setPreviewUrlBuilder(null)
+		f.source.previewUrl(id(0)) shouldBe null
+		f.source.setPreviewUrlBuilder(Builder(tag = "v").fn)
+		f.source.previewUrl(id(0)) shouldBe "v0"
+	}
+
+	test("preview URLs: a builder changed while a build runs: the old build's URLs never land") {
+		val held = HeldDispatcher()
+		val f = Fixture(urlDispatcher = held)
+		f.source.setPreviewUrlBuilder(Builder().fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..2))
+		f.source.setPreviewUrlBuilder(Builder(tag = "v").fn)
+		held.runAll()
+		(0..2).map { f.source.previewUrl(id(it)) } shouldBe listOf("v0", "v1", "v2")
+	}
+
+	test("preview URLs: a refresh builds every item again (new instances)") {
+		val f = Fixture()
+		val b = Builder()
+		f.source.setPreviewUrlBuilder(b.fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4))
+		f.source.refresh()
+		f.fetcher.last.reply(movies(0..4))
+		b.asked.size shouldBe 10
+		f.source.previewUrl(id(4)) shouldBe "u4"
+	}
+
+	test("preview URLs: a large library (5000) is built in full") {
+		val f = Fixture(chunkSize = 5000)
+		f.source.setPreviewUrlBuilder(Builder().fn)
+		f.source.start()
+		f.fetcher.last.reply(movies(0..4999))
+		f.source.previewUrl(id(4999)) shouldBe "u4999"
+	}
+
+	test("preview URLs: an empty answer builds nothing and fails nothing") {
+		val f = Fixture()
+		val b = Builder()
+		f.source.setPreviewUrlBuilder(b.fn)
+		f.source.start()
+		f.fetcher.last.reply(emptyList(), total = 0)
+		b.asked.size shouldBe 0
 	}
 })

@@ -1,9 +1,11 @@
 package org.jellyfin.androidtv.ui.browsing.grid
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +23,7 @@ import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
+import java.util.UUID
 
 /** One page answer. */
 data class GridPage(val items: List<BaseItemDto>, val totalRecordCount: Int)
@@ -92,6 +95,8 @@ class LibraryGridSource(
 	private val scope: CoroutineScope,
 	private val fetcher: GridFetcher,
 	private val transform: (BaseItemDto) -> BaseRowItem,
+	/** Where [setPreviewUrlBuilder]'s builder runs; tests pass an immediate one. */
+	private val urlDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
 	init {
 		require(chunkSize > 0) { "chunkSize must be > 0, was $chunkSize" }
@@ -121,6 +126,34 @@ class LibraryGridSource(
 
 	/** The fetch in flight is a next page (not a first load or a refresh). */
 	private var pageInFlight = false
+
+	/**
+	 * Card picture URLs built ahead, off the main thread (task 201): building one in a card's first
+	 * composition was ~12 % of a new line's cost on the SK4 Pro. Keyed by item id, so a card can never
+	 * get another item's picture; read with [previewUrl], which is not Compose state, so filling it
+	 * recomposes nothing. Replaced whole (never mutated), so a read on main sees one consistent map.
+	 */
+	@Volatile
+	private var previewUrls: Map<UUID, String> = emptyMap()
+	private var previewUrlBuilder: ((BaseRowItem) -> String?)? = null
+	private var urlJob: Job? = null
+
+	/** Bumped when the builder changes or the generation moves on; an older result is dropped. */
+	private var urlSeq = 0
+
+	/**
+	 * Sets how a card's preview URL is built (the card side's maths: image type, card size, server).
+	 * It runs on [urlDispatcher], so it must only read its argument. Null stops building and drops
+	 * the URLs built so far; a new builder builds every loaded item's URL again.
+	 */
+	fun setPreviewUrlBuilder(builder: ((BaseRowItem) -> String?)?) {
+		previewUrlBuilder = builder
+		resetPreviewUrls()
+		buildPreviewUrls()
+	}
+
+	/** The URL built ahead for the item with this id, or null (not built yet: build it as before). */
+	fun previewUrl(id: UUID?): String? = id?.let { previewUrls[it] }
 
 	/** The query the next fetch sends (sort, filters and letter applied). */
 	val currentQuery: GetItemsRequest get() = query
@@ -199,7 +232,11 @@ class LibraryGridSource(
 	fun replaceItem(generation: Int, index: Int, item: BaseRowItem) {
 		val current = _state.value
 		if (generation != current.generation || index !in current.items.indices) return
+		// The new instance may have a new picture (image tag): drop its old URL until it is built again.
+		current.items[index].baseItem?.id?.let { previewUrls = previewUrls - it }
+		item.baseItem?.id?.let { previewUrls = previewUrls - it }
 		_state.value = current.copy(items = current.items.toMutableList().also { it[index] = item })
+		buildPreviewUrls()
 	}
 
 	/**
@@ -232,6 +269,7 @@ class LibraryGridSource(
 		if (!started) return
 		cancelFetch()
 		_state.value = LibraryGridState(generation = _state.value.generation + 1)
+		resetPreviewUrls()
 		fetchFirst()
 	}
 
@@ -312,6 +350,9 @@ class LibraryGridSource(
 			loading = false,
 			error = null,
 		)
+		// A refresh brings new instances (new watched state, maybe a new picture): build them all again.
+		resetPreviewUrls()
+		buildPreviewUrls()
 	}
 
 	private fun append(startIndex: Int, page: GridPage) {
@@ -328,6 +369,50 @@ class LibraryGridSource(
 			loading = false,
 			error = null,
 		)
+		buildPreviewUrls()
+	}
+
+	private fun resetPreviewUrls() {
+		urlJob?.cancel()
+		urlJob = null
+		urlSeq++
+		previewUrls = emptyMap()
+	}
+
+	/**
+	 * Builds the URLs the loaded items don't have yet, on [urlDispatcher], and adds them in one step.
+	 * The items are published first and never wait for this: a card without a URL builds it as before.
+	 */
+	private fun buildPreviewUrls() {
+		val builder = previewUrlBuilder ?: return
+		val state = _state.value
+		val have = previewUrls
+		val todo = state.items.filter { item -> item.baseItem?.id?.let { it !in have } == true }
+		if (todo.isEmpty()) return
+		urlJob?.cancel()
+		val seq = ++urlSeq
+		val generation = state.generation
+		urlJob = scope.launch {
+			val built = withContext(urlDispatcher) {
+				val out = HashMap<UUID, String>(todo.size * 2)
+				for (item in todo) {
+					ensureActive()
+					val id = item.baseItem?.id ?: continue
+					// One item the builder can't handle keeps today's path; it never stops the rest.
+					val url = try {
+						builder(item)
+					} catch (error: CancellationException) {
+						throw error
+					} catch (error: Throwable) {
+						null
+					}
+					if (url != null) out[id] = url
+				}
+				out
+			}
+			if (seq != urlSeq || generation != _state.value.generation) return@launch
+			previewUrls = previewUrls + built
+		}
 	}
 
 	/**
