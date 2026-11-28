@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -80,6 +81,10 @@ class LibraryGridMemory {
 	}
 }
 
+/** Half a window of lines kept ready above and below the visible ones (about two lines of posters). */
+@OptIn(ExperimentalFoundationApi::class)
+private val GridCacheWindow = LazyLayoutCacheWindow(aheadFraction = 0.5f, behindFraction = 0.5f)
+
 @OptIn(ExperimentalFoundationApi::class)
 private val CenterBringIntoViewSpec = object : BringIntoViewSpec {
 	override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
@@ -113,7 +118,14 @@ fun LibraryGrid(
 	modifier: Modifier = Modifier,
 ) {
 	val density = LocalDensity.current
-	val gridState = rememberLazyGridState(memory.firstVisibleItemIndex, memory.firstVisibleItemScrollOffset)
+	// Lines beyond the window stay composed, and the next ones are composed in idle time between
+	// moves, as leanback's setExtraLayoutSpace did: without it the line a move brings in is
+	// composed in the move's own frames (~40 ms layout + ~38 ms recomposition on the SK4 Pro).
+	val gridState = rememberLazyGridState(
+		cacheWindow = GridCacheWindow,
+		initialFirstVisibleItemIndex = memory.firstVisibleItemIndex,
+		initialFirstVisibleItemScrollOffset = memory.firstVisibleItemScrollOffset,
+	)
 	val scope = rememberCoroutineScope()
 	val requesters = remember { HashMap<Int, FocusRequester>() }
 	val currentOnFocused by rememberUpdatedState(onFocused)
