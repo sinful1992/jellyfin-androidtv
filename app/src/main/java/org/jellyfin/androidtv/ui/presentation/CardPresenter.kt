@@ -70,6 +70,14 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType as SdkImageType
 import org.koin.compose.koinInject
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.ui.unit.Density
+import org.jellyfin.androidtv.preference.UserPreferences
+import org.jellyfin.androidtv.preference.constant.WatchedIndicatorBehavior
+import org.jellyfin.androidtv.ui.composable.item.CardOverlayPaint
+import org.jellyfin.androidtv.ui.composable.item.LeanItemCard
+import org.jellyfin.androidtv.ui.composable.item.cardOverlay
+import org.jellyfin.androidtv.ui.composable.item.rememberCardOverlayPaint
+import java.util.UUID
 
 // JvmOverloads keeps the four-argument form the Java callers construct this with, now that there is
 // a fifth parameter with a default behind it.
@@ -448,19 +456,144 @@ internal fun GridCardContent(
 	focused: Boolean,
 	imageType: ImageType,
 	staticHeight: Int,
+	env: GridCardEnv?,
 ) {
 	val holder = remember { arrayOfNulls<BoundCard>(1) }
 	val bound = gridBinding(holder, item)
 
-	CardViewHolderContent(
-		bound = bound,
+	if (env != null && isLeanGridItem(item)) {
+		LeanGridCardContent(bound, focused, imageType, staticHeight, env)
+	} else {
+		CardViewHolderContent(
+			bound = bound,
+			focused = focused,
+			showInfo = false,
+			imageType = imageType,
+			staticHeight = staticHeight,
+			uniformAspect = true,
+			fixedAspectRatio = null,
+		)
+	}
+}
+
+/**
+ * True for a grid card drawn as a [LeanItemCard]: an item with a title-less poster (films, sets,
+ * series). Folders, photos, people and grid buttons show a title or an icon and keep the full card.
+ * LibraryGrid gives the two kinds their own contentType, so neither is reused as the other.
+ */
+internal fun isLeanGridItem(item: BaseRowItem): Boolean =
+	item.baseItem != null && !item.showCardInfoOverlay && item !is GridButtonBaseRowItem
+
+/** What every grid card shares, made once per grid (task 201) rather than looked up per card. */
+@Stable
+class GridCardEnv internal constructor(
+	internal val api: ApiClient,
+	internal val watchedBehavior: WatchedIndicatorBehavior,
+	internal val paint: CardOverlayPaint,
+	/** A preview url built ahead off the main thread (LibraryGridSource.previewUrl), or null. */
+	internal val previewUrl: (UUID?) -> String?,
+)
+
+@Composable
+internal fun rememberGridCardEnv(previewUrl: (UUID?) -> String?): GridCardEnv {
+	val api = koinInject<ApiClient>()
+	val userPreferences = koinInject<UserPreferences>()
+	val watchedBehavior = userPreferences[UserPreferences.watchedIndicatorBehavior]
+	val paint = rememberCardOverlayPaint()
+	return remember(api, watchedBehavior, paint, previewUrl) { GridCardEnv(api, watchedBehavior, paint, previewUrl) }
+}
+
+/** The card's box: the row's static height, at the artwork's (or display config's) aspect ratio. */
+private fun cardSize(item: BaseRowItem, aspectRatio: Float, staticHeight: Int, fixedAspectRatio: Float?): DpSize = when {
+	// A fixed shape is the row's decision and outranks the item's: the two default heights
+	// below are what makes a landscape card shorter than the portrait one beside it.
+	fixedAspectRatio != null || item.staticHeight -> DpSize(staticHeight.dp * aspectRatio, staticHeight.dp)
+	aspectRatio > 1f -> DpSize(130.dp * aspectRatio, 130.dp)
+	else -> DpSize(150.dp * aspectRatio, 150.dp)
+}
+
+private fun BaseRowItemDisplayConfig.cardAspectRatio(): Float = aspectRatio.takeIf { it >= 0.1f }
+	?: image?.aspectRatio?.takeIf { it >= 0.1f } ?: 1f
+
+/**
+ * The preview url a lean grid card loads for [item], or null when it has no lean poster: the same
+ * size and quality the card asks for itself, so LibraryGridSource can build it ahead on a background
+ * thread (task 201). Pure maths on its inputs.
+ */
+internal fun gridPreviewUrl(item: BaseRowItem, imageType: ImageType, staticHeight: Int, density: Density, api: ApiClient): String? {
+	if (!isLeanGridItem(item)) return null
+	val config = item.getDisplayConfig(imageType, uniformAspect = true, fixedAspectRatio = null)
+	val image = config.image ?: return null
+	val size = cardSize(item, config.cardAspectRatio(), staticHeight, fixedAspectRatio = null)
+	return with(density) {
+		image.getUrl(api, maxWidth = size.width.roundToPx(), maxHeight = size.height.roundToPx(), quality = ImageQuality.PREVIEW)
+	}
+}
+
+/**
+ * A film's grid poster in fewer pieces ([LeanItemCard], task 201): the picture, and everything over
+ * it painted in one step. It skips what only other screens need: the leanback grid's stagger and held
+ * size, the title and subtitle (a lean poster shows none), the live playback listeners, and a focus
+ * job on every card (only the focused one waits to load full quality).
+ */
+@Composable
+private fun LeanGridCardContent(
+	bound: BoundCard,
+	focused: Boolean,
+	imageType: ImageType,
+	staticHeight: Int,
+	env: GridCardEnv,
+) {
+	val item = bound.item
+	val baseItem = item.baseItem ?: return
+	val density = LocalDensity.current
+	val displayConfig = remember(bound, imageType) { item.getDisplayConfig(imageType, uniformAspect = true, fixedAspectRatio = null) }
+	val image = displayConfig.image
+	val aspectRatio = displayConfig.cardAspectRatio()
+	val size = cardSize(item, aspectRatio, staticHeight, fixedAspectRatio = null)
+	val overlay = remember(bound, env.watchedBehavior) { cardOverlay(baseItem, env.watchedBehavior) }
+
+	// Cards load at preview quality. One the focus rests on for a moment is loaded again at full
+	// quality, over the preview, and keeps it. Only a focused card runs that wait.
+	var fullQuality by remember(bound) { mutableStateOf(false) }
+	if (focused && !fullQuality) {
+		LaunchedEffect(bound) {
+			delay(FullQualityFocusDelay)
+			fullQuality = true
+		}
+	}
+
+	LeanItemCard(
 		focused = focused,
-		showInfo = false,
-		imageType = imageType,
-		staticHeight = staticHeight,
-		uniformAspect = true,
-		fixedAspectRatio = null,
-	)
+		overlay = overlay,
+		paint = env.paint,
+		modifier = Modifier.size(size),
+	) {
+		if (image != null) {
+			val maxWidth = with(density) { size.width.roundToPx() }
+			val maxHeight = with(density) { size.height.roundToPx() }
+			val url = remember(bound, image, fullQuality, maxWidth, maxHeight, env) {
+				if (fullQuality) image.getUrl(env.api, maxWidth = maxWidth, maxHeight = maxHeight, quality = ImageQuality.FULL)
+				else env.previewUrl(baseItem.id)
+					?: image.getUrl(env.api, maxWidth = maxWidth, maxHeight = maxHeight, quality = ImageQuality.PREVIEW)
+			}
+			AsyncImage(
+				url = url,
+				blurHash = image.blurHash,
+				aspectRatio = aspectRatio,
+				scaleType = displayConfig.scaleType ?: ImageView.ScaleType.CENTER_CROP,
+				modifier = Modifier.fillMaxSize(),
+			)
+		} else {
+			Image(
+				painter = painterResource(displayConfig.iconRes),
+				contentDescription = null,
+				modifier = Modifier
+					.fillMaxSize(0.4f)
+					.align(Alignment.Center)
+			)
+		}
+	}
 }
 
 /** The binding in [holder] while it is for this very [item] instance, else a new one stored there. */
@@ -495,16 +628,8 @@ private fun CardViewHolderContent(
 	if (item == null || displayConfig == null) return
 
 	val image = displayConfig.image
-	val aspectRatio = displayConfig.aspectRatio.takeIf { it >= 0.1f }
-		?: image?.aspectRatio?.takeIf { it >= 0.1f } ?: 1f
-
-	val size = when {
-		// A fixed shape is the row's decision and outranks the item's: the two default heights
-		// below are what makes a landscape card shorter than the portrait one beside it.
-		fixedAspectRatio != null || item.staticHeight -> DpSize(staticHeight.dp * aspectRatio, staticHeight.dp)
-		aspectRatio > 1f -> DpSize(130.dp * aspectRatio, 130.dp)
-		else -> DpSize(150.dp * aspectRatio, 150.dp)
-	}
+	val aspectRatio = displayConfig.cardAspectRatio()
+	val size = cardSize(item, aspectRatio, staticHeight, fixedAspectRatio)
 
 	// Until its turn (BodyStagger), a card from the pool is an empty box of its last exact size, as
 	// long as its artwork box is the same size as last time; otherwise it is built at once.

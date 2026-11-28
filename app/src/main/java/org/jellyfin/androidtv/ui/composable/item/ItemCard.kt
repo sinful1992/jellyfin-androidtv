@@ -28,10 +28,10 @@ import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 
 /** How heavy the ring around the focused card is. Thin enough to frame the artwork, not crop it. */
-private val FocusRingWidth = 4.dp
+internal val FocusRingWidth = 4.dp
 
 /** How far the shade extends past the ring, inwards over the artwork. */
-private val FocusRingShadeWidth = 1.dp
+internal val FocusRingShadeWidth = 1.dp
 
 /**
  * How much bigger the focused card is drawn, as a fraction of its resting size.

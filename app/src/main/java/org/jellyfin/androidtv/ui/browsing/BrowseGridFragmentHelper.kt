@@ -6,8 +6,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,8 +18,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jellyfin.androidtv.data.model.FilterOptions
 import org.jellyfin.androidtv.constant.ImageType
+import org.jellyfin.androidtv.data.model.FilterOptions
 import org.jellyfin.androidtv.ui.browsing.grid.LibraryGrid
 import org.jellyfin.androidtv.ui.browsing.grid.LibraryGridMemory
 import org.jellyfin.androidtv.ui.browsing.grid.LibraryGridSource
@@ -28,6 +30,8 @@ import org.jellyfin.androidtv.ui.itemhandling.BaseItemDtoBaseRowItem
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
 import org.jellyfin.androidtv.ui.navigation.ProvideRouter
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
+import org.jellyfin.androidtv.ui.presentation.gridPreviewUrl
+import org.jellyfin.androidtv.ui.presentation.rememberGridCardEnv
 import org.jellyfin.androidtv.ui.settings.Routes
 import org.jellyfin.androidtv.ui.settings.composable.SettingsDialog
 import org.jellyfin.androidtv.ui.settings.composable.SettingsRouterContent
@@ -36,7 +40,6 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import timber.log.Timber
-import java.util.UUID
 
 fun BrowseGridFragment.createSettingsVisibility() = MutableStateFlow(false)
 
@@ -106,7 +109,7 @@ class ComposeGridHost(
 	keepSetsTogether: Boolean,
 	preferParentThumb: Boolean,
 	staticHeight: Boolean,
-	api: ApiClient,
+	private val api: ApiClient,
 ) {
 	val memory = LibraryGridMemory()
 	val source = LibraryGridSource(
@@ -153,6 +156,7 @@ class ComposeGridHost(
 	 * destroyed.
 	 */
 	fun show(container: FrameLayout, viewOwner: LifecycleOwner, layout: ComposeGridLayout, callbacks: ComposeGridCallbacks): ComposeView {
+		setPreviewUrls(layout, Density(container.context))
 		val view = ComposeView(container.context).apply {
 			layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 			setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
@@ -177,6 +181,7 @@ class ComposeGridHost(
 					onClick = callbacks::onItemClicked,
 					onLongClick = callbacks::onItemLongClicked,
 					onScrollingChanged = callbacks::onScrollingChanged,
+					cardEnv = rememberGridCardEnv(source::previewUrl),
 				)
 			}
 		}
@@ -232,6 +237,20 @@ class ComposeGridHost(
 	}
 
 	private var answers: Job? = null
+
+	private var previewUrlSpec: Triple<ImageType, Int, Float>? = null
+
+	/**
+	 * Has the source build the cards' preview urls ahead, off the main thread (task 201), for this
+	 * card size. The same size again (Back from details re-shows the grid) keeps the built ones.
+	 */
+	private fun setPreviewUrls(layout: ComposeGridLayout, density: Density) {
+		val spec = Triple(layout.imageType, layout.cardHeight, density.density)
+		if (spec == previewUrlSpec) return
+		previewUrlSpec = spec
+		val api = api
+		source.setPreviewUrlBuilder { item -> gridPreviewUrl(item, layout.imageType, layout.cardHeight, density, api) }
+	}
 
 	/** Stops telling the fragment about answers: this host was replaced (new card size or settings). */
 	fun detach() {

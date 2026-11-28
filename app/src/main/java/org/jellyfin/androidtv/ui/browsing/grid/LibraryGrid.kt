@@ -42,6 +42,8 @@ import org.jellyfin.androidtv.constant.ImageType
 import org.jellyfin.androidtv.ui.browsing.GridWrap
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
 import org.jellyfin.androidtv.ui.presentation.GridCardContent
+import org.jellyfin.androidtv.ui.presentation.GridCardEnv
+import org.jellyfin.androidtv.ui.presentation.isLeanGridItem
 
 /**
  * Where the focused line sits: the leanback grid kept it in the middle of the window (window and item
@@ -116,6 +118,8 @@ fun LibraryGrid(
 	onLongClick: (BaseRowItem) -> Unit,
 	onScrollingChanged: (Boolean) -> Unit,
 	modifier: Modifier = Modifier,
+	/** What the lean film posters share (rememberGridCardEnv); without it every card is a full card. */
+	cardEnv: GridCardEnv? = null,
 ) {
 	val density = LocalDensity.current
 	// Lines beyond the window stay composed, and the next ones are composed in idle time between
@@ -176,7 +180,7 @@ fun LibraryGrid(
 			verticalArrangement = Arrangement.spacedBy(spacingV),
 			modifier = modifier.focusRestorer(),
 		) {
-			items(count = items.size, contentType = { 0 }) { index ->
+			items(count = items.size, contentType = { if (cardEnv != null && isLeanGridItem(items[it])) 1 else 0 }) { index ->
 				val item = items[index]
 				var focused by remember { mutableStateOf(false) }
 				val requester = remember { FocusRequester() }
@@ -217,6 +221,7 @@ fun LibraryGrid(
 						focused = focused,
 						imageType = imageType,
 						staticHeight = cardHeight,
+						env = cardEnv,
 					)
 				}
 			}
