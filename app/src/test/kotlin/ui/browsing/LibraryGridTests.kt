@@ -10,6 +10,8 @@ import org.jellyfin.androidtv.ui.browsing.grid.centerScrollDistance
 import org.jellyfin.androidtv.ui.browsing.grid.restoreIndex
 import org.jellyfin.androidtv.ui.browsing.grid.retryFocus
 import org.jellyfin.androidtv.ui.browsing.grid.isPlaced
+import org.jellyfin.androidtv.ui.browsing.grid.RefocusGuard
+import org.jellyfin.androidtv.ui.browsing.grid.refocusAfterFocusLeft
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.jellyfin.androidtv.ui.presentation.BoundCard
 import org.jellyfin.androidtv.ui.presentation.gridBinding
@@ -131,5 +133,25 @@ class LibraryGridTests : FunSpec({
 		isPlaced(visible, 50) shouldBe false
 		isPlaced(visible, 5) shouldBe false
 		isPlaced(emptyList(), 0) shouldBe false
+	}
+
+	test("focus left: only a window with no focus, while the grid's screen is resumed and shown, gets the card back") {
+		refocusAfterFocusLeft(focusSomewhere = false, attached = true, shown = true, resumed = true, windowFocused = true) shouldBe true
+		// Details opened, a toolbar button or the settings overlay took it: leave it there.
+		refocusAfterFocusLeft(focusSomewhere = true, attached = true, shown = true, resumed = true, windowFocused = true) shouldBe false
+		// The grid is going away (detached, hidden, paused) or another window has the focus (a dialog).
+		refocusAfterFocusLeft(focusSomewhere = false, attached = false, shown = true, resumed = true, windowFocused = true) shouldBe false
+		refocusAfterFocusLeft(focusSomewhere = false, attached = true, shown = false, resumed = true, windowFocused = true) shouldBe false
+		refocusAfterFocusLeft(focusSomewhere = false, attached = true, shown = true, resumed = false, windowFocused = true) shouldBe false
+		refocusAfterFocusLeft(focusSomewhere = false, attached = true, shown = true, resumed = true, windowFocused = false) shouldBe false
+	}
+
+	test("focus left: at most 3 returns within 2 s, then again once the window has passed") {
+		val guard = RefocusGuard()
+		guard.take(0) shouldBe true
+		guard.take(500) shouldBe true
+		guard.take(1_000) shouldBe true
+		guard.take(1_500) shouldBe false
+		guard.take(2_001) shouldBe true
 	}
 })

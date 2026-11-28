@@ -1,5 +1,7 @@
 package org.jellyfin.androidtv.ui.browsing.grid
 
+import android.util.Log
+import android.view.ViewTreeObserver
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.BringIntoViewSpec
@@ -36,6 +38,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.constant.ImageType
@@ -137,6 +142,43 @@ fun LibraryGrid(
 	val currentOnLongClick by rememberUpdatedState(onLongClick)
 	val currentItems by rememberUpdatedState(items)
 
+	// Back from details: the screen's host takes the focus out of the window after the grid has put
+	// it on the saved card (dumpsys on the SK4 Pro: no View focused, the card still drawn focused, and
+	// the next Right searched from the window and landed on another card; task 201, also hero.80).
+	// While the grid's screen is resumed and on screen, a window with no focus gets the saved card
+	// back, one frame later and only if nothing else took it by then: no focus is also the normal
+	// step between two screens (details opening, leaving the library), which fills within a frame.
+	val view = LocalView.current
+	val lifecycle = LocalLifecycleOwner.current.lifecycle
+	DisposableEffect(view, lifecycle, memory, gridState) {
+		val guard = RefocusGuard()
+		fun allowed(focusSomewhere: Boolean) = refocusAfterFocusLeft(
+			focusSomewhere = focusSomewhere,
+			attached = view.isAttachedToWindow,
+			shown = view.isShown,
+			resumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
+			windowFocused = view.hasWindowFocus(),
+		)
+		val listener = ViewTreeObserver.OnGlobalFocusChangeListener { old, new ->
+			if (!allowed(new != null)) return@OnGlobalFocusChangeListener
+			// Who cleared it, for the box log (release builds have no Timber tree).
+			Log.i(LogTag, "focus left the window (from ${old?.javaClass?.simpleName}); card ${memory.focusedIndex}", Throwable())
+			scope.launch {
+				withFrameNanos { }
+				if (!allowed(view.rootView.findFocus() != null)) return@launch
+				if (!guard.take(System.currentTimeMillis())) {
+					Log.w(LogTag, "focus keeps leaving the window: not taking it back again")
+					return@launch
+				}
+				Log.i(LogTag, "focus back to card ${memory.focusedIndex}")
+				focusIndex(gridState, requesters, memory.focusedIndex)
+			}
+		}
+		val observer = view.viewTreeObserver
+		observer.addOnGlobalFocusChangeListener(listener)
+		onDispose { if (observer.isAlive) observer.removeOnGlobalFocusChangeListener(listener) }
+	}
+
 	DisposableEffect(memory, gridState) {
 		memory.focusIndex = { index -> scope.launch { focusIndex(gridState, requesters, index) } }
 		onDispose {
@@ -178,7 +220,13 @@ fun LibraryGrid(
 			contentPadding = PaddingValues(horizontal = paddingH, vertical = paddingV),
 			horizontalArrangement = Arrangement.spacedBy(spacingH, Alignment.CenterHorizontally),
 			verticalArrangement = Arrangement.spacedBy(spacingV),
-			modifier = modifier.focusRestorer(),
+			modifier = modifier
+				.focusRestorer()
+				.onFocusChanged { state ->
+					// The grid node itself holding the focus (not a card) is the other way a card's
+					// focus can go stale (linus, review): logged to tell the two apart on the box.
+					if (state.isFocused) Log.i(LogTag, "the grid node itself has the focus")
+				},
 		) {
 			items(count = items.size, contentType = { if (cardEnv != null && isLeanGridItem(items[it])) 1 else 0 }) { index ->
 				val item = items[index]
@@ -250,6 +298,32 @@ private suspend fun focusIndex(state: LazyGridState, requesters: Map<Int, FocusR
 }
 
 private const val FocusWaitFrames = 10
+
+private const val LogTag = "LibraryGrid"
+
+/**
+ * True when the window's focus has gone nowhere while the grid is on screen: then the grid puts it
+ * back on its saved card. A focus that went anywhere else, or a grid that left the screen, is left be.
+ */
+internal fun refocusAfterFocusLeft(
+	focusSomewhere: Boolean,
+	attached: Boolean,
+	shown: Boolean,
+	resumed: Boolean,
+	windowFocused: Boolean,
+): Boolean = !focusSomewhere && attached && shown && resumed && windowFocused
+
+/** At most [max] focus returns within [windowMillis]: something that keeps clearing it is not fought. */
+internal class RefocusGuard(private val max: Int = 3, private val windowMillis: Long = 2_000) {
+	private val times = ArrayDeque<Long>()
+
+	fun take(now: Long): Boolean {
+		while (times.isNotEmpty() && now - times.first() > windowMillis) times.removeFirst()
+		if (times.size >= max) return false
+		times.addLast(now)
+		return true
+	}
+}
 
 /** True when [index] is one of the grid's placed (visible) items. */
 internal fun isPlaced(visibleIndices: List<Int>, index: Int): Boolean = index in visibleIndices
