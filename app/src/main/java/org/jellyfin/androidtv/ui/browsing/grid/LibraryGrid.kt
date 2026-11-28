@@ -25,7 +25,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -82,31 +81,9 @@ class LibraryGridMemory {
 	}
 }
 
-/**
- * Keeps one line composed beyond each edge of the grid (task 201). One line, not half a window
- * (~2 lines, hero.80): foundation 1.12.1's prefetch takes the main thread as idle after a long frame
- * and then composes its whole queue at once, so ~22 cards ran as one 17-24 ms block right after a
- * move's last frame, and the next frame came a vsync late (a 50 ms gap).
- *
- * The reach is one full line pitch (card, title band and gap) as laid out: the window counts from the
- * viewport's edge, and the line cut by that edge uses up part of it, so anything shorter than a pitch
- * would at some scroll positions keep no line ahead at all (linus, review). Until the first layout it
- * is [linePx]'s start value, card plus gap.
- */
+/** Half a window of lines kept ready above and below the visible ones (about two lines of posters). */
 @OptIn(ExperimentalFoundationApi::class)
-internal class OneLineCacheWindow(startLinePx: Int) : LazyLayoutCacheWindow {
-	var linePx: Int = startLinePx.coerceAtLeast(1)
-		set(value) {
-			field = value.coerceAtLeast(1)
-		}
-
-	override fun Density.calculateAheadWindow(viewport: Int): Int = linePx
-	override fun Density.calculateBehindWindow(viewport: Int): Int = linePx
-}
-
-/** A line's pitch: its tallest laid-out item plus the gap between lines; [fallback] with no items. */
-internal fun linePitchPx(itemHeights: IntArray, spacingPx: Int, fallback: Int): Int =
-	if (itemHeights.isEmpty()) fallback else itemHeights.max() + spacingPx
+private val GridCacheWindow = LazyLayoutCacheWindow(aheadFraction = 0.5f, behindFraction = 0.5f)
 
 @OptIn(ExperimentalFoundationApi::class)
 private val CenterBringIntoViewSpec = object : BringIntoViewSpec {
@@ -144,9 +121,8 @@ fun LibraryGrid(
 	// Lines beyond the window stay composed, and the next ones are composed in idle time between
 	// moves, as leanback's setExtraLayoutSpace did: without it the line a move brings in is
 	// composed in the move's own frames (~40 ms layout + ~38 ms recomposition on the SK4 Pro).
-	val cacheWindow = remember { OneLineCacheWindow(cardHeight + spacingVerticalPx) }
 	val gridState = rememberLazyGridState(
-		cacheWindow = cacheWindow,
+		cacheWindow = GridCacheWindow,
 		initialFirstVisibleItemIndex = memory.firstVisibleItemIndex,
 		initialFirstVisibleItemScrollOffset = memory.firstVisibleItemScrollOffset,
 	)
@@ -164,16 +140,6 @@ fun LibraryGrid(
 			memory.firstVisibleItemIndex = gridState.firstVisibleItemIndex
 			memory.firstVisibleItemScrollOffset = gridState.firstVisibleItemScrollOffset
 		}
-	}
-
-	LaunchedEffect(gridState, cacheWindow) {
-		snapshotFlow {
-			val info = gridState.layoutInfo
-			val heights = IntArray(info.visibleItemsInfo.size) { info.visibleItemsInfo[it].size.height }
-			linePitchPx(heights, info.mainAxisItemSpacing, cardHeight + spacingVerticalPx)
-		}
-			.distinctUntilChanged()
-			.collect { cacheWindow.linePx = it }
 	}
 
 	LaunchedEffect(gridState) {
