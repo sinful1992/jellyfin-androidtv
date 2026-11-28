@@ -10,6 +10,9 @@ import org.jellyfin.androidtv.ui.browsing.grid.centerScrollDistance
 import org.jellyfin.androidtv.ui.browsing.grid.restoreIndex
 import org.jellyfin.androidtv.ui.browsing.grid.retryFocus
 import org.jellyfin.androidtv.ui.browsing.grid.isPlaced
+import org.jellyfin.androidtv.ui.browsing.grid.OneLineCacheWindow
+import org.jellyfin.androidtv.ui.browsing.grid.linePitchPx
+import androidx.compose.ui.unit.Density
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.jellyfin.androidtv.ui.presentation.BoundCard
 import org.jellyfin.androidtv.ui.presentation.gridBinding
@@ -131,5 +134,27 @@ class LibraryGridTests : FunSpec({
 		isPlaced(visible, 50) shouldBe false
 		isPlaced(visible, 5) shouldBe false
 		isPlaced(emptyList(), 0) shouldBe false
+	}
+
+	test("cache window: the pitch is the tallest laid-out card plus the line gap") {
+		linePitchPx(intArrayOf(380, 412, 395), 30, 327) shouldBe 442
+		// No layout yet: the start value (card + gap).
+		linePitchPx(IntArray(0), 30, 327) shouldBe 327
+	}
+
+	test("cache window: reach each way is one full pitch, so a cut line can't use it all up") {
+		val window = OneLineCacheWindow(327)
+		val density = Density(1f)
+		with(window) { density.calculateAheadWindow(1080) } shouldBe 327
+		window.linePx = 442
+		with(window) { density.calculateAheadWindow(1080) } shouldBe 442
+		with(window) { density.calculateBehindWindow(1080) } shouldBe 442
+		// The window fills lines while (reach - hidden part of the cut line) > 0: with a full pitch,
+		// a cut line hides at most pitch - 1 px, so at least one more line is always kept ahead.
+		(window.linePx - (442 - 1) > 0) shouldBe true
+		// Never 0 (0 turns the window off).
+		window.linePx = 0
+		window.linePx shouldBe 1
+		OneLineCacheWindow(0).linePx shouldBe 1
 	}
 })
