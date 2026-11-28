@@ -40,6 +40,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -150,8 +151,11 @@ fun LibraryGrid(
 	// step between two screens (details opening, leaving the library), which fills within a frame.
 	val view = LocalView.current
 	val lifecycle = LocalLifecycleOwner.current.lifecycle
-	DisposableEffect(view, lifecycle, memory, gridState) {
-		val guard = RefocusGuard()
+	val guard = remember { RefocusGuard() }
+	// Checks, one frame after [trigger], that the window still has no focus and the grid may take it,
+	// then puts it on the saved card. Run on a focus change to none, on resume and after the restore
+	// itself, so it works whatever order Back takes those in (linus, review).
+	val refocusIfLost: (String) -> Unit = remember(view, lifecycle, memory, gridState) {
 		fun allowed(focusSomewhere: Boolean) = refocusAfterFocusLeft(
 			focusSomewhere = focusSomewhere,
 			attached = view.isAttachedToWindow,
@@ -159,24 +163,37 @@ fun LibraryGrid(
 			resumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
 			windowFocused = view.hasWindowFocus(),
 		)
-		val listener = ViewTreeObserver.OnGlobalFocusChangeListener { old, new ->
-			if (!allowed(new != null)) return@OnGlobalFocusChangeListener
-			// Who cleared it, for the box log (release builds have no Timber tree).
-			Log.i(LogTag, "focus left the window (from ${old?.javaClass?.simpleName}); card ${memory.focusedIndex}", Throwable())
+		val refocus: (String) -> Unit = { trigger ->
 			scope.launch {
 				withFrameNanos { }
 				if (!allowed(view.rootView.findFocus() != null)) return@launch
 				if (!guard.take(System.currentTimeMillis())) {
-					Log.w(LogTag, "focus keeps leaving the window: not taking it back again")
+					Log.w(LogTag, "focus keeps leaving the window: not taking it back again ($trigger)")
 					return@launch
 				}
-				Log.i(LogTag, "focus back to card ${memory.focusedIndex}")
+				Log.i(LogTag, "window had no focus ($trigger): back to card ${memory.focusedIndex}")
 				focusIndex(gridState, requesters, memory.focusedIndex)
 			}
 		}
+		refocus
+	}
+	DisposableEffect(view, lifecycle, refocusIfLost) {
+		val listener = ViewTreeObserver.OnGlobalFocusChangeListener { old, new ->
+			if (new != null) return@OnGlobalFocusChangeListener
+			// Who cleared it, for the box log (test builds; release builds have no Timber tree).
+			Log.i(LogTag, "focus left the window (from ${old?.javaClass?.simpleName}); card ${memory.focusedIndex}", Throwable())
+			refocusIfLost("listener")
+		}
+		val resumeObserver = LifecycleEventObserver { _, event ->
+			if (event == Lifecycle.Event.ON_RESUME) refocusIfLost("resume")
+		}
 		val observer = view.viewTreeObserver
 		observer.addOnGlobalFocusChangeListener(listener)
-		onDispose { if (observer.isAlive) observer.removeOnGlobalFocusChangeListener(listener) }
+		lifecycle.addObserver(resumeObserver)
+		onDispose {
+			if (observer.isAlive) observer.removeOnGlobalFocusChangeListener(listener)
+			lifecycle.removeObserver(resumeObserver)
+		}
 	}
 
 	DisposableEffect(memory, gridState) {
@@ -206,6 +223,7 @@ fun LibraryGrid(
 			gridState.scrollToItem(0)
 		}
 		focusIndex(gridState, requesters, target)
+		refocusIfLost("after restore")
 	}
 
 	val spacingH = with(density) { spacingHorizontalPx.toDp() }
