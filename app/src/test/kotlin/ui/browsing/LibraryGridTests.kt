@@ -9,6 +9,7 @@ import org.jellyfin.androidtv.ui.browsing.grid.LibraryGridState
 import org.jellyfin.androidtv.ui.browsing.grid.centerScrollDistance
 import org.jellyfin.androidtv.ui.browsing.grid.restoreIndex
 import org.jellyfin.androidtv.ui.browsing.grid.retryFocus
+import org.jellyfin.androidtv.ui.browsing.grid.isPlaced
 import org.jellyfin.androidtv.ui.itemhandling.GridButtonBaseRowItem
 import org.jellyfin.androidtv.ui.presentation.BoundCard
 import org.jellyfin.androidtv.ui.presentation.gridBinding
@@ -122,5 +123,13 @@ class LibraryGridTests : FunSpec({
 		var frames = 0
 		retryFocus(10, { true }, { frames++ }) shouldBe true
 		frames shouldBe 0
+	}
+
+	test("placed: a visible card is focused at once, a cached or far one is scrolled to first") {
+		val visible = (22..43).toList()
+		isPlaced(visible, 30) shouldBe true
+		isPlaced(visible, 50) shouldBe false
+		isPlaced(visible, 5) shouldBe false
+		isPlaced(emptyList(), 0) shouldBe false
 	}
 })

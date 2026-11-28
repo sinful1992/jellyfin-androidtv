@@ -231,13 +231,23 @@ fun LibraryGrid(
 private suspend fun focusIndex(state: LazyGridState, requesters: Map<Int, FocusRequester>, index: Int) {
 	if (index < 0) return
 	val tryFocus = { requesters[index]?.requestFocusOrFalse() ?: false }
-	if (tryFocus()) return
+	// A card in the cache window is composed (it has a requester) but not placed: focusing it without
+	// a scroll could leave the focus on a card off screen. Only a placed card is focused at once.
+	// Right after the grid is composed again (Back) nothing is placed yet: give it one frame to lay
+	// out, so the saved card is focused where it is instead of being scrolled to the top line.
+	val placed = { isPlaced(state.layoutInfo.visibleItemsInfo.map { it.index }, index) }
+	if (placed() && tryFocus()) return
+	withFrameNanos { }
+	if (placed() && tryFocus()) return
 
 	state.scrollToItem(index)
 	retryFocus(FocusWaitFrames, tryFocus) { withFrameNanos { } }
 }
 
 private const val FocusWaitFrames = 10
+
+/** True when [index] is one of the grid's placed (visible) items. */
+internal fun isPlaced(visibleIndices: List<Int>, index: Int): Boolean = index in visibleIndices
 
 /**
  * Tries [tryFocus] up to [attempts] times, waiting [nextFrame] after each miss; true once it took.
